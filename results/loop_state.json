@@ -1,0 +1,16 @@
+{
+  "baseline_pct": 0.21,
+  "rounds": [
+    {
+      "round": 1,
+      "config": {
+        "silence": "aggressive",
+        "length": "tight",
+        "loudness": "-14"
+      },
+      "cohort_ids": null,
+      "pct": null,
+      "status": "proposed"
+    }
+  ]
+}

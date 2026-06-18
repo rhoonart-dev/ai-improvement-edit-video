@@ -1,0 +1,17 @@
+# 시크릿 (로컬 전용 — 절대 커밋 금지)
+.env
+.env.*
+!.env.example
+
+# python
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+venv/
+
+# OS / 데이터
+.DS_Store
+outputs/
+*.mp4
+*.mkv
