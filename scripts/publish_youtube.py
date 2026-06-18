@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """발행 자동화 — YouTube Data API v3로 쇼츠 업로드 → content_id → link_published.
 
-안전(plan §9, 비가역 액션): ① 품질 게이트(judge 통과+환각無) ② --publish opt-in(기본 dry-run)
-③ 기본 privacy=private. 자동 발행이라도 이 가드를 통과해야만 실제 업로드.
+안전(plan §9, 비가역 액션): ① 안전 게이트(judge 안전판정 존재 + 환각無; quality는 성과예측 아님)
+② --publish opt-in(기본 dry-run) ③ 기본 privacy=private. 자동 발행이라도 이 가드를 통과해야만 실제 업로드.
 
 ⚠️ OAuth 자격증명 필요(채널 업로드 권한):
    env YT_CLIENT_ID, YT_CLIENT_SECRET, YT_REFRESH_TOKEN[_<CHANNELSLUG>]
@@ -49,19 +49,21 @@ def build_snippet(title, hashtags=None, category=CATEGORY_ENTERTAINMENT):
 
 # ─────────────────────────── DB / 게이트 ───────────────────────────
 
-def gate_ok(conn, clip_id, quality_min=0.6):
-    """발행 안전 게이트: 최신 judge quality≥min AND 환각無. (judge 없거나 미달이면 차단)"""
+def gate_ok(conn, clip_id, safety_floor=None):
+    """발행 *안전* 게이트: 최신 judge 안전판정 존재 AND 환각無 (+ opt-in safety_floor 미만 차단).
+    judge quality 는 성과예측이 아니므로 성과 바(0.6 등)로 막지 않는다 — 명백히 깨진 것만 거르고,
+    '잘 될 것'은 발행 후 벤치마크/+14일이 판정. (judge 자체가 없으면 안전미확인 → 차단.)"""
     with conn.cursor() as c:
         c.execute("""select quality_score, rubric_scores->>'hallucination_flag'
                      from public.judge_runs where clip_id=%s order by created_at desc limit 1""", (clip_id,))
         r = c.fetchone()
     if not r or r[0] is None:
-        return False, "judge 평가 없음"
+        return False, "judge 안전판정 없음"
     if str(r[1]).lower() == "true":
-        return False, "환각 플래그"
-    if float(r[0]) < quality_min:
-        return False, f"quality {r[0]} < {quality_min}"
-    return True, f"quality {r[0]} ≥ {quality_min}"
+        return False, "환각 플래그(안전)"
+    if safety_floor is not None and float(r[0]) < safety_floor:
+        return False, f"quality {r[0]} < 안전바닥 {safety_floor}(명백히 깨짐)"
+    return True, f"안전(환각無, quality={r[0]})"
 
 
 def fetch_clip_title(conn, clip_id):
@@ -107,7 +109,8 @@ def main():
     ap.add_argument("--channel", required=True)
     ap.add_argument("--title")
     ap.add_argument("--hashtags", nargs="*")
-    ap.add_argument("--quality-min", type=float, default=0.6)
+    ap.add_argument("--safety-floor", type=float, default=None,
+                    help="명백히 깨진 산출물 차단용 안전 바닥. 미지정=judge quality로 안 막음(성과예측 아님)")
     ap.add_argument("--privacy", default="private", choices=["private", "unlisted", "public"])
     ap.add_argument("--publish", action="store_true", help="실제 업로드(기본 dry-run)")
     a = ap.parse_args()
@@ -121,7 +124,7 @@ def main():
             title, work = fetch_clip_title(conn, a.clip_id)
         hashtags = a.hashtags or ([work] if work else [])
         snip = build_snippet(title, hashtags)
-        ok, reason = gate_ok(conn, a.clip_id, a.quality_min)
+        ok, reason = gate_ok(conn, a.clip_id, a.safety_floor)
         print(f"gate: {'PASS' if ok else 'BLOCK'} ({reason}) | title={snip['title']!r} privacy={a.privacy} oauth={'O' if _credentials(a.channel) else 'X(미설정)'}")
         if not a.publish:
             print("[dry-run] --publish 시 실제 업로드. 안전: 게이트 통과 + opt-in 필요.")

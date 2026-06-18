@@ -26,6 +26,12 @@ def test_challenger_wins():
     assert w == "challenger"
 
 
+def test_scorers_routing():
+    # 승격 신호 라우팅: benchmark(증거일관 기본) · judge(빠른 프록시)
+    assert de.SCORERS["benchmark"] is de._benchmark_score
+    assert de.SCORERS["judge"] is de._latest_judge
+
+
 def _run():
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for fn in fns:

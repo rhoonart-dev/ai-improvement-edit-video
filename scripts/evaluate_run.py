@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """④ 빠른 루프 오케스트레이터 — ai-video run 1개를 인제스트→피처→judge→게이팅까지 한 번에.
 
-발행 없이(오프라인) 새 쇼츠를 평가해 PASS(발행 후보) / REGENERATE / DISCARD 판정.
+발행 없이(오프라인) 새 쇼츠를 *안전* 평가(환각/깨짐만) → PASS(코호트 발행 가능)/REGENERATE/DISCARD.
+judge quality 는 성과예측이 아니라 안전판정용(증거: +14일 성과와 무상관) — 승격은 발행 후
+벤치마크 백분위/+14일/paired A-B 가 한다(decide_experiment --metric benchmark).
 수동으로 흩어져 있던 단계(T0-1 인제스트 · T1-1 피처 · ① judge)를 하나의 잡으로 묶음.
 
 env: PIPELINE_DB_URL, GEMINI_API_KEY, AI_VIDEO_ROOT
 실행:
-  ... python scripts/evaluate_run.py --run-dir <outputs/job> --channel "스토리순삭" [--quality-min 0.6] [--skip-judge]
+  ... python scripts/evaluate_run.py --run-dir <outputs/job> --channel "스토리순삭" [--safety-floor 0.2] [--skip-judge]
 """
 from __future__ import annotations
 
@@ -20,15 +22,21 @@ from ingest_aivideo_run import (build_rows, find_channel, find_existing_clip,
                                 load_json, upsert_work, write_rows)
 
 
-def gate(quality, hallucination, quality_min=0.6):
-    """오프라인 게이트 판정. (verdict, reason)."""
+def gate(quality, hallucination, safety_floor=None):
+    """오프라인 *안전* 게이트. (verdict, reason).
+
+    judge quality 는 성과 예측이 아니다(증거: +14일 성과와 무상관) — '잘 만들어졌으니 발행'을
+    여기서 판정하지 않는다. 명백히 환각/깨진 산출물만 거르고, PASS 는 'A/B 코호트로 발행 가능
+    (안전)'일 뿐 성과 보증이 아니다. 승격은 발행 후 벤치마크 백분위/+14일/paired A-B 가 한다.
+      DISCARD=환각(안전위반) · REGENERATE=safety_floor 미만(명백히 깨짐, opt-in) ·
+      REVIEW=judge 실패/생략 · PASS=안전(코호트 발행)."""
     if hallucination:
-        return "DISCARD", "환각 가드 위반"
+        return "DISCARD", "환각 가드 위반(안전)"
     if quality is None:
-        return "REVIEW", "judge 판정 실패/생략"
-    if quality >= quality_min:
-        return "PASS", f"quality {quality} ≥ {quality_min} (발행 후보)"
-    return "REGENERATE", f"quality {quality} < {quality_min}"
+        return "REVIEW", "judge 판정 실패/생략 — 사람 확인"
+    if safety_floor is not None and quality < safety_floor:
+        return "REGENERATE", f"quality {quality} < 안전바닥 {safety_floor}(명백히 깨짐)"
+    return "PASS", f"안전(환각無, quality={quality}) → A/B 코호트 발행(성과는 벤치마크/+14일이 판정)"
 
 
 def _find_short(run_dir):
@@ -45,7 +53,9 @@ def main():
     ap.add_argument("--run-dir", required=True)
     ap.add_argument("--channel", default=None)
     ap.add_argument("--short-label", default=None)
-    ap.add_argument("--quality-min", type=float, default=0.6)
+    ap.add_argument("--safety-floor", type=float, default=None,
+                    help="명백히 깨진 산출물 거르는 안전 바닥(quality<floor→REGENERATE). 미지정=judge로 안 거름. "
+                         "judge quality는 성과예측 아님 — 승격은 벤치마크/+14일이 판정")
     ap.add_argument("--ai-video-root", default=os.environ.get("AI_VIDEO_ROOT", "/Users/gimsewon/rhoonart/ai-video"))
     ap.add_argument("--skip-judge", action="store_true")
     args = ap.parse_args()
@@ -91,8 +101,8 @@ def main():
         else:
             print("[3/4] judge 생략")
 
-        # 4) 게이팅
-        verdict, reason = gate(quality, halluc, args.quality_min)
+        # 4) 안전 게이팅 (성과 아님 — 승격은 사후 벤치마크/+14일)
+        verdict, reason = gate(quality, halluc, args.safety_floor)
         print(f"[4/4] ▶ {verdict} — {reason}")
     finally:
         conn.close()

@@ -1,5 +1,13 @@
 # 자가개선 시스템 상세 설계 (격리 프로젝트판) — v3
 
+> **⚠️ 정정 배너 (2026-06-19, 머지 Stage 2).** 이 문서가 깔았던 "VLM judge = 리워드/moat" 가정은
+> 이후 증거로 **부정**됨(judge pairwise 위치편향 17/20 · 절대점수 포화 · +14일 성과와 무상관 —
+> [M1_FINDINGS_AND_DIRECTION.md](M1_FINDINGS_AND_DIRECTION.md)). **재정의된 역할:** judge = *안전
+> 게이트*(환각/깨짐)와 *빠른 루프 프록시*로만. **리워드/승격/최종 판정 = 벤치마크 백분위(같은 작품
+> 시장 대비)+ +14일 실측 + paired A-B**(`m3_aivideo_benchmark`·`decide_experiment --metric benchmark`·
+> `loop_controller`·`m4_ab_analysis`). 아래 본문에서 "judge=리워드"로 읽히는 부분은 이 배너로 대체한다.
+> 경위: [PROJECTS_COMPARISON.md](PROJECTS_COMPARISON.md).
+
 > **작성 2026-06-16.** 이 문서는 사용자가 확정한 "리워드/평가 레이어 = moat" 기획을
 > **신규 격리 Supabase 프로젝트(`fdidiqdhcyctdbogxkdu`)** 위에 구현하는 실행 설계다.
 >

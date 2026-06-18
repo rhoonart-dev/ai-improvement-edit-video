@@ -10,7 +10,7 @@
 env: PIPELINE_DB_URL, LAEEBLY_DB_URL, GEMINI_API_KEY, AI_VIDEO_ROOT, AI_VIDEO_OUTPUTS(기본 <AI_VIDEO_ROOT>/outputs)
 실행(또는 cron):
   PIPELINE_DB_URL=.. LAEEBLY_DB_URL=.. GEMINI_API_KEY=.. AI_VIDEO_ROOT=.. AI_VIDEO_OUTPUTS=.. \
-    python scripts/autoloop.py [--quality-min 0.6] [--no-judge] [--apply-reconcile]
+    python scripts/autoloop.py [--safety-floor 0.2] [--no-judge] [--apply-reconcile]
 """
 from __future__ import annotations
 
@@ -67,30 +67,36 @@ def _channel_for(run_dir):
     return None
 
 
-def publish_pass(conn, outputs, quality_min, privacy):
-    """PASS(judge≥min·환각無)·미발행 auto_edit 클립을 publish_youtube로 발행 시도(게이트+OAuth 재확인)."""
+def publish_pass(conn, outputs, safety_floor, privacy):
+    """안전(환각無 + judge 안전판정 존재)·미발행 auto_edit 클립을 publish_youtube로 발행 시도.
+    judge quality 는 성과예측 아님 → 성과 바로 거르지 않음. safety_floor 지정 시 명백히 깨진 것만 추가 차단.
+    (자동 발행은 opt-in·비가역 — publish_youtube가 게이트+OAuth 재확인. 승격은 발행 후 벤치마크/+14일.)"""
     import publish_youtube as pub
     from psycopg.rows import dict_row
+    floor_sql = "and j.quality_score >= %(floor)s" if safety_floor is not None else ""
     with conn.cursor(row_factory=dict_row) as c:
-        c.execute("""
+        c.execute(f"""
             select c.id, m.ai_video_run_id as run_id, ch.name as channel
             from clips c join clip_metadata m on m.clip_id = c.id
             left join channels ch on ch.id = c.channel_id
             where c.source='auto_edit' and c.video_external_id is null
               and exists (select 1 from judge_runs j where j.clip_id = c.id
-                          and j.quality_score >= %s
-                          and coalesce((j.rubric_scores->>'hallucination_flag')::bool, false) = false)
-        """, (quality_min,))
+                          and coalesce((j.rubric_scores->>'hallucination_flag')::bool, false) = false
+                          {floor_sql})
+        """, {"floor": safety_floor})
         cands = c.fetchall()
-    print(f"[publish] PASS·미발행 후보 {len(cands)}건")
+    print(f"[publish] 안전·미발행 후보 {len(cands)}건")
     for r in cands:
         vids = [v for v in glob.glob(str(Path(outputs) / (r["run_id"] or "_none_") / "shorts*.mp4")) if "_480" not in v]
         if not vids:
             print(f"  - clip {str(r['id'])[:8]}: 영상 못찾음(run={r['run_id']})"); continue
         if not r["channel"]:
             print(f"  - clip {str(r['id'])[:8]}: 채널 미상 → 스킵"); continue
-        sys.argv = ["pub", "--clip-id", str(r["id"]), "--video", vids[0], "--channel", r["channel"],
-                    "--publish", "--privacy", privacy, "--quality-min", str(quality_min)]
+        argv = ["pub", "--clip-id", str(r["id"]), "--video", vids[0], "--channel", r["channel"],
+                "--publish", "--privacy", privacy]
+        if safety_floor is not None:
+            argv += ["--safety-floor", str(safety_floor)]
+        sys.argv = argv
         try:
             pub.main()
         except SystemExit:
@@ -102,7 +108,8 @@ def publish_pass(conn, outputs, quality_min, privacy):
 def main():
     load_env()  # repo .env 자동 로드(PIPELINE_DB_URL, YT_*, GEMINI_API_KEY 등)
     ap = argparse.ArgumentParser(description="자동 루프 러너")
-    ap.add_argument("--quality-min", type=float, default=0.6)
+    ap.add_argument("--safety-floor", type=float, default=None,
+                    help="명백히 깨진 산출물 거르는 안전 바닥(미지정=judge로 안 거름). 승격은 벤치마크/+14일")
     ap.add_argument("--no-judge", action="store_true")
     ap.add_argument("--apply-reconcile", action="store_true", help="고신뢰·유일 매칭 자동 연결")
     ap.add_argument("--gen", type=int, default=0, help="시작 시 gen_queue pending N건 생성(autogen)")
@@ -131,7 +138,9 @@ def main():
     import evaluate_run as ev
     for d, jid in new:
         print(f"\n=== evaluate {jid} ===")
-        argv = ["ev", "--run-dir", d, "--quality-min", str(a.quality_min)]
+        argv = ["ev", "--run-dir", d]
+        if a.safety_floor is not None:
+            argv += ["--safety-floor", str(a.safety_floor)]
         ch = _channel_for(d)
         if ch:
             argv += ["--channel", ch]
@@ -150,7 +159,7 @@ def main():
         import psycopg as _pg
         _pc = _pg.connect(os.environ["PIPELINE_DB_URL"])
         try:
-            publish_pass(_pc, outputs, a.quality_min, a.privacy)
+            publish_pass(_pc, outputs, a.safety_floor, a.privacy)
         finally:
             _pc.close()
 
