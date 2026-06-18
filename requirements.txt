@@ -1,0 +1,31 @@
+# Python deps for the self-improvement pipeline (M0 ETL → M1 features → reward model).
+# No lockfile yet; floors are conservative. To pin exactly, freeze from the working
+# environment (the ai-video .venv, where opencv/easyocr/google-genai already live):
+#   /Users/gimsewon/rhoonart/ai-video/.venv/bin/pip freeze > requirements.lock.txt
+#
+# System binary (NOT pip): ffmpeg — used via subprocess for `silencedetect`.
+# External repo (NOT pip): ai-video — imported via AI_VIDEO_ROOT
+#   (app.modules.media_probe / app.modules.scene_detect).
+
+# --- DB ---
+psycopg[binary]>=3.1   # Postgres driver (PIPELINE_DB_URL / LAEEBLY_DB_URL)
+
+# --- data / modeling ---
+pandas
+numpy
+scikit-learn           # HistGradientBoostingRegressor, KFold / GroupKFold
+scipy                  # stats: spearman, binomial, permutation importance
+
+# --- multimodal / collection ---
+google-genai           # Gemini (scene observation, VLM pairwise judge)
+yt-dlp                 # clip / source download (subprocess: python -m yt_dlp)
+opencv-python          # cv2 — scene / shot analysis
+easyocr                # burned-in subtitle OCR
+
+# --- 발행 (publish_youtube.py — YouTube Data API v3 업로드) ---
+google-api-python-client
+google-auth
+google-auth-oauthlib
+
+# --- dev ---
+pytest
