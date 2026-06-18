@@ -10,7 +10,8 @@
   - `evaluate_run.gate` / `publish_youtube.gate_ok` → quality 성과바 제거, 환각·`safety_floor`(opt-in)만. `--quality-min`→`--safety-floor`.
   - `decide_experiment` → `--metric benchmark`(기본, `_benchmark_score`=같은 작품 시장 대비 백분위) 신설, judge 는 옵션 프록시로 강등. 성과 미적재 시 판정 보류.
   - `autoloop.publish_pass` → 안전(환각無) 기준 발행. 116 tests green.
-- **남은 선결(§3-C2·C3):** 루프 provenance 바인딩 · A/B 쌍 불변식 DB 강제 (Stage 3).
+- **Stage 3 — C2·C3.** C2: `loop_controller.record` 가 코호트를 provenance(우리 생성·발행 = clips.source='auto_edit' + clip_metadata)에 바인딩, 미확인 id 차단(`--allow-unverified` 우회). C3: `register_ab_experiment.validate_pair` 앱레이어 강제(같은 작품·서로 다른 두 영상) + DB 트리거 마이그레이션 `docs/migrations/0001_ab_pair_invariants.sql`(**적용은 사용자 확인 후** — 공유 DB). 122 tests green.
+- **남은 외부 의존(머지로 못 푸는 것):** ai-video 측 provenance 스탬핑 적용(`integration/ai_video/APPLY.md`), 실제 양산·발행으로 첫 라운드 데이터 적재, +14일 실측.
 
 ## 0. 한 줄
 **둘은 같은 프로젝트의 분기(fork)다.** `M1_FINDINGS_AND_DIRECTION.md`가 거의 동일(관측 천장 3중 확정·벤치마크 돌파·같은 수치) — 같은 분석/결론에서 출발해 구현이 갈렸다.

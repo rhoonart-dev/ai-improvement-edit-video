@@ -21,12 +21,32 @@ EXPERIMENT_PARAMS = {
 
 
 # ---------- 순수 로직(테스트 대상) ----------
+def validate_pair(p):
+    """A/B 쌍 불변식(앱 레이어 강제, Codex #3). 위반 메시지 리스트(빈=정상).
+    핵심: 쌍은 '같은 작품의 서로 다른 두 영상' — 같은/빈 영상은 A/B가 아님. DB 레벨 강제(trigger)는
+    docs/migrations/0001_ab_pair_invariants.sql (적용은 사용자 확인 후)."""
+    t = (p.get("treatment_vid") or "").strip()
+    c = (p.get("control_vid") or "").strip()
+    errs = []
+    if not (p.get("source_work") or "").strip():
+        errs.append("source_work 누락")
+    if not t or not c:
+        errs.append("treatment/control video id 누락")
+    elif t == c:
+        errs.append(f"treatment==control 동일 영상({t}) — 쌍 아님")
+    return errs
+
+
 def build_rows(experiment_key, pairs):
     """pairs: [{"source_work","treatment_vid","control_vid","storyline_key"?,"channel_name"?}].
-    쌍당 treatment·control 2행 생성(같은 pair_id). 반환: 행 dict 리스트."""
+    쌍당 treatment·control 2행 생성(같은 pair_id). 반환: 행 dict 리스트.
+    불변식 위반 쌍은 ValueError(퇴화/잘못된 쌍 등록 차단)."""
     params = EXPERIMENT_PARAMS.get(experiment_key, {"treatment": {}, "control": {}})
     rows = []
     for i, p in enumerate(pairs):
+        errs = validate_pair(p)
+        if errs:
+            raise ValueError(f"A/B 쌍 #{i}({p.get('source_work')!r}): " + "; ".join(errs))
         pair_id = p.get("storyline_key") or f"{experiment_key}:{p['source_work']}:{i}"
         for arm, vid in (("treatment", p["treatment_vid"]), ("control", p["control_vid"])):
             rows.append({

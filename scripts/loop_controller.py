@@ -115,6 +115,22 @@ def cohort_percentile(conn, ids):
     return (sum(ranks) / len(ranks) if ranks else None), len(ranks)
 
 
+# ───────── provenance 바인딩 (Codex #2) ─────────
+def verified_provenance_ids(conn, ids):
+    """ids 중 우리가 생성·발행한(provenance 보유) content_id 집합 — 루프가 임의 ID를
+    신뢰하지 않도록 clips.source='auto_edit' + clip_metadata 존재로 확인."""
+    with conn.cursor() as c:
+        c.execute("SELECT c.video_external_id FROM clips c JOIN clip_metadata m ON m.clip_id = c.id "
+                  "WHERE c.video_external_id = ANY(%s) AND c.source='auto_edit'", (list(ids),))
+        return {r[0] for r in c.fetchall()}
+
+
+def partition_provenance(ids, known):
+    """(verified, unknown) — known 집합 기준 순수 분할(순서 보존)."""
+    kn = set(known)
+    return [i for i in ids if i in kn], [i for i in ids if i not in kn]
+
+
 # ───────── 명령 ─────────
 def cmd_status(s):
     print(f"baseline(구 코호트) = {s['baseline_pct']*100:.0f}%ile · rounds={len(s['rounds'])}")
@@ -165,6 +181,18 @@ def cmd_record(s, args):
     ids = [ln.strip() for ln in open(args.ids_file, encoding="utf-8") if ln.strip() and not ln.startswith("#")]
     if not ids:
         sys.exit("ids 파일이 비었음")
+    if not args.allow_unverified:   # Codex #2: 코호트를 provenance(우리 생성·발행)에 바인딩
+        import psycopg
+        conn = psycopg.connect(os.environ["PIPELINE_DB_URL"])
+        try:
+            verified, unknown = partition_provenance(ids, verified_provenance_ids(conn, ids))
+        finally:
+            conn.close()
+        if unknown:
+            sys.exit(f"provenance 미확인 {len(unknown)}/{len(ids)}개(우리 생성·발행 아님): {unknown[:5]}"
+                     f"{'…' if len(unknown) > 5 else ''} — 잘못된 코호트 차단(Codex #2). "
+                     f"수동 확인됐으면 --allow-unverified")
+        print(f"provenance ✓ {len(verified)}개 모두 우리 생성·발행 클립")
     r["cohort_ids"] = ids
     r["status"] = "published"
     save_state(s)
@@ -196,6 +224,8 @@ def main():
     rp = sub.add_parser("record")
     rp.add_argument("--round", type=int, required=True)
     rp.add_argument("--ids-file", required=True)
+    rp.add_argument("--allow-unverified", action="store_true",
+                    help="provenance 미확인 id 허용(기본=우리 생성·발행 클립만 — Codex #2 바인딩)")
     mp = sub.add_parser("measure")
     mp.add_argument("--round", type=int, required=True)
     a = ap.parse_args()

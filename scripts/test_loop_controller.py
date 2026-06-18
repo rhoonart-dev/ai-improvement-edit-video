@@ -7,6 +7,7 @@ from loop_controller import (
     config_to_flags,
     neighbors,
     next_config,
+    partition_provenance,
 )
 
 # ALL_ON 의 3 이웃(1노브 토글)
@@ -64,6 +65,17 @@ def test_best_round_picks_max_pct():
 def test_config_to_flags():
     assert config_to_flags(ALL_ON) == ["--silence-profile", "aggressive",
                                         "--length-profile", "tight", "--loudness-lufs", "-14"]
+
+
+def test_partition_provenance_splits_verified_and_unknown():
+    # Codex #2: 루프 코호트는 우리 생성·발행(provenance)만 — 미확인은 분리되어 차단됨
+    verified, unknown = partition_provenance(["A", "B", "C"], {"A", "C"})
+    assert verified == ["A", "C"]      # 순서 보존
+    assert unknown == ["B"]
+
+
+def test_partition_provenance_all_unknown():
+    assert partition_provenance(["X", "Y"], set()) == ([], ["X", "Y"])
 
 
 if __name__ == "__main__":
