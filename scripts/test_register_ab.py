@@ -37,6 +37,30 @@ def test_distinct_pair_ids_across_pairs():
     assert len(rows) == 4
 
 
+# ── A/B 쌍 불변식(Codex #3) — 퇴화/잘못된 쌍 등록 차단 ──
+def test_rejects_identical_treatment_control():
+    import pytest
+    with pytest.raises(ValueError):
+        build_rows("loudness_v1", [{"source_work": "W", "treatment_vid": "X", "control_vid": "X"}])
+
+
+def test_rejects_missing_video_id():
+    import pytest
+    with pytest.raises(ValueError):
+        build_rows("loudness_v1", [{"source_work": "W", "treatment_vid": "T", "control_vid": ""}])
+
+
+def test_rejects_missing_source_work():
+    import pytest
+    with pytest.raises(ValueError):
+        build_rows("loudness_v1", [{"source_work": "  ", "treatment_vid": "T", "control_vid": "C"}])
+
+
+def test_valid_pair_still_builds():
+    from register_ab_experiment import validate_pair
+    assert validate_pair({"source_work": "W", "treatment_vid": "T", "control_vid": "C"}) == []
+
+
 if __name__ == "__main__":
     import sys
     import pytest
