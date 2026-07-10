@@ -1,0 +1,12 @@
+# 쇼츠 분석 공장 — Python 의존성 (검증 버전 고정, 2026-07-10)
+# 설치:  pip install -r requirements.txt
+#
+# ※ 별도로 시스템에 설치돼 있어야 함 (pip 아님):
+#     yt-dlp · ffmpeg · ffprobe   (다운로드 + 결정론 트랙 ffmpeg 집계)
+
+psycopg2-binary>=2.9.12   # laeebly Postgres 직결 (읽기전용). db.Laeebly
+google-genai>=1.69.0      # Gemini VLM 트랙 (extract.vlm_extract). --no-vlm이면 불필요
+openpyxl>=3.1.5           # 분류 xlsx 시드 로딩 (cluster.seed_from_xlsx, --seed-works)
+scenedetect>=0.6.7.1      # 결정론 트랙: 컷/장면 검출 (extract 결정론)
+opencv-python>=4.13.0     # 결정론 트랙: 자막밀도·화면채움 휴리스틱 (extract cv2 함수)
+numpy>=2.2.6              # opencv 프레임 배열 연산
