@@ -227,6 +227,7 @@ class IPRegistry:
     """eb_ip(원작 IP) in-memory 캐시 + resolve-or-classify.
        라이선스(identification_code 有)=laeebly 메타로 분류.
        비라이선스(코드 無)=description(1순위)+영상으로 원작 식별→ip_key='t:'+정규화제목.
+       단, 식별된 제목이 코드-키 행과 같으면(제목 역인덱스) 그 행을 상속 — t: 분열 방지(§3-1②).
        둘 다 eb_ip에 쌓이고 캐시로 중복 LLM 방지. 자체제작은 공유 IP 없이 쇼츠 클러스터만."""
 
     COLS = ("ip_key,identification_code,title,cluster_id,tone_tags,format_axis,"
@@ -234,16 +235,36 @@ class IPRegistry:
 
     def __init__(self, pipe, key: str, model: str):
         self.pipe, self.key, self.model = pipe, key, model
-        self.cache = {}   # ip_key -> row
+        self.cache = {}             # ip_key -> row
+        self.title_index = {}       # _norm_title(title) -> 코드-키 ip_key (역인덱스, §3-1②)
+        self.ambiguous_titles = set()  # 정규화 제목 충돌(코드 2+): 상속 금지 — 시즌·리메이크 오귀속 방지
         for r in pipe.select("eb_ip", {"select": self.COLS}):
             self.cache[r["ip_key"]] = r
+            self._index_title(r)
         self.n_classified = 0        # 라이선스 신규 분류
         self.n_unlicensed = 0        # 비라이선스 신규 식별
 
+    def _index_title(self, row):
+        """코드-키 행(라이선스)의 제목 → ip_key 역인덱스 등록. t: 행은 안 태움.
+           같은 정규화 제목에 서로 다른 코드가 오면(예: 'SNL … 시즌7'/'시즌8' — _norm_title 이
+           시즌 표기를 지움) 모호 처리: 인덱스에서 빼고 상속 금지(임의 코드 오귀속 방지)."""
+        if not row.get("identification_code"):
+            return
+        nt = _norm_title(row.get("title"))
+        if not nt or nt in self.ambiguous_titles:
+            return
+        prev = self.title_index.get(nt)
+        if prev is not None and prev != row["ip_key"]:
+            del self.title_index[nt]
+            self.ambiguous_titles.add(nt)
+            return
+        self.title_index[nt] = row["ip_key"]
+
     def resolve(self, ctl: dict, description=None, video_path=None) -> tuple:
-        """(cluster_id, tone_tags, is_laeebly_licensed, has_source_video) 반환.
+        """(cluster_id, tone_tags, is_laeebly_licensed, has_source_video, ip_key) 반환.
            라이선스=ctl만으로(항상 원본 클립), 비라이선스=description(1순위)+영상으로 식별.
-           자체제작(원본 영상물 아님)은 cluster=None, has_source_video=False."""
+           자체제작(원본 영상물 아님)은 cluster=None, has_source_video=False, ip_key=None.
+           ip_key = 이 쇼츠가 속한 원작 모집단 키(eb_shorts_features.ip_key 로 저장, §3-1③)."""
         code = ctl.get("identification_code")
         if code:
             return self._resolve_licensed(code, ctl)
@@ -253,7 +274,7 @@ class IPRegistry:
     def _resolve_licensed(self, code, ctl):
         hit = self.cache.get(code)
         if hit:
-            return hit.get("cluster_id"), hit.get("tone_tags"), True, True
+            return hit.get("cluster_id"), hit.get("tone_tags"), True, True, code
         meta = {
             "ip_key": code, "identification_code": code, "is_laeebly_licensed": True,
             "title": ctl.get("canonical_title") or ctl.get("licensed_video_title"),
@@ -270,12 +291,12 @@ class IPRegistry:
         row = {**meta, **cls, "classify_source": "llm_auto"}
         self._register(code, row)
         self.n_classified += 1
-        return row.get("cluster_id"), row.get("tone_tags"), True, True
+        return row.get("cluster_id"), row.get("tone_tags"), True, True, code
 
     # ── 비라이선스: description으로 먼저(B) → 부실/불확실하면 영상까지 식별 ──
     def _resolve_unlicensed(self, ctl, description, video_path):
         if not self.key:
-            return None, None, False, None
+            return None, None, False, None, None
         cls = None
         # B) 설명란 텍스트만으로 충분히 확신하면 영상 안 봄 (오판 방지 + 값쌈)
         if description and len(description) > 20:
@@ -286,20 +307,25 @@ class IPRegistry:
         if cls is None:                      # 설명란 부실/불확실 → 영상 포함
             cls = identify_unlicensed(ctl, description, video_path, self.key, self.model)
         if cls is None:
-            return None, None, False, None
+            return None, None, False, None, None
         return self._finalize_unlicensed(cls)
 
     def _finalize_unlicensed(self, cls):
-        """식별 결과 → (cluster, tone, is_licensed=False, has_source_video).
-           원본 영상물 아니면(자체제작) cluster/IP 없음."""
+        """식별 결과 → (cluster, tone, is_licensed, has_source_video, ip_key).
+           원본 영상물 아니면(자체제작) cluster/IP 없음.
+           식별 제목이 코드-키 행과 정규화 일치하면 그 행 상속(t: 분열 억제, §3-1②)."""
         if not cls.get("has_source_video") or not cls.get("source_title"):
-            return None, None, False, False          # 자체제작 → 클러스터 미부여
+            return None, None, False, False, None    # 자체제작 → 클러스터 미부여
+        code_key = self.title_index.get(_norm_title(cls["source_title"]))
+        if code_key:                                 # 같은 원작이 코드-키로 이미 존재
+            hit = self.cache[code_key]
+            return hit.get("cluster_id"), hit.get("tone_tags"), True, True, code_key
         ip_key = ip_key_for(None, cls["source_title"])
         if not ip_key:
-            return None, None, False, True
+            return None, None, False, True, None
         hit = self.cache.get(ip_key)                 # 같은 원작 이미 등록됐으면 상속
         if hit:
-            return hit.get("cluster_id"), hit.get("tone_tags"), False, True
+            return hit.get("cluster_id"), hit.get("tone_tags"), False, True, ip_key
         row = {"ip_key": ip_key, "identification_code": None, "is_laeebly_licensed": False,
                "title": cls["source_title"], "classify_source": "llm_auto",
                **{k: cls.get(k) for k in ("format_axis", "narrative_axis", "cluster_id",
@@ -307,7 +333,7 @@ class IPRegistry:
                                           "classify_model")}}
         self._register(ip_key, row)
         self.n_unlicensed += 1
-        return row.get("cluster_id"), row.get("tone_tags"), False, True
+        return row.get("cluster_id"), row.get("tone_tags"), False, True, ip_key
 
     def _register(self, ip_key, row):
         try:
@@ -315,6 +341,7 @@ class IPRegistry:
         except Exception:
             pass
         self.cache[ip_key] = row
+        self._index_title(row)      # 같은 run 내 후속 비라이선스 식별이 상속하도록(§3-1②)
 
 
 # ═══════════════════════════════════════════════════════════════════

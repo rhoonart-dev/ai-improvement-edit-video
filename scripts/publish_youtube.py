@@ -5,8 +5,8 @@
 ② --publish opt-in(기본 dry-run) ③ 기본 privacy=private. 자동 발행이라도 이 가드를 통과해야만 실제 업로드.
 
 ⚠️ OAuth 자격증명 필요(채널 업로드 권한):
-   env YT_CLIENT_ID, YT_CLIENT_SECRET, YT_REFRESH_TOKEN[_<CHANNELSLUG>]
-   (Google Cloud OAuth client + 채널별 refresh token. 없으면 코드는 동작하나 실제 업로드 불가 → 명확히 에러.)
+   env YT_CLIENT_ID, YT_CLIENT_SECRET, YT_REFRESH_TOKEN_<CHANNELSLUG> (채널별 전용 토큰만.
+   §3-5: generic YT_REFRESH_TOKEN 폴백 제거 — 미등록 채널·토큰 미설정은 하드 실패 = 오채널 차단.)
 deps: google-api-python-client google-auth google-auth-oauthlib
 env: PIPELINE_DB_URL, YT_*
 실행:
@@ -34,9 +34,14 @@ CHANNEL_ENV = {"스토리순삭": "STORYSUNSAK", "재미쇼츠": "JAEMISHOTS"}  
 # ─────────────────────────── 순수 (단위테스트) ───────────────────────────
 
 def token_env_name(channel):
-    """채널 → YT refresh token env 변수명. 미등록 채널은 generic YT_REFRESH_TOKEN."""
+    """채널 → YT refresh token env 변수명. §3-5 오채널 업로드 차단:
+    미등록 채널은 generic 폴백 없이 하드 실패 — 잘못된 채널명으로 '아무 채널'에
+    업로드되는 사고를 기계적으로 차단."""
     key = CHANNEL_ENV.get(channel)
-    return f"YT_REFRESH_TOKEN_{key}" if key else "YT_REFRESH_TOKEN"
+    if not key:
+        raise ValueError(f"미등록 채널 {channel!r} — CHANNEL_ENV 에 등록된 채널만 업로드 가능"
+                         f"(등록: {sorted(CHANNEL_ENV)})")
+    return f"YT_REFRESH_TOKEN_{key}"
 
 
 def build_snippet(title, hashtags=None, category=CATEGORY_ENTERTAINMENT):
@@ -78,9 +83,11 @@ def fetch_clip_title(conn, clip_id):
 # ─────────────────────────── YouTube 업로드 ───────────────────────────
 
 def _credentials(channel):
+    """채널별 refresh token 만 사용 — generic YT_REFRESH_TOKEN 폴백 제거(§3-5).
+    폴백이 있으면 채널별 토큰 미설정 시 '다른 채널의 generic 토큰'으로 조용히 오채널 업로드된다."""
     from google.oauth2.credentials import Credentials
     cid, cs = os.environ.get("YT_CLIENT_ID"), os.environ.get("YT_CLIENT_SECRET")
-    rt = os.environ.get(token_env_name(channel)) or os.environ.get("YT_REFRESH_TOKEN")
+    rt = os.environ.get(token_env_name(channel))
     if not (cid and cs and rt):
         return None
     return Credentials(None, refresh_token=rt, client_id=cid, client_secret=cs,
@@ -134,8 +141,12 @@ def main():
         vid = upload(a.video, snip, a.privacy, a.channel)
         print("uploaded content_id:", vid)
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from datetime import datetime, timezone
         from link_published import link_published
-        n = link_published(conn, a.clip_id, content_id=vid, channel=a.channel)
+        # published_at 을 업로드 순간으로 기록 — R5(§4-3)·판정 창 계산의 근거.
+        # (laeebly ETL 이 이후 자체 publish_time 으로 백필하지만, 등록 시점엔 이 값이 유일.)
+        n = link_published(conn, a.clip_id, content_id=vid, channel=a.channel,
+                           published_at=datetime.now(timezone.utc))
         print(f"linked clip {a.clip_id} → {vid} (rows={n})")
     finally:
         conn.close()

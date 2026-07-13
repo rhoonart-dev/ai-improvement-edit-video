@@ -31,9 +31,9 @@ if hasattr(sys.stdout, "reconfigure"):
 from datetime import datetime, timezone
 from pathlib import Path
 
-from config import (CODE_VERSION, DOWNLOADS, PERF_WINDOW_DAYS,
-                    SCHEMA_VERSION, VIDEO_BUCKET, VLM_SLEEP_SEC, YTDLP_FORMAT,
-                    load_settings)
+from config import (CODE_VERSION, DOWNLOADS, OUR_CHANNEL_IDS, OUR_CHANNEL_NAMES,
+                    PERF_WINDOW_DAYS, SCHEMA_VERSION, VIDEO_BUCKET, VLM_SLEEP_SEC,
+                    YTDLP_FORMAT, load_settings)
 import extract as xt                          # factory 내부 추출 모듈 (독립)
 from cluster import IPRegistry, seed_from_xlsx
 from db import Laeebly, Pipeline, clean_row
@@ -130,6 +130,25 @@ def download(sid: str):
 CTL_NON_COLUMN = {"content_id", "canonical_title"}
 
 
+def clip_origin(ctl) -> str | None:
+    """자사('ours')/시장('market') 표식(§3-2). 채널 미상(ctl 없음)이면 None(미확정).
+       자사 판별 = 채널명(laeebly channel_name) 또는 채널 ID 매칭."""
+    if not ctl:
+        return None
+    name, cid = ctl.get("channel_name"), ctl.get("channel_id")
+    if (name and name in OUR_CHANNEL_NAMES) or (cid and cid in OUR_CHANNEL_IDS):
+        return "ours"
+    return "market" if (name or cid) else None
+
+
+def our_channel_ids(rows) -> set:
+    """eb rows 에서 자사 채널의 channel_id 집합 — lift 분모(채널 기저) pool 에서 제외용(§3-2)."""
+    return {r["channel_id"] for r in rows
+            if r.get("channel_id")
+            and (r.get("origin") == "ours" or r.get("channel_name") in OUR_CHANNEL_NAMES
+                 or r["channel_id"] in OUR_CHANNEL_IDS)}
+
+
 # ═════════ 영상 1개 처리 ═════════
 def process_video(cand, perf, ctl, registry, pipe, log, key, model, args):
     sid = cand["content_id"]
@@ -146,6 +165,7 @@ def process_video(cand, perf, ctl, registry, pipe, log, key, model, args):
         rec.update({k: v for k, v in perf.items() if k != "content_id"})
     if ctl:
         rec.update({k: v for k, v in ctl.items() if k not in CTL_NON_COLUMN})
+    rec["origin"] = clip_origin(ctl)                 # 자사/시장 표식(§3-2)
     title = rec.get("title_text")
 
     # 1) download
@@ -215,11 +235,12 @@ def process_video(cand, perf, ctl, registry, pipe, log, key, model, args):
     #    (다운로드·설명란 추출 뒤라야 비라이선스 식별 가능. 영상 unlink 전에 수행.)
     t0 = now_iso()
     try:
-        cluster_id, _tone, is_licensed, has_src = registry.resolve(
+        cluster_id, _tone, is_licensed, has_src, ip_key = registry.resolve(
             ctl or {}, description=rec.get("description_text"), video_path=path)
         rec["cluster_id"] = cluster_id
         rec["is_laeebly_licensed"] = is_licensed
         rec["has_source_video"] = has_src
+        rec["ip_key"] = ip_key                      # 원작 모집단 키(§3-1③)
         log.item(sid, "classify", "success",
                  message=(f"cluster={cluster_id}" if cluster_id
                           else ("self_made" if has_src is False else "no_cluster")),
@@ -250,8 +271,10 @@ def stage_channels(lae, pipe, log):
     t0 = now_iso()
     try:
         rows = pipe.select("eb_shorts_features", {
-            "select": "shorts_id,channel_id,channel_name,publish_time,views"})
-        chan_ids = sorted({r["channel_id"] for r in rows if r["channel_id"]})
+            "select": "shorts_id,channel_id,channel_name,origin,publish_time,views"})
+        ours = our_channel_ids(rows)                     # 자사 채널 = 기저 pool 제외(§3-2)
+        chan_ids = sorted({r["channel_id"] for r in rows
+                           if r["channel_id"] and r["channel_id"] not in ours})
         snaps = lae.channel_snapshots(chan_ids)
         base = lae.channel_baseline_shorts(chan_ids)     # laeebly 완전 채널 이력
         payload = channel_l1(rows, snaps, baseline_rows=base)
@@ -273,15 +296,20 @@ def stage_score(lae, pipe, log, mode="asof"):
     t0 = now_iso()
     try:
         rows = pipe.select("eb_shorts_features", {
-            "select": ("shorts_id,channel_id,cluster_id,identification_code,"
-                       "licensed_video_title,publish_time,views,kept_watching_rate,"
-                       "likes,shares,comments_added,lift_views,performance_score")})
+            "select": ("shorts_id,channel_id,channel_name,cluster_id,identification_code,"
+                       "licensed_video_title,ip_key,origin,publish_time,views,"
+                       "kept_watching_rate,likes,shares,comments_added,lift_views,"
+                       "performance_score")})
         # lift 분모 pool = laeebly 완전 채널 이력. asof면 신규(미채점) 채널만 당기면 됨.
+        # 자사 채널은 pool 에서 하드 제외(§3-2) — 자사 클립은 lift=null 로 채점됨.
+        ours = our_channel_ids(rows)
         if mode == "mutual":
-            chan_ids = sorted({r["channel_id"] for r in rows if r["channel_id"]})
+            chan_ids = sorted({r["channel_id"] for r in rows
+                               if r["channel_id"] and r["channel_id"] not in ours})
         else:
             chan_ids = sorted({r["channel_id"] for r in rows
-                               if r["channel_id"] and r.get("performance_score") is None})
+                               if r["channel_id"] and r["channel_id"] not in ours
+                               and r.get("performance_score") is None})
         base = lae.channel_baseline_shorts(chan_ids)
         updates = compute_scores(rows, baseline_rows=base, asof=(mode != "mutual"))
         if updates:

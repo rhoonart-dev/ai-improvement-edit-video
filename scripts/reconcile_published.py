@@ -90,7 +90,8 @@ def score_candidate(clip, video):
     score = 0.55 * t + 0.25 * d + 0.20 * (1.0 if w else 0.0)
     return {"content_id": video.get("content_id"), "score": round(score, 4),
             "title_sim": round(t, 4), "dur_score": round(d, 4), "work_ok": bool(w),
-            "video_title": video.get("video_title")}
+            "video_title": video.get("video_title"),
+            "publish_time": video.get("publish_time")}   # link 시 published_at 으로(R5 §4-3)
 
 
 def rank_candidates(clip, videos):
@@ -208,7 +209,8 @@ def main():
             if dec == "auto" and args.apply:
                 top = shown[0]
                 n = link_published(pconn, clip["clip_id"], content_id=top["content_id"],
-                                   channel=clip.get("channel_name"))
+                                   channel=clip.get("channel_name"),
+                                   published_at=top.get("publish_time"))
                 print(f"   → LINKED content_id={top['content_id']} (rows={n})")
                 vids = [v for v in vids if v["content_id"] != top["content_id"]]
             elif dec == "auto":

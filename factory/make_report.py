@@ -33,6 +33,7 @@ def fetch():
     pipe = Pipeline(cfg["PIPELINE_URL"], cfg["PIPELINE_SERVICE_KEY"])
     cols = ("shorts_id,video_url,title_text,onscreen_title_text,channel_name,channel_id,"
             "lifecycle_status,publish_time,storage_path,ip:identification_code,"
+            "ip_key,origin,"
             "is_laeebly_licensed,has_source_video,cluster_id,genre,video_type,nation,"
             "published_year,description_text,"
             "cast_text,subscriber_count,channel_total_views,hashtags,vlm_model,"
@@ -68,10 +69,20 @@ def _has_vlm(s):
     return s.get("vlm_model") is not None
 
 
-def retrieve(shorts, cluster, k_good=3):
+def retrieve(shorts, cluster, k_good=3, holdout=None):
     """클러스터 인출 — good 카드 / 대조쌍 / 탐색 슬롯 + 폴백 여부.
-       참조 카드·대조쌍은 VLM 피처가 있는 쇼츠 우선(내용 풍부하도록)."""
-    inpop = [s for s in shorts if s.get("cluster_id") == cluster
+       참조 카드·대조쌍은 VLM 피처가 있는 쇼츠 우선(내용 풍부하도록).
+       ★에코챔버 차단(§3-2): origin='ours'(자사 발행분)는 인출 모집단·글로벌 폴백·
+       탐색 슬롯 전부에서 하드 제외 — 자기 산출물 재주입 금지.
+       holdout: 주입 금지 클러스터 집합(골든 홀드아웃, 기본 config.INJECTION_HOLDOUT_CLUSTERS)."""
+    if holdout is None:
+        from config import INJECTION_HOLDOUT_CLUSTERS
+        holdout = INJECTION_HOLDOUT_CLUSTERS
+    if cluster in holdout:
+        return {"n_in_cluster": 0, "goods": [], "bads": [], "pair": None,
+                "explore": None, "fallback": [], "holdout": True}
+    market = [s for s in shorts if s.get("origin") != "ours"]   # 자사 하드 제외
+    inpop = [s for s in market if s.get("cluster_id") == cluster
              and s.get("performance_score") is not None
              and s.get("lifecycle_status") == "active"]
     # good: VLM 있는 것 우선, 그다음 점수 — 참조 카드가 알차게
@@ -86,13 +97,13 @@ def retrieve(shorts, cluster, k_good=3):
     explore = max(inpop, key=salience_max) if inpop else None
     fallback = []
     if len(goods) < k_good:
-        pool = sorted((s for s in shorts if s.get("perf_label") == "good"
+        pool = sorted((s for s in market if s.get("perf_label") == "good"
                        and s.get("lifecycle_status") == "active" and _has_vlm(s)
                        and s not in goods),
                       key=lambda s: s["performance_score"], reverse=True)
         fallback = pool[:k_good - len(goods)]
     return {"n_in_cluster": len(inpop), "goods": goods[:k_good], "bads": bads,
-            "pair": pair, "explore": explore, "fallback": fallback}
+            "pair": pair, "explore": explore, "fallback": fallback, "holdout": False}
 
 
 def _feat(s, keys):

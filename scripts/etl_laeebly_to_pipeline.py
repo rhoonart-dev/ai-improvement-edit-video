@@ -65,11 +65,15 @@ def upsert_clips(dst, rows, chan, work):
         is_short(r["len_sec"]),
     ) for r in rows]
     with dst.cursor() as cur:
+        # DO NOTHING → published_at 만 보수적 DO UPDATE: ingest 가 먼저 만든 auto_edit 행
+        # (published_at NULL)을 laeebly publish_time 으로 백필 — R5(§4-3)·판정 창의 근거.
+        # 이미 값이 있으면 laeebly 값(원천)을 우선하되 NULL 로 덮지 않는다. 나머지 컬럼 불변.
         cur.executemany(
             """INSERT INTO public.clips
                  (work_id, channel_id, video_external_id, source, duration_sec, published_at, is_format_short)
                VALUES (%s, %s, %s, 'existing', %s, %s, %s)
-               ON CONFLICT (video_external_id) DO NOTHING""",
+               ON CONFLICT (video_external_id) DO UPDATE
+                 SET published_at = COALESCE(EXCLUDED.published_at, clips.published_at)""",
             payload,
         )
     dst.commit()

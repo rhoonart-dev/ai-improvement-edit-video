@@ -122,6 +122,11 @@ def main():
                     help="기록 대상 .env 경로(기본: repo 루트 .env)")
     a = ap.parse_args()
 
+    # §3-5 이후 token_env_name 은 미등록 채널에서 하드 실패 — OAuth 동의(브라우저) '전'에
+    # 검증해야 발급된 토큰이 저장도 못 되고 유실되는 사고를 막는다.
+    if a.channel and a.channel not in CHANNEL_ENV:
+        raise SystemExit(f"미등록 채널 {a.channel!r} — 등록된 채널만 가능: {sorted(CHANNEL_ENV)}")
+
     from google_auth_oauthlib.flow import InstalledAppFlow
     flow = InstalledAppFlow.from_client_secrets_file(a.client_secret, SCOPES)
     # access_type=offline + prompt=consent → refresh_token 보장

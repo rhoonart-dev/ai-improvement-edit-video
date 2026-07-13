@@ -43,6 +43,16 @@ LABEL_CUTS = (33.0, 66.0)          # good/mid/bad 고정 컷: <33 bad, 33~66 mid
                                    #   점수가 이미 '이전 대비 백분위 가중합'(0~100)이라 고정 임계.
 SCORE_VERSION = "v0.3"             # as-of + 고정컷 + 절대조회 균형(lift .25 / 절대 .15)
 
+# ── 에코챔버 차단 (§3-2) ──────────────────────────────────────────────
+# 자사(ai-video 발행) 채널 식별자. repo 에 채널 ID(UC…)가 없어 laeebly channel_name 기준.
+#   적재 시 eb_shorts_features.origin='ours' 세팅 → 인출·모집단·기저에서 하드 제외.
+#   채널 ID 를 확보하면 OUR_CHANNEL_IDS 에 추가(이름 변경 대비 이중 식별).
+OUR_CHANNEL_NAMES = ("재미쇼츠", "스토리순삭")
+OUR_CHANNEL_IDS: tuple = ()          # 알려지면 ("UC…",) 로 채움
+# 골든 홀드아웃 클러스터(주입 금지 — 뱅크 오염·mode collapse 카나리아, §3-2).
+#   Phase 2(주입 v0) 시작 전 표본 충분한 클러스터 1~2개를 지정할 것.
+INJECTION_HOLDOUT_CLUSTERS: frozenset = frozenset()
+
 SCHEMA_VERSION = "0.4"
 CODE_VERSION = "factory-v0.1"
 VLM_SLEEP_SEC = 2                  # Gemini 호출 간 최소 간격

@@ -37,6 +37,23 @@ def validate_pair(p):
     return errs
 
 
+R5_MAX_GAP_HOURS = 48
+
+
+def validate_publish_gap(t_pub, c_pub, max_hours=R5_MAX_GAP_HOURS):
+    """R5(§4-3): |published_at(T) − published_at(C)| ≤ 48h — '동시 인터리브 발행' 기계 강제.
+    before/after 가 몰래 쌍으로 등록되는 것을 차단. 발행시각 미상도 위반(발행 후 등록이 정상 흐름).
+    위반 메시지 리스트(빈=정상)."""
+    if t_pub is None or c_pub is None:
+        return [f"published_at 미상(T={t_pub}, C={c_pub}) — 발행·ETL 적재 후 등록하거나 "
+                f"--allow-unverified-times 로 명시 강행"]
+    gap_h = abs((t_pub - c_pub).total_seconds()) / 3600.0
+    if gap_h > max_hours:
+        return [f"R5 위반: |Δpublished_at| = {gap_h:.1f}h > {max_hours}h — "
+                f"동시 인터리브 발행이 아님(before/after 의심)"]
+    return []
+
+
 def build_rows(experiment_key, pairs):
     """pairs: [{"source_work","treatment_vid","control_vid","storyline_key"?,"channel_name"?}].
     쌍당 treatment·control 2행 생성(같은 pair_id). 반환: 행 dict 리스트.
@@ -93,15 +110,34 @@ def upsert(conn, rows):
     conn.commit()
 
 
+def fetch_published_at(conn, vids):
+    """clips 에서 video_external_id → published_at 매핑(R5 검증용)."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT video_external_id, published_at FROM public.clips "
+                    "WHERE video_external_id = ANY(%s)", (list(vids),))
+        return dict(cur.fetchall())
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--experiment", required=True)
     ap.add_argument("--pairs-file", required=True)
+    ap.add_argument("--allow-unverified-times", action="store_true",
+                    help="R5 발행시각 검증 생략(clips.published_at 미적재 시 명시 강행 — 위험)")
     a = ap.parse_args()
     import psycopg
     pairs = read_pairs(a.pairs_file)
     rows = build_rows(a.experiment, pairs)
     conn = psycopg.connect(os.environ["PIPELINE_DB_URL"])
+    if not a.allow_unverified_times:      # §4-3 R5: 등록 시 발행시각 근접 강제
+        pub = fetch_published_at(conn, [r["video_external_id"] for r in rows])
+        errs = []
+        for i, p in enumerate(pairs):
+            e = validate_publish_gap(pub.get(p["treatment_vid"]), pub.get(p["control_vid"]))
+            if e:
+                errs.append(f"쌍 #{i}({p.get('source_work')!r}): " + "; ".join(e))
+        if errs:
+            raise SystemExit("R5(발행시각 ≤48h) 검증 실패 — 등록 차단:\n  " + "\n  ".join(errs))
     upsert(conn, rows)
     print(f"등록: experiment={a.experiment} 쌍={len(pairs)} 행={len(rows)} "
           f"(treatment+control). 다음: ETL 후 scripts/m4_ab_analysis.py --experiment {a.experiment}")

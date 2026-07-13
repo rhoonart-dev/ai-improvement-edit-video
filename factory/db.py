@@ -191,6 +191,10 @@ class Laeebly:
         return out
 
     # ── 통제 covariate (clip_performance_v0.4.sql §3 포팅 + video_title) ──
+    #    identification_code: youtube_studio 에 없어도 제목으로 licensed_video 가 붙으면
+    #    v.identification_code 로 회수(coalesce) — 제목-연결 클립이 코드-키 모집단에 합류(§3-1①).
+    #    단 제목이 여러 원작과 매치되면(n_match>1, 동명작·리메이크) 회수 포기(NULL 유지) —
+    #    임의 코드가 모집단 키가 되는 오귀속 방지. order by 는 n_match=1 판정과 무관한 안정성용.
     CONTROL_SQL = """
         with ys as (
           select btrim(content_id) as content_id,
@@ -218,16 +222,21 @@ class Laeebly:
                c.subscriber_count,
                c.view_count  as channel_total_views,
                c.video_count as channel_video_count,
-               ys.identification_code, ys.licensed_video_title,
+               coalesce(ys.identification_code,
+                        case when lv.n_match = 1 then lv.identification_code end)
+                 as identification_code,
+               ys.licensed_video_title,
                lv.video_type, lv.genre, lv.nation, lv.published_year, lv.cast_text,
                lv.canonical_title, ys.video_length
         from ys
         left join lateral (
-          select v.video_type, v.genre, v.nation, v.published_year,
-                 v."cast" as cast_text, v.title as canonical_title
+          select v.identification_code, v.video_type, v.genre, v.nation, v.published_year,
+                 v."cast" as cast_text, v.title as canonical_title,
+                 count(*) over () as n_match
           from licensed_video v
           where v.identification_code = ys.identification_code
              or (ys.identification_code is null and v.title = ys.licensed_video_title)
+          order by v.identification_code
           limit 1
         ) lv on true
         left join chan c on c.channel_id = ys.channel_id

@@ -26,7 +26,12 @@ def test_snippet_empty():
 def test_token_env_name():
     assert pub.token_env_name("스토리순삭") == "YT_REFRESH_TOKEN_STORYSUNSAK"
     assert pub.token_env_name("재미쇼츠") == "YT_REFRESH_TOKEN_JAEMISHOTS"
-    assert pub.token_env_name("미등록채널") == "YT_REFRESH_TOKEN"
+    # §3-5 오채널 업로드 차단: 미등록 채널 → generic 폴백 금지, 하드 실패
+    try:
+        pub.token_env_name("미등록채널")
+        assert False, "미등록 채널이 하드 실패하지 않음"
+    except ValueError:
+        pass
 
 
 # ── gate_ok: 발행 *안전* 게이트 (judge quality 는 성과예측 아님) — DB 없이 fake conn ──
