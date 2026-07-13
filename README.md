@@ -61,6 +61,7 @@
 ## 문서
 
 - [docs/OVERVIEW.md](docs/OVERVIEW.md) — **★ 여기부터 읽으세요.** 처음 보는 사람을 위한 종합 정리(구조·단계별 로직·피처·현황·발견·용어집)
+- [docs/INTEGRATION_PLAN.md](docs/INTEGRATION_PLAN.md) — **★ (7/13) 세 조각 통합 계획 v1.** ai-video·factory·자가개선을 이중 루프(예시 주입+config 개선)로 통합, +7D 창·+11D 채점 단일 리듬, A/B 판정 규칙(2방식·4중 관문), Phase 0 선행 수리 6건, 자동화 스케줄·대시보드
 - [docs/M1_FINDINGS_AND_DIRECTION.md](docs/M1_FINDINGS_AND_DIRECTION.md) — **★최신 결론(6/16): 관측 천장 + 돌파구.** 관측 절대예측은 천장이나, ai-video 자기채널을 같은-작품 시장과 비교(상대 벤치마크)하니 시청유지 격차+원인(무음·라우드니스·길이·montage) 규명. directive + 코드 매핑.
 - [docs/AB_VALIDATION.md](docs/AB_VALIDATION.md) — **★ 자기개선 루프 닫기: A/B 검증 설계.** directive(가설)를 우리 채널에서 인과 증명하는 설계(Exp1=라우드니스, 작품내 2-variant, 로깅 스키마, paired 분석). ai-video PR #15(loudness) 연동
 - [docs/SELF_IMPROVEMENT_SPEC.md](docs/SELF_IMPROVEMENT_SPEC.md) — **(6/16 세션, 현행 권위 설계)** 신규 격리 Supabase(`fdidiqdhcyctdbogxkdu`) 위 리워드/평가 레이어 상세 설계. 0번 비판 + 4단계 흐름 + 피처 x + 보상 y(이중 잔차·VLM judge·캘리브레이션) + 리워드 모델 2단 루프 + 자가개선 + 마일스톤. GROUNDED_DESIGN 위에 리워드 레이어를 얹음
