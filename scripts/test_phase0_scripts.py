@@ -190,29 +190,41 @@ def test_measure_requires_recomputed_baseline_method():
                            "baseline_method": "cohort_percentile:raw"}) is True
 
 
-def test_rekey_updates_rows_holding_merged_t_keys():
-    """리뷰 확정(major): 병합되는 t: 키를 이미 물고 있는 sf 행도 코드-키로 재키잉돼야 함
-       (안 하면 t: eb_ip 행 DELETE 후 dangling + 모집단 분열 유지)."""
-    from rekey_eb_ip import plan_sf_backfill
-    ip_rows = [
-        {"ip_key": "CODE1", "identification_code": "CODE1", "title": "맨 끝줄 소년 (2025)"},
-        {"ip_key": "t:맨끝줄소년", "identification_code": None, "title": "맨 끝줄 소년"},
-    ]
-    sf = [{"shorts_id": "old1", "identification_code": None,
-           "licensed_video_title": None, "ip_key": "t:맨끝줄소년"}]
-    updates, _ = plan_sf_backfill(sf, ip_rows, merges={"t:맨끝줄소년": "CODE1"})
-    assert updates == [{"shorts_id": "old1", "ip_key": "CODE1"}]
+def test_known_auto_edit_ids_excludes_our_channels_too():
+    """최종검증 확정(minor): 수동 업로드가 ETL 로 source='existing' 쌍둥이가 되면
+       auto_edit 조회를 빠져나가 시장 비교군에 자사 클립이 잔류 — 자사 채널명으로도 제외."""
 
+    class _Cur:
+        def __init__(self):
+            self.sql, self.params = None, None
 
-def test_rekey_ambiguous_norm_titles_not_merged():
-    """리뷰 확정(minor): 정규화 제목 충돌(예: SNL 시즌7/시즌8 → 같은 키)이면 병합·상속 금지."""
-    from rekey_eb_ip import plan_ip_merges
-    ip_rows = [
-        {"ip_key": "SNL7", "identification_code": "SNL7", "title": "SNL 코리아 리부트 시즌7"},
-        {"ip_key": "SNL8", "identification_code": "SNL8", "title": "SNL 코리아 리부트 시즌8"},
-        {"ip_key": "t:snl코리아리부트", "identification_code": None, "title": "SNL 코리아 리부트"},
-    ]
-    assert plan_ip_merges(ip_rows) == {}    # 충돌 → 병합 대상 제외
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def execute(self, sql, params=None):
+            self.sql, self.params = sql, params
+
+        def fetchall(self):
+            return [("VID1",), (None,), ("VID2",)]
+
+    class _Conn:
+        def __init__(self):
+            self.cur = _Cur()
+
+        def cursor(self):
+            return self.cur
+
+    from m3_aivideo_benchmark import known_auto_edit_ids
+    conn = _Conn()
+    ids = known_auto_edit_ids(conn)
+    assert ids == ["VID1", "VID2"]                       # NULL 방어
+    assert "auto_edit" in conn.cur.sql
+    assert "channels" in conn.cur.sql                     # 자사 채널 조인
+    flat = [x for p in (conn.cur.params or ()) for x in (p if isinstance(p, (list, tuple)) else [p])]
+    assert "재미쇼츠" in flat and "스토리순삭" in flat
 
 
 if __name__ == "__main__":

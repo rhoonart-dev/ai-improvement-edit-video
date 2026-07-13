@@ -69,12 +69,24 @@ def comparator_exclude(cohort, extra=None):
 
 
 def known_auto_edit_ids(conn):
-    """pipeline DB 에 provenance 로 적재된 자사(auto_edit) 클립 id — 동적 레지스트리(§3-3).
-    루프가 돌수록 늘어나는 신규 자사 클립이 '시장' 에 섞이는 것을 자동 차단."""
+    """pipeline DB 에 알려진 '자사 산출물' 클립 id — 동적 레지스트리(§3-3).
+    (a) source='auto_edit' (ingest provenance) 에 더해
+    (b) 자사 채널(재미쇼츠·스토리순삭)의 클립 전부 — 수동 업로드가 publish_youtube 를 우회하면
+        ETL 이 source='existing' 쌍둥이 행을 만들어 (a)만으론 시장 비교군에 잔류하기 때문
+        (최종검증 확정: 에코챔버 차단이 뚫리는 유일한 경로)."""
+    try:
+        from publish_youtube import CHANNEL_ENV
+        ours = list(CHANNEL_ENV)
+    except ImportError:                      # 단독 import 폴백 — factory config 와 동일 목록
+        ours = ["재미쇼츠", "스토리순삭"]
     with conn.cursor() as cur:
-        cur.execute("SELECT video_external_id FROM clips "
-                    "WHERE source='auto_edit' AND video_external_id IS NOT NULL")
-        return [r[0] for r in cur.fetchall()]
+        cur.execute("""
+            SELECT c.video_external_id FROM clips c
+            LEFT JOIN channels ch ON ch.id = c.channel_id
+            WHERE c.video_external_id IS NOT NULL
+              AND (c.source = 'auto_edit' OR ch.name = ANY(%s))
+        """, (ours,))
+        return [r[0] for r in cur.fetchall() if r[0]]
 
 
 def comparator_exclude_db(conn, cohort):

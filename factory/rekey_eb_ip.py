@@ -66,11 +66,15 @@ def plan_sf_backfill(sf_rows, ip_rows, merges=None):
          dangling 참조 + 모집단 분열 유지(리뷰 확정 결함)"""
     merges = merges or {}
     by_norm_code, _amb = _norm_code_index(ip_rows)
-    by_norm_any = {}
+    # 제목 폴백은 t:(비코드) 행 **한정** — 코드 행을 여기 넣으면 모호 충돌(시즌·리메이크) 시
+    # 임의 코드를 상속하는 오귀속이 by_norm_code 우회 경로로 부활한다(최종검증 확정 결함).
+    by_norm_t = {}
     for r in ip_rows:
+        if r.get("identification_code"):
+            continue
         nt = _norm_title(r.get("title"))
         if nt:
-            by_norm_any.setdefault(nt, r["ip_key"])
+            by_norm_t.setdefault(nt, r["ip_key"])
     updates, unresolved = [], []
     for r in sf_rows:
         cur = r.get("ip_key")
@@ -83,7 +87,7 @@ def plan_sf_backfill(sf_rows, ip_rows, merges=None):
             updates.append({"shorts_id": r["shorts_id"], "ip_key": code})
             continue
         nt = _norm_title(r.get("licensed_video_title"))
-        hit = (by_norm_code.get(nt) or by_norm_any.get(nt)) if nt else None
+        hit = (by_norm_code.get(nt) or by_norm_t.get(nt)) if nt else None
         if hit:
             updates.append({"shorts_id": r["shorts_id"], "ip_key": merges.get(hit, hit)})
         else:
