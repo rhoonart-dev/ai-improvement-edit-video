@@ -109,12 +109,12 @@ def test_backfill_channel_id_noop_when_already_set():
 
 
 def test_real_config_loads_and_is_consistent():
-    # 실제 config/channels.json: token_slug 유일, 10채널, 기존 2채널 슬러그 보존
+    # 실제 config/channels.json: token_slug 유일, 10채널, 기존 채널 슬러그 보존
     recs = reg.load_channels()
     slugs = [r["token_slug"] for r in recs]
     assert len(slugs) == len(set(slugs)), "token_slug 중복"
-    assert "STORYSUNSAK" in slugs and "JAEMISHOTS" in slugs
-    assert reg.resolve("스토리순삭", records=recs)["token_slug"] == "STORYSUNSAK"
+    assert "CINEMAINBED" in slugs and "JAEMISHOTS" in slugs
+    assert reg.resolve("이불 속 극장", records=recs)["token_slug"] == "CINEMAINBED"
     assert reg.resolve("재미쇼츠", records=recs)["token_slug"] == "JAEMISHOTS"
 
 
