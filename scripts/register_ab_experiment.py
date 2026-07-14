@@ -80,12 +80,21 @@ def build_rows(experiment_key, pairs):
 
 
 # ---------- I/O ----------
+def _skip_row(r):
+    """주석(#로 시작)·빈 행 스킵 — CSV 에 안내 주석을 달 수 있게."""
+    sw = (r.get("source_work") or "").strip()
+    tv = (r.get("treatment_video_id") or "").strip()
+    cv = (r.get("control_video_id") or "").strip()
+    return sw.startswith("#") or not (sw or tv or cv)
+
+
 def read_pairs(path):
     with open(path, newline="", encoding="utf-8") as f:
-        return [{k: (v.strip() if isinstance(v, str) else v) for k, v in r.items()}
-                | {"treatment_vid": r["treatment_video_id"].strip(),
-                   "control_vid": r["control_video_id"].strip()}
-                for r in csv.DictReader(f)]
+        rows = [r for r in csv.DictReader(f) if not _skip_row(r)]
+    return [{k: (v.strip() if isinstance(v, str) else v) for k, v in r.items()}
+            | {"treatment_vid": (r.get("treatment_video_id") or "").strip(),
+               "control_vid": (r.get("control_video_id") or "").strip()}
+            for r in rows]
 
 
 def upsert(conn, rows):

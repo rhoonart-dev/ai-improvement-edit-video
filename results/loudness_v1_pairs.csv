@@ -1,0 +1,10 @@
+source_work,treatment_video_id,control_video_id,storyline_key,channel_name
+# 각 행 = 한 쌍(같은 edit_plan을 loudness -14[treatment] / off[control]로 재렌더 후 발행한 두 YouTube content_id).
+# treatment_video_id/control_video_id = 발행 후 확보한 실제 YouTube 11자 content_id로 채울 것.
+# storyline_key = 쌍 고유키(같은 edit_plan 재사용 금지의 근거). 예: 작품_ep_clipN.
+# 5쌍 이상 권장(부호검정 최소 유의 = 5쌍 전승). 아래는 예시 — 실제 발행 후 교체.
+로맨스의 절댓값,TREAT_VID_1,CTRL_VID_1,romance_ep6_c1,스토리순삭
+로맨스의 절댓값,TREAT_VID_2,CTRL_VID_2,romance_ep6_c2,스토리순삭
+유미의 세포들 시즌3,TREAT_VID_3,CTRL_VID_3,yumi_ep3_c1,재미쇼츠
+유미의 세포들 시즌3,TREAT_VID_4,CTRL_VID_4,yumi_ep3_c2,재미쇼츠
+로맨스의 절댓값,TREAT_VID_5,CTRL_VID_5,romance_ep7_c1,스토리순삭

@@ -1,7 +1,22 @@
 #!/usr/bin/env python3
 """register_ab_experiment.build_rows 테스트 — 쌍 → treatment/control 2행, params·pair_id 정확.
 실행: /Users/gimsewon/rhoonart/ai-video/.venv/bin/python -m pytest scripts/test_register_ab.py -q"""
-from register_ab_experiment import build_rows
+from register_ab_experiment import build_rows, read_pairs
+
+
+def test_read_pairs_skips_comment_and_blank_rows(tmp_path):
+    """CSV 안내 주석(#)·빈 행을 스킵해야 함 — pairs 템플릿에 주석 달 수 있게(견고성)."""
+    p = tmp_path / "pairs.csv"
+    p.write_text(
+        "source_work,treatment_video_id,control_video_id,storyline_key,channel_name\n"
+        "# 안내 주석 — 이 줄은 무시돼야 함\n"
+        "\n"
+        "로맨스의 절댓값,AAA,BBB,k1,스토리순삭\n",
+        encoding="utf-8")
+    pairs = read_pairs(str(p))
+    assert len(pairs) == 1
+    assert pairs[0]["treatment_vid"] == "AAA" and pairs[0]["control_vid"] == "BBB"
+    assert pairs[0]["storyline_key"] == "k1"
 
 
 def test_two_rows_per_pair_with_arms():
