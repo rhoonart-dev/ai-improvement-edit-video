@@ -158,9 +158,9 @@ def test_credentials_no_generic_fallback(monkeypatch):
     import publish_youtube as pub
     monkeypatch.setenv("YT_CLIENT_ID", "cid")
     monkeypatch.setenv("YT_CLIENT_SECRET", "cs")
-    monkeypatch.delenv("YT_REFRESH_TOKEN_STORYSUNSAK", raising=False)
+    monkeypatch.delenv("YT_REFRESH_TOKEN_CINEMAINBED", raising=False)
     monkeypatch.setenv("YT_REFRESH_TOKEN", "generic-token")   # 있어도 무시돼야 함
-    assert pub._credentials("스토리순삭") is None
+    assert pub._credentials("이불 속 극장") is None
 
 
 # ─────────────────────────── 리뷰 확정 발견 회귀 테스트 ───────────────────────────
@@ -224,7 +224,7 @@ def test_known_auto_edit_ids_excludes_our_channels_too():
     assert "auto_edit" in conn.cur.sql
     assert "channels" in conn.cur.sql                     # 자사 채널 조인
     flat = [x for p in (conn.cur.params or ()) for x in (p if isinstance(p, (list, tuple)) else [p])]
-    assert "재미쇼츠" in flat and "스토리순삭" in flat
+    assert "재미쇼츠" in flat and "이불 속 극장" in flat
 
 
 if __name__ == "__main__":

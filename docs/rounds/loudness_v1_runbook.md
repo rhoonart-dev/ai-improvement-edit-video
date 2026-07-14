@@ -59,10 +59,10 @@ $PY scripts/ingest_aivideo_run.py --run-dir $AIV/outputs/<JOB_ID> --short-label 
 ```bash
 # treatment 발행 (기본 private → Studio 에서 공개)
 $PY scripts/publish_youtube.py --clip-id <TREAT_CLIP_UUID> --video $AIV/outputs_ab/romance_ep6_c1/treat/shorts_1.mp4 \
-    --channel 스토리순삭 --publish --privacy unlisted
+    --channel "이불 속 극장" --publish --privacy unlisted
 # control 발행 — ★treatment 와 48시간 이내, 순서 무작위 교대(R5)
 $PY scripts/publish_youtube.py --clip-id <CTRL_CLIP_UUID> --video $AIV/outputs_ab/romance_ep6_c1/ctrl/shorts_1.mp4 \
-    --channel 스토리순삭 --publish --privacy unlisted
+    --channel "이불 속 극장" --publish --privacy unlisted
 ```
 - publish_youtube 가 published_at(now) 기록 → R5(≤48h) 근거. 오채널 하드 실패·안전게이트 통과 필요.
 - **인터리브**: 같은 채널에 treatment/control 을 시기 붙여 순서 무작위로(한 쪽 몰아 발행 금지).

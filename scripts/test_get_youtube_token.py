@@ -1,9 +1,17 @@
-"""get_youtube_token 순수 함수 단위테스트(upsert_env_text, match_channel).
+"""get_youtube_token 순수 함수 단위테스트(upsert_env_text, resolve_record).
 실행: python scripts/test_get_youtube_token.py  또는  pytest scripts/test_get_youtube_token.py
 """
 from __future__ import annotations
 
 import get_youtube_token as g
+
+# 픽스처 레코드(실제 config에 의존하지 않음)
+RECS = [
+    {"token_slug": "STORYSUNSAK", "name": "스토리순삭", "handle": "@스토리순삭",
+     "channel_id": None, "gcp_project": "DEFAULT"},
+    {"token_slug": "JAEMISHOTS", "name": "재미쇼츠", "handle": None,
+     "channel_id": "UC7eXwtR1TyUVe2ts6BUjXGA", "gcp_project": "DEFAULT"},
+]
 
 
 def test_upsert_replaces_existing():
@@ -39,45 +47,40 @@ def test_upsert_preserves_comments_and_blanks():
     assert "# c" in out and "A=1" in out and "B=2" in out
 
 
-def test_match_channel_exact_and_substring():
-    assert g.match_channel("스토리순삭") == "스토리순삭"
-    assert g.match_channel("재미쇼츠 공식채널") == "재미쇼츠"  # 표시명이 더 길어도 부분일치
-    assert g.match_channel("스토리 순삭") == "스토리순삭"  # 공백 무시
-    assert g.match_channel("전혀다른채널") is None
-    assert g.match_channel("Laeebly") is None  # 개인 채널 → 미매칭
-    assert g.match_channel("") is None
-    assert g.match_channel(None) is None
+def test_resolve_record_auto_detect_by_channel_id():
+    # channel_id 정확매칭 → 지정 없이도 확정
+    rec, ok, msg = g.resolve_record("재미쇼츠", "UC7eXwtR1TyUVe2ts6BUjXGA", None, None, RECS)
+    assert rec["token_slug"] == "JAEMISHOTS" and ok and not msg
 
 
-def test_resolve_key_auto_detect_match():
-    key, ok, msg = g.resolve_key("스토리순삭", None)
-    assert key == "YT_REFRESH_TOKEN_STORYSUNSAK" and ok and not msg
+def test_resolve_record_auto_detect_by_handle():
+    rec, ok, _ = g.resolve_record("스토리 순삭", None, "@스토리순삭", None, RECS)
+    assert rec["token_slug"] == "STORYSUNSAK" and ok
 
 
-def test_resolve_key_personal_channel_no_intended_is_held():
-    # Laeebly(개인) + --channel 미지정 → 저장 보류
-    key, ok, msg = g.resolve_key("Laeebly", None)
-    assert key == "YT_REFRESH_TOKEN" and ok is False and msg
+def test_resolve_record_unregistered_no_intended_is_held():
+    # 미등록 채널(개인 등) + --channel 미지정 → 저장 보류
+    rec, ok, msg = g.resolve_record("Laeebly", "UCpersonal", None, None, RECS)
+    assert rec is None and ok is False and msg
 
 
-def test_resolve_key_mismatch_refused_then_forced():
-    # 지정은 스토리순삭인데 실제 잡힌 건 재미쇼츠 → 거부, force면 통과
-    key, ok, msg = g.resolve_key("재미쇼츠 공식", "스토리순삭")
-    assert key == "YT_REFRESH_TOKEN_STORYSUNSAK" and ok is False and msg
-    key2, ok2, _ = g.resolve_key("재미쇼츠 공식", "스토리순삭", force=True)
-    assert key2 == "YT_REFRESH_TOKEN_STORYSUNSAK" and ok2 is True
+def test_resolve_record_mismatch_refused_then_forced():
+    # 지정은 스토리순삭인데 실제 잡힌 channel_id는 재미쇼츠 → 거부, force면 통과
+    rec, ok, msg = g.resolve_record("재미쇼츠", "UC7eXwtR1TyUVe2ts6BUjXGA", None, "스토리순삭", RECS)
+    assert rec["token_slug"] == "STORYSUNSAK" and ok is False and msg
+    rec2, ok2, _ = g.resolve_record("재미쇼츠", "UC7eXwtR1TyUVe2ts6BUjXGA", None, "스토리순삭", RECS, force=True)
+    assert rec2["token_slug"] == "STORYSUNSAK" and ok2 is True
 
 
-def test_resolve_key_personal_with_intended_refused():
-    # Laeebly 잡혔는데 스토리순삭 지정 → 확신 불가로 거부(브랜드 채널 재선택 유도)
-    key, ok, msg = g.resolve_key("Laeebly", "스토리순삭")
-    assert key == "YT_REFRESH_TOKEN_STORYSUNSAK" and ok is False and msg
+def test_resolve_record_intended_not_in_config_refused():
+    rec, ok, msg = g.resolve_record("아무개", None, None, "없는채널", RECS)
+    assert rec is None and ok is False and "config" in msg
 
 
-def test_resolve_key_detect_failed_trusts_intended():
-    # 자동확인 실패(title=None) + --channel 지정 → 지정값 신뢰(경고 동반)
-    key, ok, msg = g.resolve_key(None, "재미쇼츠")
-    assert key == "YT_REFRESH_TOKEN_JAEMISHOTS" and ok is True and msg
+def test_resolve_record_detect_failed_trusts_intended():
+    # 자동확인 실패(신호 전무) + --channel 지정 → 지정값 신뢰(경고 동반)
+    rec, ok, msg = g.resolve_record(None, None, None, "재미쇼츠", RECS)
+    assert rec["token_slug"] == "JAEMISHOTS" and ok is True and msg
 
 
 def _run():

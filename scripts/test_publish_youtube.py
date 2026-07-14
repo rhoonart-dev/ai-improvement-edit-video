@@ -3,6 +3,8 @@
 """
 from __future__ import annotations
 
+import os
+
 import publish_youtube as pub
 
 
@@ -24,7 +26,7 @@ def test_snippet_empty():
 
 
 def test_token_env_name():
-    assert pub.token_env_name("스토리순삭") == "YT_REFRESH_TOKEN_STORYSUNSAK"
+    assert pub.token_env_name("이불 속 극장") == "YT_REFRESH_TOKEN_CINEMAINBED"
     assert pub.token_env_name("재미쇼츠") == "YT_REFRESH_TOKEN_JAEMISHOTS"
     # §3-5 오채널 업로드 차단: 미등록 채널 → generic 폴백 금지, 하드 실패
     try:
@@ -32,6 +34,50 @@ def test_token_env_name():
         assert False, "미등록 채널이 하드 실패하지 않음"
     except ValueError:
         pass
+    # 신규 채널(config 등록분)도 슬러그로 해석
+    assert pub.token_env_name("다람쥐 숏토리") == "YT_REFRESH_TOKEN_DARAMJI"
+
+
+# ── _credentials: 프로젝트 분리(gcp_project) + 채널별 토큰 조립 (env 조작) ──
+
+def _clear_yt_env():
+    for k in list(os.environ):
+        if k.startswith(("YT_CLIENT_ID", "YT_CLIENT_SECRET", "YT_REFRESH_TOKEN")):
+            del os.environ[k]
+
+
+def test_credentials_default_channel_uses_global_client():
+    # DEFAULT 프로젝트(재미쇼츠) → 전역 YT_CLIENT_ID/SECRET + 채널 토큰
+    _clear_yt_env()
+    os.environ.update({"YT_CLIENT_ID": "gid", "YT_CLIENT_SECRET": "gsec",
+                       "YT_REFRESH_TOKEN_JAEMISHOTS": "jtok"})
+    try:
+        c = pub._credentials("재미쇼츠")
+        assert c is not None and c.client_id == "gid" and c.refresh_token == "jtok"
+    finally:
+        _clear_yt_env()
+
+
+def test_credentials_split_project_uses_scoped_client():
+    # P2 프로젝트(킥킥극장) → YT_CLIENT_ID_P2/SECRET_P2 + 채널 토큰. 전역 클라이언트는 안 씀.
+    _clear_yt_env()
+    os.environ.update({"YT_CLIENT_ID": "gid", "YT_CLIENT_SECRET": "gsec",
+                       "YT_CLIENT_ID_P2": "p2id", "YT_CLIENT_SECRET_P2": "p2sec",
+                       "YT_REFRESH_TOKEN_KIKKIK": "ktok"})
+    try:
+        c = pub._credentials("킥킥극장")
+        assert c is not None and c.client_id == "p2id" and c.refresh_token == "ktok"
+    finally:
+        _clear_yt_env()
+
+
+def test_credentials_missing_token_returns_none():
+    _clear_yt_env()
+    os.environ.update({"YT_CLIENT_ID": "gid", "YT_CLIENT_SECRET": "gsec"})  # 토큰 없음
+    try:
+        assert pub._credentials("재미쇼츠") is None
+    finally:
+        _clear_yt_env()
 
 
 # ── gate_ok: 발행 *안전* 게이트 (judge quality 는 성과예측 아님) — DB 없이 fake conn ──

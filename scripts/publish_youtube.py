@@ -26,22 +26,23 @@ except ImportError:  # 단독 import 컨텍스트
     def load_env(*a, **k):
         return {}
 
+import channel_registry as registry  # 채널→토큰/OAuth 매핑 단일 소스(config/channels.json)
+
 CATEGORY_ENTERTAINMENT = "24"
 UPLOAD_SCOPE = "https://www.googleapis.com/auth/youtube.upload"
-CHANNEL_ENV = {"스토리순삭": "STORYSUNSAK", "재미쇼츠": "JAEMISHOTS"}   # 채널 → refresh token env 키(한글 회피)
 
 
 # ─────────────────────────── 순수 (단위테스트) ───────────────────────────
 
 def token_env_name(channel):
-    """채널 → YT refresh token env 변수명. §3-5 오채널 업로드 차단:
-    미등록 채널은 generic 폴백 없이 하드 실패 — 잘못된 채널명으로 '아무 채널'에
-    업로드되는 사고를 기계적으로 차단."""
-    key = CHANNEL_ENV.get(channel)
-    if not key:
-        raise ValueError(f"미등록 채널 {channel!r} — CHANNEL_ENV 에 등록된 채널만 업로드 가능"
-                         f"(등록: {sorted(CHANNEL_ENV)})")
-    return f"YT_REFRESH_TOKEN_{key}"
+    """채널 표시명 → YT refresh token env 변수명. 레지스트리(config/channels.json)로 해석.
+    §3-5 오채널 업로드 차단: 미등록 채널(token_slug 없음)은 generic 폴백 없이 하드 실패 —
+    잘못된 채널명으로 '아무 채널'에 업로드되는 사고를 기계적으로 차단(레지스트리의 generic
+    폴백을 여기서 봉쇄)."""
+    rec = registry.resolve(channel)
+    if not rec or not rec.get("token_slug"):
+        raise ValueError(f"미등록 채널 {channel!r} — config/channels.json 에 등록된 채널만 업로드 가능")
+    return f"YT_REFRESH_TOKEN_{rec['token_slug']}"
 
 
 def build_snippet(title, hashtags=None, category=CATEGORY_ENTERTAINMENT):
@@ -83,11 +84,16 @@ def fetch_clip_title(conn, clip_id):
 # ─────────────────────────── YouTube 업로드 ───────────────────────────
 
 def _credentials(channel):
-    """채널별 refresh token 만 사용 — generic YT_REFRESH_TOKEN 폴백 제거(§3-5).
-    폴백이 있으면 채널별 토큰 미설정 시 '다른 채널의 generic 토큰'으로 조용히 오채널 업로드된다."""
+    """채널별 refresh token + (프로젝트 분리) 프로젝트별 OAuth 클라이언트로 Credentials 조립.
+    OAuth 클라이언트(앱)는 gcp_project 별(DEFAULT면 전역 YT_CLIENT_ID/SECRET) — 앱은 채널 정체성이
+    아니라 폴백 OK. 단 채널을 식별하는 **refresh token 은 채널별만**(generic 폴백 제거, §3-5) —
+    token_env_name 이 미등록 채널을 하드 실패시키므로 여기 도달하면 등록 채널이 보장됨."""
     from google.oauth2.credentials import Credentials
-    cid, cs = os.environ.get("YT_CLIENT_ID"), os.environ.get("YT_CLIENT_SECRET")
-    rt = os.environ.get(token_env_name(channel))
+    rec = registry.resolve(channel)
+    cid_key, cs_key = registry.client_env_names(rec.get("gcp_project") if rec else None)
+    cid = os.environ.get(cid_key) or os.environ.get("YT_CLIENT_ID")
+    cs = os.environ.get(cs_key) or os.environ.get("YT_CLIENT_SECRET")
+    rt = os.environ.get(token_env_name(channel))   # §3-5: generic 폴백 없음(채널별 토큰만)
     if not (cid and cs and rt):
         return None
     return Credentials(None, refresh_token=rt, client_id=cid, client_secret=cs,

@@ -11,7 +11,7 @@ def test_read_pairs_skips_comment_and_blank_rows(tmp_path):
         "source_work,treatment_video_id,control_video_id,storyline_key,channel_name\n"
         "# 안내 주석 — 이 줄은 무시돼야 함\n"
         "\n"
-        "로맨스의 절댓값,AAA,BBB,k1,스토리순삭\n",
+        "로맨스의 절댓값,AAA,BBB,k1,이불 속 극장\n",
         encoding="utf-8")
     pairs = read_pairs(str(p))
     assert len(pairs) == 1

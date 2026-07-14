@@ -1,0 +1,115 @@
+[
+  {
+    "token_slug": "JAEMISHOTS",
+    "name": "재미쇼츠",
+    "handle": null,
+    "channel_id": "UC7eXwtR1TyUVe2ts6BUjXGA",
+    "gcp_project": "DEFAULT",
+    "genre": "드라마",
+    "works": [
+      "유미의 세포들 시즌3"
+    ]
+  },
+  {
+    "token_slug": "CINEMAINBED",
+    "name": "이불 속 극장",
+    "handle": "@cinema-in-bed",
+    "channel_id": "UC_Wwj7NRZ5ohbuHfJ5-4LOg",
+    "gcp_project": "DEFAULT",
+    "genre": "드라마",
+    "works": [
+      "로맨스의 절댓값"
+    ]
+  },
+  {
+    "token_slug": "DARAMJI",
+    "name": "다람쥐 숏토리",
+    "handle": "@다람쥐숏토리",
+    "channel_id": "UCDxftplNleQQRkw6CCjjSWA",
+    "gcp_project": "DEFAULT",
+    "genre": "드라마, 영화",
+    "works": [
+      "아파트",
+      "신입사원 강회장"
+    ]
+  },
+  {
+    "token_slug": "NEOGULBANG",
+    "name": "너굴안방",
+    "handle": "@너굴안방",
+    "channel_id": "UC9AyTd-Z1qUd3-qQ3VUdNkQ",
+    "gcp_project": "DEFAULT",
+    "genre": "드라마, 영화",
+    "works": [
+      "킬러들의 쇼핑몰2"
+    ]
+  },
+  {
+    "token_slug": "TETOCHIP",
+    "name": "숏테토칩",
+    "handle": "@숏테토칩",
+    "channel_id": "UCiLSQd9OZMr7F5ZwpMUm0Lg",
+    "gcp_project": "DEFAULT",
+    "genre": "예능",
+    "works": [
+      "도깨비 10주년 여행",
+      "언니네 산지직송 in 칼라페"
+    ]
+  },
+  {
+    "token_slug": "KIKKIK",
+    "name": "킥킥극장",
+    "handle": "@킥킥극장",
+    "channel_id": "UClwzc75sBxl_nYCFQz-FZ4A",
+    "gcp_project": "P2",
+    "genre": "예능",
+    "works": [
+      "SNL 시즌8",
+      "SNL 시즌7"
+    ]
+  },
+  {
+    "token_slug": "HEUNGHAENG",
+    "name": "흥행수집",
+    "handle": "@흥행수집",
+    "channel_id": "UCgho6A2Qom_tm5i_g3m8-Xg",
+    "gcp_project": "P2",
+    "genre": "예능",
+    "works": [
+      "스트릿 레스토랑 파이터",
+      "언더커버 셰프"
+    ]
+  },
+  {
+    "token_slug": "SHOTNOW",
+    "name": "숏나우저",
+    "handle": "@숏나우저",
+    "channel_id": "UCrMMrUGcN2gh4_HlWwkMcqQ",
+    "gcp_project": "P2",
+    "genre": "예능",
+    "works": [
+      "놀라운 토요일"
+    ]
+  },
+  {
+    "token_slug": "YEOWOON",
+    "name": "여운 보관소",
+    "handle": "@여운보관소-n6y",
+    "channel_id": "UCJekZr2s1wz4e51Z8dFiKNA",
+    "gcp_project": "P2",
+    "genre": "다큐",
+    "works": [
+      "샤먼 : 미신전",
+      "국대"
+    ]
+  },
+  {
+    "token_slug": "SHOTCONE",
+    "name": "숏콘",
+    "handle": "@shorts-cone",
+    "channel_id": "UCY41EN1sP9CIJE_U-JonziA",
+    "gcp_project": "P2",
+    "genre": "ENA 일본 채널",
+    "works": []
+  }
+]

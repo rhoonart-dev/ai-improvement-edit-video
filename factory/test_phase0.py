@@ -209,14 +209,14 @@ def test_retrieve_holdout_cluster_returns_no_injection():
 
 
 def test_our_channel_names_constant():
-    assert "재미쇼츠" in OUR_CHANNEL_NAMES and "스토리순삭" in OUR_CHANNEL_NAMES
+    assert "재미쇼츠" in OUR_CHANNEL_NAMES and "이불 속 극장" in OUR_CHANNEL_NAMES
 
 
 # ─────────────────────────── §3-2 적재 시 origin 세팅 ───────────────────────────
 def test_clip_origin():
     from run_factory import clip_origin
     assert clip_origin({"channel_name": "재미쇼츠", "channel_id": "UCx"}) == "ours"
-    assert clip_origin({"channel_name": "스토리순삭"}) == "ours"
+    assert clip_origin({"channel_name": "이불 속 극장"}) == "ours"
     assert clip_origin({"channel_name": "남의채널", "channel_id": "UCy"}) == "market"
     assert clip_origin({"channel_id": "UCy"}) == "market"       # 이름 없어도 id 있으면 시장
     assert clip_origin(None) is None                            # control 조회 실패 → 미확정
@@ -228,7 +228,7 @@ def test_our_channel_ids_from_rows():
     rows = [
         {"channel_id": "UC_ours", "channel_name": "재미쇼츠", "origin": "ours"},
         {"channel_id": "UC_mkt", "channel_name": "남의채널", "origin": "market"},
-        {"channel_id": "UC_ours2", "channel_name": "스토리순삭", "origin": None},  # 백필 전
+        {"channel_id": "UC_ours2", "channel_name": "이불 속 극장", "origin": None},  # 백필 전
         {"channel_id": None, "channel_name": "재미쇼츠"},
     ]
     assert our_channel_ids(rows) == {"UC_ours", "UC_ours2"}

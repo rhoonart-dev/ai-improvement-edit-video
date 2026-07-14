@@ -38,7 +38,7 @@ def test_channel_for_maps_work():
     with tempfile.TemporaryDirectory() as t:
         d1 = _mkrun(t, "jobD", "D_1", "로맨스의 절댓값")
         d2 = _mkrun(t, "jobE", "E_1", "유미의 세포들 시즌3")
-        assert al._channel_for(str(d1)) == "스토리순삭"
+        assert al._channel_for(str(d1)) == "이불 속 극장"
         assert al._channel_for(str(d2)) == "재미쇼츠"
 
 

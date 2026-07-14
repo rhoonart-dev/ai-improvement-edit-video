@@ -153,8 +153,8 @@ def test_publish_youtube_builds_snippet_with_channel_privacy():
     """발행 스니펫에 채널·공개범위가 붙는지(build_snippet 재사용 + 메타)."""
     import publish_youtube as pub
     snip = pub.build_snippet("제목", ["#로맨스"])
-    enriched = {**snip, "channel": "스토리순삭", "privacy": "unlisted"}
-    assert enriched["title"] == "제목" and enriched["channel"] == "스토리순삭"
+    enriched = {**snip, "channel": "이불 속 극장", "privacy": "unlisted"}
+    assert enriched["title"] == "제목" and enriched["channel"] == "이불 속 극장"
     assert enriched["tags"] == ["로맨스"]
 
 

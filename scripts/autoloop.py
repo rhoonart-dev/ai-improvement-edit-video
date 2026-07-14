@@ -27,8 +27,7 @@ except ImportError:  # 단독 import 컨텍스트
     def load_env(*a, **k):
         return {}
 
-# 작품 → 발행 채널 매핑(정합 대상)
-TARGETS = [("로맨스의 절댓값", "스토리순삭"), ("유미의 세포들 시즌3", "재미쇼츠")]
+import channel_registry as registry  # 작품→채널 라우팅 단일 소스(config/channels.json)
 
 
 def ingested_run_ids(conn):
@@ -61,7 +60,7 @@ def _channel_for(run_dir):
         wt = (ep.get("input") or {}).get("work_title", "")
     except (OSError, json.JSONDecodeError):
         return None
-    for work, ch in TARGETS:
+    for work, ch in registry.targets():
         if work and (work in wt or wt in work):
             return ch
     return None
