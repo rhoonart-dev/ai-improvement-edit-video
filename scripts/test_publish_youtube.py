@@ -26,7 +26,7 @@ def test_snippet_empty():
 
 
 def test_token_env_name():
-    assert pub.token_env_name("스토리순삭") == "YT_REFRESH_TOKEN_STORYSUNSAK"
+    assert pub.token_env_name("이불 속 극장") == "YT_REFRESH_TOKEN_CINEMAINBED"
     assert pub.token_env_name("재미쇼츠") == "YT_REFRESH_TOKEN_JAEMISHOTS"
     assert pub.token_env_name("미등록채널") == "YT_REFRESH_TOKEN"
     # 신규 채널(config 등록분)도 슬러그로 해석

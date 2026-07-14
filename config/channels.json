@@ -11,10 +11,10 @@
     ]
   },
   {
-    "token_slug": "STORYSUNSAK",
-    "name": "스토리순삭",
-    "handle": "@스토리순삭",
-    "channel_id": null,
+    "token_slug": "CINEMAINBED",
+    "name": "이불 속 극장",
+    "handle": "@cinema-in-bed",
+    "channel_id": "UC_Wwj7NRZ5ohbuHfJ5-4LOg",
     "gcp_project": "DEFAULT",
     "genre": "드라마",
     "works": [
