@@ -1,5 +1,5 @@
 {
-  "baseline_pct": 0.21,
+  "baseline_pct": 0.19393455683561994,
   "rounds": [
     {
       "round": 1,
@@ -12,5 +12,19 @@
       "pct": null,
       "status": "proposed"
     }
-  ]
+  ],
+  "baseline_window_days": 7,
+  "baseline_n": 31,
+  "baseline_method": "cohort_percentile:raw",
+  "audit_baseline_pct": 0.20422335188075944,
+  "audit_baseline_window_days": 14,
+  "audit_baseline_n": 29,
+  "baseline_history": [
+    {
+      "pct": 0.21,
+      "window_days": 14,
+      "note": "replaced by recompute_baseline"
+    }
+  ],
+  "baseline_recomputed_at": "2026-07-14T17:26:58.574826+00:00"
 }

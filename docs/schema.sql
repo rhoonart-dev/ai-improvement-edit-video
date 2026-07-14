@@ -553,4 +553,27 @@ ALTER TABLE public.aivideo_experiments ENABLE ROW LEVEL SECURITY;
 CREATE INDEX IF NOT EXISTS ix_aivexp_key_pair ON public.aivideo_experiments(experiment_key, pair_id);
 CREATE INDEX IF NOT EXISTS ix_aivexp_vid      ON public.aivideo_experiments(video_external_id);
 
+-- =====================================================================
+-- gen_queue — 생성 자동화 큐 (autogen.py 가 pending 잡을 ai-video 로 실행)
+--   DB 분단 해소(2026-07-14): 형제 repo 에만 있던 DDL 을 brain DB 정본으로 이관.
+--   마이그레이션 docs/migrations/0005_gen_queue.sql.
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS gen_queue (
+    id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    work_title  text NOT NULL,
+    source      text NOT NULL,                  -- 로컬 파일 경로 또는 youtube url
+    channel     text,                            -- 발행 대상 채널(스토리순삭/재미쇼츠)
+    topic       text,
+    episode     integer,
+    max_shorts  integer NOT NULL DEFAULT 1,
+    status      text NOT NULL DEFAULT 'pending', -- pending/running/done/failed
+    run_id      text,                            -- 생성된 ai-video job_id
+    error       text,
+    created_at  timestamptz NOT NULL DEFAULT now(),
+    updated_at  timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT gen_queue_status_chk CHECK (status IN ('pending','running','done','failed'))
+);
+CREATE INDEX IF NOT EXISTS idx_gen_queue_status ON gen_queue(status);
+ALTER TABLE public.gen_queue ENABLE ROW LEVEL SECURITY;
+
 COMMIT;
