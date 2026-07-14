@@ -44,8 +44,10 @@ def resolve_clip_id(conn, *, clip_id, run_id, short_label):
     return None
 
 
-def link_published(conn, clip_id, *, content_id, channel=None, published_at=None, commit=True):
-    """clips 행에 발행 정보 연결. content_id가 다른 클립에 이미 연결돼 있으면 ValueError."""
+def link_published(conn, clip_id, *, content_id, channel=None, published_at=None,
+                   snippet=None, commit=True):
+    """clips 행에 발행 정보 연결. content_id가 다른 클립에 이미 연결돼 있으면 ValueError.
+       snippet(dict) 이 주어지면 clip_metadata.publish_snippet 에 기록(§3-8 provenance)."""
     channel_id = find_channel(conn, channel) if channel else None
     with conn.cursor() as cur:
         cur.execute(
@@ -67,7 +69,27 @@ def link_published(conn, clip_id, *, content_id, channel=None, published_at=None
         updated = cur.rowcount
     if commit:
         conn.commit()
+    # §3-8: 발행 스니펫 provenance — 별도 트랜잭션(실패해도 위 발행 연결은 이미 커밋돼 보존).
+    #   실패한 문은 psycopg 에서 트랜잭션을 오염시키므로 반드시 분리해야 한다.
+    if snippet is not None and commit:
+        _record_snippet(conn, clip_id, snippet)
     return updated
+
+
+def _record_snippet(conn, clip_id, snippet):
+    """clip_metadata.publish_snippet 기록(best-effort). 0004 미적용/메타 미존재면 경고만."""
+    from psycopg.types.json import Json
+    try:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE public.clip_metadata SET publish_snippet = %s "
+                        "WHERE clip_id = %s", (Json(snippet), clip_id))
+        conn.commit()
+    except Exception as e:  # noqa: BLE001 — provenance 부가정보라 발행 실패로 번지면 안 됨
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        print(f"  ⚠ publish_snippet 기록 실패(마이그레이션 0004 미적용?): {e}")
 
 
 # ─────────────────────────── CLI ───────────────────────────

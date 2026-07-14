@@ -143,10 +143,14 @@ def main():
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         from datetime import datetime, timezone
         from link_published import link_published
+        now = datetime.now(timezone.utc)
         # published_at 을 업로드 순간으로 기록 — R5(§4-3)·판정 창 계산의 근거.
         # (laeebly ETL 이 이후 자체 publish_time 으로 백필하지만, 등록 시점엔 이 값이 유일.)
+        # snippet — 실제 발행된 형태를 provenance 로 기록(§3-8).
+        snippet = {**snip, "channel": a.channel, "privacy": a.privacy,
+                   "published_at": now.isoformat()}
         n = link_published(conn, a.clip_id, content_id=vid, channel=a.channel,
-                           published_at=datetime.now(timezone.utc))
+                           published_at=now, snippet=snippet)
         print(f"linked clip {a.clip_id} → {vid} (rows={n})")
     finally:
         conn.close()

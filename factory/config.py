@@ -51,7 +51,11 @@ OUR_CHANNEL_NAMES = ("재미쇼츠", "스토리순삭")
 OUR_CHANNEL_IDS: tuple = ()          # 알려지면 ("UC…",) 로 채움
 # 골든 홀드아웃 클러스터(주입 금지 — 뱅크 오염·mode collapse 카나리아, §3-2).
 #   Phase 2(주입 v0) 시작 전 표본 충분한 클러스터 1~2개를 지정할 것.
+#   ⚠ 지정은 뱅크 채점(perf_label) 후 designate_holdout.py 로 — 미채점 데이터로는 못 고름.
 INJECTION_HOLDOUT_CLUSTERS: frozenset = frozenset()
+# 홀드아웃 작품 세트(노브 판정에 절대 불사용 — 분기별 champion 무편향 측정, §3-7).
+#   반복 사용 작품에의 과적합을 추적. 채점·라운드 이력 축적 후 designate_holdout.py 로 지정.
+HOLDOUT_WORKS: frozenset = frozenset()
 
 SCHEMA_VERSION = "0.4"
 CODE_VERSION = "factory-v0.1"

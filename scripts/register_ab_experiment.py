@@ -118,6 +118,26 @@ def fetch_published_at(conn, vids):
         return dict(cur.fetchall())
 
 
+def loop_cohort_ids(state_path=None):
+    """loop_state.json 의 모든 라운드 cohort_ids 합집합 — R6 이중소속 차단(§3-3).
+       느린 루프 코호트는 DB 가 아니라 로컬 파일이므로 여기서 읽어 쌍 등록과 교차 체크한다."""
+    import json
+    from pathlib import Path
+    p = Path(state_path) if state_path else \
+        Path(__file__).resolve().parent.parent / "results" / "loop_state.json"
+    if not p.exists():
+        return set()
+    try:
+        state = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return set()
+    out = set()
+    for r in state.get("rounds", []):
+        for cid in (r.get("cohort_ids") or []):
+            out.add(cid)
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--experiment", required=True)
@@ -128,6 +148,11 @@ def main():
     import psycopg
     pairs = read_pairs(a.pairs_file)
     rows = build_rows(a.experiment, pairs)
+    vids = [r["video_external_id"] for r in rows]
+    dual = sorted(set(vids) & loop_cohort_ids())    # R6(§3-3): 느린 루프 코호트와 이중소속 차단
+    if dual:
+        raise SystemExit(f"R6 위반 — {len(dual)}개 content_id 가 이미 느린 루프 코호트 소속: "
+                         f"{dual[:5]}. 한 클립은 정확히 1개 실험/라운드만 소속 가능(§3-3)")
     conn = psycopg.connect(os.environ["PIPELINE_DB_URL"])
     if not a.allow_unverified_times:      # §4-3 R5: 등록 시 발행시각 근접 강제
         pub = fetch_published_at(conn, [r["video_external_id"] for r in rows])

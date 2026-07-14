@@ -107,6 +107,20 @@ def load_work_others(conn, work, exclude_ids, window_days=DEFAULT_WINDOW_DAYS):
     return [(_f(d), _f(a)) for d, a in cur.fetchall()]
 
 
+def load_work_others_full(conn, work, exclude_ids, window_days=DEFAULT_WINDOW_DAYS):
+    """작품 시장 클립 (duration, apv, views) — 절대 시청시간 가드레일용(§3-2).
+    views 까지 NOT NULL 인 행만(watch_sec = apv×dur×views 계산에 셋 다 필요)."""
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT c.duration_sec, p.avg_view_pct, p.views
+        FROM clips c JOIN works w ON w.id=c.work_id
+        JOIN clip_performance p ON p.clip_id=c.id AND p.snapshot_window_days=%s
+        WHERE w.title=%s AND c.video_external_id <> ALL(%s)
+          AND p.avg_view_pct IS NOT NULL AND c.duration_sec IS NOT NULL AND p.views IS NOT NULL
+    """, (window_days, work, exclude_ids))
+    return [(_f(d), _f(a), _f(v)) for d, a, v in cur.fetchall()]
+
+
 def main():
     import argparse
     ap = argparse.ArgumentParser(description="ai-video 코호트 vs 시장(같은 작품) 시청유지 백분위")

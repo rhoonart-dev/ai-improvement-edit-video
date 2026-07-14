@@ -31,6 +31,7 @@ from m3_aivideo_benchmark import (  # noqa: E402
     comparator_exclude_db,
     load_aiv,
     load_work_others,
+    load_work_others_full,
     percentile_rank,
 )
 
@@ -86,10 +87,88 @@ def best_round(rounds):
 
 def judge_cohort(pct, baseline, margin=MARGIN):
     """D3 판정 규칙: 코호트 백분위 − baseline > margin → 'adopt', 아니면 'reject'.
-       pct 없으면 None(판정 불가)."""
+       pct 없으면 None(판정 불가). ※점추정만 — 노이즈 문턱은 judge_cohort_ci(K4)."""
     if pct is None:
         return None
     return "adopt" if (pct - baseline) > margin else "reject"
+
+
+# ───────── §3-1 CI 게이트 (K4) — margin=효과 문턱, CI=노이즈 문턱 ─────────
+LENGTH_AFFECTING_KNOBS = {"length", "silence"}   # §3-2 가드레일 대상
+
+
+def cluster_bootstrap_ci(work_ranks, n_boot=2000, alpha=0.10, seed=0):
+    """작품 단위 클러스터 부트스트랩 → 코호트 평균 백분위의 (1-alpha) CI.
+       work_ranks: {work: [clip_rank,...]}. 작품(=클러스터) 재표집으로 within-work 상관 보존.
+       반환 (lo, hi, point). 작품<2면 교차-작품 분산 산출 불가 → (None, None, point).
+       point = 전 clip rank 풀 평균(cohort_percentile 과 동일)."""
+    works = [r for r in work_ranks.values() if r]
+    allr = [x for r in works for x in r]
+    point = (sum(allr) / len(allr)) if allr else None
+    if len(works) < 2:
+        return (None, None, point)
+    import numpy as np
+    rng = np.random.default_rng(seed)
+    k = len(works)
+    means = []
+    for _ in range(n_boot):
+        idx = rng.integers(0, k, size=k)
+        pooled = [x for i in idx for x in works[i]]
+        means.append(sum(pooled) / len(pooled))
+    lo = float(np.percentile(means, 100 * alpha / 2))
+    hi = float(np.percentile(means, 100 * (1 - alpha / 2)))
+    return (lo, hi, point)
+
+
+def judge_cohort_ci(point, ci_lo, baseline, margin=MARGIN):
+    """K4 채택 규칙: (CI 하한 > baseline) AND (점추정 − baseline > margin).
+       point None → None(판정 불가). ci_lo None(작품<2) → 'hold_no_ci'(노이즈 문턱 확인 불가 = 채택 불가)."""
+    if point is None:
+        return None
+    if ci_lo is None:
+        return "hold_no_ci"
+    if (ci_lo > baseline) and (point - baseline > margin):
+        return "adopt"
+    return "reject"
+
+
+def guardrail_verdict(config, base_config, apv_pct, ws_pct, gap=0.15):
+    """§3-2 코호트 가드레일: apv 는 짧을수록 유리한 정규화 artifact.
+       config 가 base 대비 길이 영향 노브(length·silence)를 바꿨는데
+       (a) 절대 시청시간 백분위(ws_pct)가 없으면 'blocked'(판정 금지)
+       (b) apv 백분위가 ws_pct 보다 gap 초과로 높으면 'artifact_warn'(짧아서 얻은 이득 의심)
+       그 외 'ok'. base_config None → 보수적으로 길이 영향 간주."""
+    if base_config is None:
+        touches_length = True
+    else:
+        changed = [k for k in config if config.get(k) != base_config.get(k)]
+        touches_length = any(k in LENGTH_AFFECTING_KNOBS for k in changed)
+    if not touches_length:
+        return "ok"
+    if ws_pct is None:
+        return "blocked"
+    if apv_pct is not None and (apv_pct - ws_pct) > gap:
+        return "artifact_warn"
+    return "ok"
+
+
+def membership_overlap(ids, member_set):
+    """ids 중 member_set 에 속한 것(순서·중복 보존) — R6 이중소속 차단(§3-3)."""
+    ms = set(member_set)
+    return [i for i in ids if i in ms]
+
+
+def round_verdict_label(rnd, baseline, margin=MARGIN):
+    """라운드 표시용 판정 라벨 — CI 게이트(K4) + 가드레일(§3-2) 결합.
+       measure 와 status 가 같은 결론을 보이도록 단일 진실원천(순수)."""
+    v = judge_cohort_ci(rnd.get("pct"), rnd.get("ci_lo"), baseline, margin)
+    g = rnd.get("guardrail")
+    if g == "blocked":
+        return "❌가드레일 보류(길이 artifact)"
+    if g == "artifact_warn" and v == "adopt":
+        return "⚠채택보류(apv≫절대시청·길이 artifact 의심)"
+    return {"adopt": "✅채택권", "hold_no_ci": "❌CI불가(작품<2)",
+            "reject": "❌미채택"}.get(v, "—")
 
 
 def audit_reversal(pct_primary, baseline_primary, pct_audit, baseline_audit, margin=MARGIN):
@@ -131,24 +210,57 @@ def _find(s, rnd):
 
 
 # ───────── 측정(벤치마크 재사용) ─────────
-def cohort_percentile(conn, ids, window_days=DEFAULT_WINDOW_DAYS):
-    """코호트 content_id 들의 '같은 작품 시장 대비' 풀 백분위(+개수). 창 파라미터화(§3-6)."""
+def cohort_ranks_by_work(conn, ids, window_days=DEFAULT_WINDOW_DAYS):
+    """코호트 clip 별 '같은 작품 시장 대비' apv 백분위를 작품별로 묶어 반환({work: [rank,...]}).
+       CI 부트스트랩(§3-1)이 작품 단위로 재표집하도록 풀지 않고 그룹 유지."""
     aiv = load_aiv(conn, ids, window_days)
-    # frozen comparator: 레거시(AIV_IDS)∪동적(auto_edit)∪코호트 전부 제외(Codex #1 + §3-3)
-    exclude = comparator_exclude_db(conn, ids)
+    exclude = comparator_exclude_db(conn, ids)   # 레거시∪동적∪코호트 제외(§3-3)
     by_work = {}
     for t, d, a, v in aiv:
-        by_work.setdefault(t, []).append((d, a))
-    ranks = []
-    for t, items in by_work.items():
-        if t is None:
-            continue
+        if t is not None:
+            by_work.setdefault(t, []).append(a)
+    ranks_by_work = {}
+    for t, a_list in by_work.items():
         others = load_work_others(conn, t, exclude, window_days)
         h = [a for _, a in others]
         if not h:
             continue
-        ranks += [percentile_rank(a, h) for _, a in items]
+        ranks_by_work[t] = [percentile_rank(a, h) for a in a_list]
+    return ranks_by_work
+
+
+def cohort_percentile(conn, ids, window_days=DEFAULT_WINDOW_DAYS):
+    """코호트 content_id 들의 '같은 작품 시장 대비' 풀 백분위(+개수). 창 파라미터화(§3-6)."""
+    rbw = cohort_ranks_by_work(conn, ids, window_days)
+    ranks = [x for r in rbw.values() for x in r]
     return (sum(ranks) / len(ranks) if ranks else None), len(ranks)
+
+
+def cohort_watchsec_percentile(conn, ids, window_days=DEFAULT_WINDOW_DAYS):
+    """코호트 절대 시청시간(apv×dur×views) 의 같은-작품 시장 백분위 평균(+개수) — §3-2 가드레일.
+       apv 백분위는 높은데 이게 낮으면 '길이가 짧아서' 얻은 이득(정규화 artifact)."""
+    aiv = load_aiv(conn, ids, window_days)
+    exclude = comparator_exclude_db(conn, ids)
+    by_work = {}
+    for t, d, a, v in aiv:
+        if t is not None and d and a is not None and v is not None:
+            by_work.setdefault(t, []).append(a * d * v)
+    ranks = []
+    for t, ws_list in by_work.items():
+        others = load_work_others_full(conn, t, exclude, window_days)
+        market_ws = [a * d * v for d, a, v in others if d and a is not None and v is not None]
+        if not market_ws:
+            continue
+        ranks += [percentile_rank(ws, market_ws) for ws in ws_list]
+    return (sum(ranks) / len(ranks) if ranks else None), len(ranks)
+
+
+def experiment_member_ids(conn, ids):
+    """ids 중 aivideo_experiments(쌍 트랙)에 이미 속한 content_id 집합 — R6 이중소속 차단(§3-3)."""
+    with conn.cursor() as c:
+        c.execute("SELECT DISTINCT video_external_id FROM aivideo_experiments "
+                  "WHERE video_external_id = ANY(%s)", (list(ids),))
+        return {r[0] for r in c.fetchall() if r[0]}
 
 
 def gate_or_exit(ids, window_days, force):
@@ -198,17 +310,19 @@ def cmd_status(s):
               f"recompute_baseline.py --apply 로 재산출 필요(§3-6)")
     for r in s["rounds"]:
         pct = f"{r['pct']*100:.0f}%" if r.get("pct") is not None else "—"
+        grd = ""
+        if r.get("guardrail") in ("artifact_warn", "blocked"):
+            grd = f"  ⚠{r['guardrail']}"      # 길이 artifact 경고를 라운드 줄에도 노출
         aud = ""
         if r.get("audit"):
             aud = f"  audit(+{r['audit']['window_days']}d)={r['audit']['pct']*100:.0f}%" \
                   + ("🚨역전" if r["audit"].get("reversal") else "✓")
         print(f"  R{r['round']} {r['status']:9s} {r['config']}  pct={pct}"
-              f"  ids={len(r.get('cohort_ids') or [])}{aud}")
+              f"  ids={len(r.get('cohort_ids') or [])}{grd}{aud}")
     b = best_round(s["rounds"])
     if b:
-        v = judge_cohort(b["pct"], s["baseline_pct"])
-        d = "✅채택권" if v == "adopt" else "❌미채택(margin 미달 포함)"
-        print(f"best: R{b['round']} {b['config']} = {b['pct']*100:.0f}%ile ({d} vs baseline, margin {MARGIN})")
+        label = round_verdict_label(b, s["baseline_pct"])   # CI 게이트 + 가드레일 결합(K4·§3-2)
+        print(f"best: R{b['round']} {b['config']} = {b['pct']*100:.0f}%ile ({label} vs baseline, margin {MARGIN})")
     _print_next_action(s)
 
 
@@ -250,18 +364,26 @@ def cmd_record(s, args):
     ids = [ln.strip() for ln in open(args.ids_file, encoding="utf-8") if ln.strip() and not ln.startswith("#")]
     if not ids:
         sys.exit("ids 파일이 비었음")
-    if not args.allow_unverified:   # Codex #2: 코호트를 provenance(우리 생성·발행)에 바인딩
-        import psycopg
-        conn = psycopg.connect(os.environ["PIPELINE_DB_URL"])
-        try:
+    import psycopg
+    conn = psycopg.connect(os.environ["PIPELINE_DB_URL"])
+    try:
+        # R6(§3-3) — provenance 우회와 **독립**. aivideo_experiments 는 provenance 미적재와
+        #   무관하게 조회 가능하므로 --allow-unverified 여부와 상관없이 항상 강제.
+        dual = membership_overlap(ids, experiment_member_ids(conn, ids))
+        if dual:
+            sys.exit(f"R6 위반 — {len(dual)}개 content_id 가 이미 쌍 A/B 실험 소속: {dual[:5]}"
+                     f"{'…' if len(dual) > 5 else ''}. 한 클립은 정확히 1개 실험/라운드만 소속 가능(§3-3)")
+        if not args.allow_unverified:   # Codex #2: 코호트를 provenance(우리 생성·발행)에 바인딩
             verified, unknown = partition_provenance(ids, verified_provenance_ids(conn, ids))
-        finally:
-            conn.close()
-        if unknown:
-            sys.exit(f"provenance 미확인 {len(unknown)}/{len(ids)}개(우리 생성·발행 아님): {unknown[:5]}"
-                     f"{'…' if len(unknown) > 5 else ''} — 잘못된 코호트 차단(Codex #2). "
-                     f"수동 확인됐으면 --allow-unverified")
-        print(f"provenance ✓ {len(verified)}개 모두 우리 생성·발행 클립")
+            if unknown:
+                sys.exit(f"provenance 미확인 {len(unknown)}/{len(ids)}개(우리 생성·발행 아님): {unknown[:5]}"
+                         f"{'…' if len(unknown) > 5 else ''} — 잘못된 코호트 차단(Codex #2). "
+                         f"수동 확인됐으면 --allow-unverified")
+            print(f"provenance ✓ {len(verified)}개 · 쌍 실험 이중소속 없음(R6 ✓)")
+        else:
+            print(f"R6 ✓ 쌍 실험 이중소속 없음 (provenance 검사는 --allow-unverified 로 생략)")
+    finally:
+        conn.close()
     r["cohort_ids"] = ids
     r["status"] = "published"
     save_state(s)
@@ -283,17 +405,38 @@ def cmd_measure(s, args):
                  f"먼저 recompute_baseline.py --window-days {w} --apply 로 기준선을 재산출하세요")
     gate_or_exit(r["cohort_ids"], w, args.force)
     conn = psycopg.connect(os.environ["PIPELINE_DB_URL"])
-    pct, n = cohort_percentile(conn, r["cohort_ids"], w)
+    rbw = cohort_ranks_by_work(conn, r["cohort_ids"], w)
+    ci_lo, ci_hi, pct = cluster_bootstrap_ci(rbw)
+    n = sum(len(v) for v in rbw.values())
     if pct is None:
         sys.exit(f"R{args.round} 성과 매칭 0건 — 아직 +{w}d 미적재이거나 작품 매핑 없음")
-    r["pct"], r["status"], r["window_days"] = pct, "measured", w
-    save_state(s)
+    ws_pct, ws_n = cohort_watchsec_percentile(conn, r["cohort_ids"], w)   # §3-2 가드레일
     base = s["baseline_pct"]
-    verdict = judge_cohort(pct, base, args.margin)
-    print(f"R{args.round} {r['config']} → {pct*100:.0f}%ile (n={n}, +{w}d) "
-          f"vs baseline {base*100:.0f}% (margin {args.margin}) "
-          f"→ {'채택 ✅' if verdict == 'adopt' else '미채택 ❌(margin 미달 포함)'}")
-    print("▶ 채택이면: 사람 승인(D5) 후 propose 로 다음 라운드. "
+    verdict = judge_cohort_ci(pct, ci_lo, base, args.margin)              # K4 CI 게이트
+    guard = guardrail_verdict(r["config"], BASELINE_CONFIG, pct, ws_pct)
+    r.update({"pct": pct, "status": "measured", "window_days": w, "n": n,
+              "ci_lo": ci_lo, "ci_hi": ci_hi, "n_works": len(rbw),
+              "watchsec_pct": ws_pct, "guardrail": guard})
+    save_state(s)
+
+    ci_txt = f"[{ci_lo*100:.0f}, {ci_hi*100:.0f}]" if ci_lo is not None else "CI 불가(작품<2)"
+    print(f"R{args.round} {r['config']} → {pct*100:.0f}%ile 90%CI{ci_txt} "
+          f"(n={n}, 작품={len(rbw)}, +{w}d) vs baseline {base*100:.0f}% (margin {args.margin})")
+    print(f"  가드레일(§3-2): 절대 시청시간 백분위 = "
+          f"{f'{ws_pct*100:.0f}%(n={ws_n})' if ws_pct is not None else '없음'} → {guard}")
+    # 최종 판정: 길이 노브인데 가드레일 데이터 없으면(blocked) 채택 금지
+    if guard == "blocked":
+        print("  → ❌ 판정 보류 — 길이 영향 노브인데 절대 시청시간 데이터 없음(apv artifact 방어, §3-2). "
+              "채택 금지")
+    elif verdict == "adopt" and guard == "artifact_warn":
+        print("  → ⚠ CI·margin 통과했으나 apv≫절대시청 — '짧아서 얻은' 이득 의심. 사람 검토 필수")
+    elif verdict == "adopt":
+        print("  → ✅ 채택권(CI 하한 > baseline AND margin 초과)")
+    elif verdict == "hold_no_ci":
+        print("  → ❌ 채택 불가 — 작품<2 라 노이즈 문턱(CI) 확인 불가. 코호트 작품 다양화 필요")
+    else:
+        print("  → ❌ 미채택 (CI 하한 ≤ baseline 또는 margin 미달)")
+    print("▶ 채택권이면: 사람 승인(D5) 후 propose 로 다음 라운드. "
           f"D+{AUDIT_WINDOW_DAYS + 4} 경: audit --round {args.round} (+14d 자동 감사, D2)")
     cmd_status(s)
 

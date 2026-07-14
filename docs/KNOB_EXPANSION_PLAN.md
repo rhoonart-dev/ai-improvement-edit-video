@@ -129,16 +129,19 @@ LLM 이 쓴 arm 도 특별 취급 없음: K6 manipulation check(피처가 실제
 
 ## 3. 선행 수리 (Phase N0~N2 — 노브 확장 전 필수)
 
-| # | 수리 | 근거 |
-|---|---|---|
-| **3-1** | **CI 게이트(K4)**: `judge_cohort` 에 작품 단위 클러스터 부트스트랩 90% CI — 채택 = CI 하한 > baseline AND 점추정−baseline > margin | [loop_controller.py:87-92](../scripts/loop_controller.py) 현행 점추정 비교뿐 |
-| **3-2** | **코호트 가드레일 이식**: m4 의 `guardrails()/watch_sec_est` 를 `cmd_measure` 에 — 길이 영향 노브(length·silence·구조 L0)는 가드레일 없이 판정 금지 | §4-2 의 코호트 측 구멍(쌍 트랙에만 구현됨) |
-| **3-3** | **R6 실험 소속 유일성**: content_id 는 정확히 1개 실험/라운드 소속 — `cmd_record` ↔ `register_ab_experiment` 상호 교차 조회, 이중 소속 하드 실패 | 쌍 트랙·코호트 트랙 병행의 전제. 측정 격리 자체는 comparator_exclude_db 가 이미 보장 |
-| **3-4** | **T0-2 provenance 스탬핑(K5, ai-video 측)**: run_log['provenance'] = {git_sha, models, config: **실효 인스턴스** asdict(App/DesignConfig — dataclass 기본 아님), prompt_versions: {템플릿: sha256}, prompt_set_hash} | 소비측은 완성, 생산측 0건. env 노브는 config 스냅샷에 자동 포함 |
-| **3-5** | **쌍 등록부 확장**: `storyline_key` 필수화(같은 edit_plan 재사용 금지의 강제 수단) + EXPERIMENT_PARAMS 하드코딩({loudness_v1} 1건)→노브 등록부 조회 | [register_ab_experiment.py:17-20,67](../scripts/register_ab_experiment.py) |
-| **3-6** | **프롬프트 섹션 레지스트리(L0 메커니즘)**: 섹션 분리 → `--prompt-variant` 교체 → prompt_versions 자동 스탬프 | §1-3. 이거 전엔 프롬프트 노브 등재 불가 |
-| **3-7** | **홀드아웃 충전**: INJECTION_HOLDOUT_CLUSTERS 1~2개 지정([config.py:54](../factory/config.py) 현재 빈 집합) + **홀드아웃 작품 세트**(노브 판정에 불사용 — 분기별 champion 무편향 측정) | 주입·제안기·과적합 감시의 공통 기반 |
-| **3-8** | **발행 스니펫 기록**: link_published 시 사용된 title/description/tags jsonb 저장 | provenance 완결성(K7 동결과 무관) |
+> **N0 구현 완료(2026-07-14).** §3-1·3-2·3-3·3-8·3-7(메커니즘)이 이 repo에 구현됨(테스트 191).
+> §3-4·3-5·3-6은 ai-video 측 작업(N1~N2)이라 별도 PR.
+
+| # | 수리 | 상태 | 근거 |
+|---|---|---|---|
+| **3-1** | **CI 게이트(K4)**: 작품 단위 클러스터 부트스트랩 90% CI — 채택 = CI 하한 > baseline AND 점추정−baseline > margin | ✅ `cluster_bootstrap_ci`·`judge_cohort_ci`, `cmd_measure` 배선 | 현행 점추정 비교뿐이던 것 대체 |
+| **3-2** | **코호트 가드레일 이식**: 절대 시청시간(apv×dur×views) 백분위를 `cmd_measure` 에 병기 — 길이 영향 노브(length·silence)는 데이터 없으면 판정 금지 | ✅ `cohort_watchsec_percentile`·`guardrail_verdict` | §4-2 의 코호트 측 구멍(쌍 트랙에만 있던 것) |
+| **3-3** | **R6 실험 소속 유일성**: content_id 는 정확히 1개 실험/라운드 소속 — `cmd_record` ↔ `register_ab_experiment` 상호 교차 조회, 이중 소속 하드 실패 | ✅ `experiment_member_ids`·`loop_cohort_ids` | 쌍·코호트 트랙 병행의 전제 |
+| **3-4** | **T0-2 provenance 스탬핑(K5, ai-video 측)**: run_log['provenance'] = {git_sha, models, config: **실효 인스턴스** asdict, prompt_versions, prompt_set_hash} | ⏳ N1 (ai-video) | 소비측은 완성, 생산측 0건 |
+| **3-5** | **쌍 등록부 확장**: `storyline_key` 필수화 + EXPERIMENT_PARAMS 하드코딩→노브 등록부 조회 | ⏳ N1 | [register_ab_experiment.py:17-20,67](../scripts/register_ab_experiment.py) |
+| **3-6** | **프롬프트 섹션 레지스트리(L0 메커니즘)**: 섹션 분리 → `--prompt-variant` 교체 → prompt_versions 자동 스탬프 | ⏳ N2 (ai-video) | §1-3. 이거 전엔 프롬프트 노브 등재 불가 |
+| **3-7** | **홀드아웃 충전**: INJECTION_HOLDOUT_CLUSTERS + HOLDOUT_WORKS 메커니즘 · 지정 헬퍼 | ◐ 메커니즘·헬퍼 구현(`designate_holdout.py`), 실지정은 뱅크 채점 후 | 미채점 데이터로는 못 고름(실측: perf_label 전량 NULL) |
+| **3-8** | **발행 스니펫 기록**: link_published 시 사용된 snippet+채널+공개범위 jsonb 저장 | ✅ `clip_metadata.publish_snippet`(마이그레이션 0004)·별도 트랜잭션 | provenance 완결성(K7 동결과 무관) |
 
 **라운드 케이던스 규칙** (병행 운영의 안전선): **R7** 라운드 config 동결 — 쌍 트랙 채택분은 진행 중 라운드에 소급 적용 금지, 다음 propose 부터 champion 병합. **R8** 발행 케이던스 예산 — 채널별 일일 슬롯 상한 고정, 슬롯 산정은 가정이 아니라 **최근 4주 실측 발행 수**로(케이던스 급증 자체가 채널 기저를 바꾸는 교란). 발행 시간대/요일은 의도적 비노브 — 코호트 백분위가 시기 운을 상쇄하는 설계(D1)라 노브화 실익 없음.
 
@@ -179,7 +182,7 @@ LLM 이 쓴 arm 도 특별 취급 없음: K6 manipulation check(피처가 실제
 
 | Phase | 내용 | 게이트 |
 |---|---|---|
-| **N0** (이 repo, 코드만) | §3-1 CI 게이트 · §3-2 코호트 가드레일 · §3-3 R6 · §3-7 홀드아웃 충전 · §3-8 스니펫 기록 | INTEGRATION_PLAN Phase 0 잔여 DB 러너북과 병행 가능 |
+| **N0** ✅ (이 repo, 코드만) | §3-1 CI 게이트 · §3-2 코호트 가드레일 · §3-3 R6 · §3-7 홀드아웃(메커니즘) · §3-8 스니펫 기록 + 마이그레이션 0004 | **구현 완료(테스트 191).** 0004 적용 + 채점 후 designate_holdout 실지정은 DB 러너북에 |
 | **N1** (ai-video 측) | §3-4 T0-2 스탬핑 · §3-5 쌍 등록부 확장 → **쌍 트랙 개통**(백로그 #2~5) | K5(스탬핑) + **N0 §3-3(R6) 완료** — R6 없이 두 트랙 병행 금지 |
 | **N2** | §3-6 프롬프트 레지스트리 → **L0 노브 개통**(백로그 #6) + K6 manipulation check 배선(프롬프트 arm ↔ eb enum 매핑 정의 포함 — sequence_type 트리와 hook_type{question,shock,preview,emotion,none} 은 분류 체계가 다름) | — |
 | **N3** | 제안기 v0 분기 리포트 → 백로그 정규 갱신 + **LLM 리라이터 arm 생성 개통**(§2-3a) | 뱅크 클러스터당 good/bad 15+ (VLM 커버리지 확장 필요 — 현행 20편) |
