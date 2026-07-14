@@ -6,7 +6,7 @@ autoloop 이 인제스트·평가한다. 즉 "생성 명령을 사람이 매번 
 (무엇을 만들지 = 소스 선택은 사람/전략 입력. 콘텐츠 자율수집은 별도 단계.)
 
 env: PIPELINE_DB_URL, GEMINI_API_KEY,
-     AI_VIDEO_WORKTREE(생성 실행 디렉토리, 기본 ../ai-video-t0-2), AI_VIDEO_GEN_PY(기본 ai-video .venv python),
+     AI_VIDEO_WORKTREE(생성 실행 디렉토리, 기본 ai-video main), AI_VIDEO_GEN_PY(기본 ai-video .venv python),
      AI_VIDEO_ROOT
 실행:
   enqueue: ... autogen.py --enqueue --work "로맨스의 절댓값" --source /path/EP06.mp4 --channel 스토리순삭 [--topic .. --episode 6 --max-shorts 1]
@@ -21,7 +21,10 @@ import re
 import subprocess
 import sys
 
-DEFAULT_WT = "/Users/gimsewon/rhoonart/ai-video-t0-2"
+# 생성은 ai-video main 에서 — cut-2 병합(2026-07-14)으로 main 이 노브 플래그
+#   (--silence/length-profile·--loudness-lufs) + T0-2 provenance 스탬프를 모두 보유.
+#   (구 기본값 ai-video-t0-2/feat/run-provenance 는 노브 미지원 → §3-4 로 요란히 실패했음.)
+DEFAULT_WT = "/Users/gimsewon/rhoonart/ai-video"
 DEFAULT_PY = "/Users/gimsewon/rhoonart/ai-video/.venv/bin/python"
 
 
