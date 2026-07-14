@@ -25,7 +25,8 @@ from difflib import SequenceMatcher
 
 from etl_transforms import parse_len_sec
 
-TARGET_CHANNELS = ("스토리순삭", "재미쇼츠")
+import channel_registry as registry  # 대상 채널 목록 단일 소스(config/channels.json)
+
 AUTO_THRESHOLD = 0.75      # 이 이상 + 2위와 마진이면 자동 연결 후보
 MARGIN = 0.15              # 1·2위 점수 차가 이 이상이어야 '유일'로 인정
 MIN_SHOW = 0.40            # 이 미만 후보는 표시 안 함
@@ -147,7 +148,7 @@ def fetch_candidate_videos(lconn, since_days=120):
               and content_id is not null and btrim(content_id) <> ''
               and upload_at >= now() - make_interval(days => %s)
             order by btrim(content_id), upload_at desc
-        """, (list(TARGET_CHANNELS), since_days))
+        """, (list(registry.channel_names()), since_days))
         return cur.fetchall()
 
 

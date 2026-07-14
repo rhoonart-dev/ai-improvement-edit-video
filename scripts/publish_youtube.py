@@ -26,17 +26,18 @@ except ImportError:  # 단독 import 컨텍스트
     def load_env(*a, **k):
         return {}
 
+import channel_registry as registry  # 채널→토큰/OAuth 매핑 단일 소스(config/channels.json)
+
 CATEGORY_ENTERTAINMENT = "24"
 UPLOAD_SCOPE = "https://www.googleapis.com/auth/youtube.upload"
-CHANNEL_ENV = {"스토리순삭": "STORYSUNSAK", "재미쇼츠": "JAEMISHOTS"}   # 채널 → refresh token env 키(한글 회피)
 
 
 # ─────────────────────────── 순수 (단위테스트) ───────────────────────────
 
 def token_env_name(channel):
-    """채널 → YT refresh token env 변수명. 미등록 채널은 generic YT_REFRESH_TOKEN."""
-    key = CHANNEL_ENV.get(channel)
-    return f"YT_REFRESH_TOKEN_{key}" if key else "YT_REFRESH_TOKEN"
+    """채널 표시명 → YT refresh token env 변수명. 미등록 채널은 generic YT_REFRESH_TOKEN."""
+    rec = registry.resolve(channel)
+    return registry.token_env_name(rec.get("token_slug") if rec else None)
 
 
 def build_snippet(title, hashtags=None, category=CATEGORY_ENTERTAINMENT):
@@ -78,8 +79,13 @@ def fetch_clip_title(conn, clip_id):
 # ─────────────────────────── YouTube 업로드 ───────────────────────────
 
 def _credentials(channel):
+    """채널별 refresh token + (프로젝트 분리) 프로젝트별 OAuth 클라이언트로 Credentials 조립.
+    레지스트리 미등록/전역(DEFAULT) 채널은 전역 YT_CLIENT_ID/SECRET·YT_REFRESH_TOKEN 으로 폴백."""
     from google.oauth2.credentials import Credentials
-    cid, cs = os.environ.get("YT_CLIENT_ID"), os.environ.get("YT_CLIENT_SECRET")
+    rec = registry.resolve(channel)
+    cid_key, cs_key = registry.client_env_names(rec.get("gcp_project") if rec else None)
+    cid = os.environ.get(cid_key) or os.environ.get("YT_CLIENT_ID")
+    cs = os.environ.get(cs_key) or os.environ.get("YT_CLIENT_SECRET")
     rt = os.environ.get(token_env_name(channel)) or os.environ.get("YT_REFRESH_TOKEN")
     if not (cid and cs and rt):
         return None

@@ -26,53 +26,37 @@ SCOPES = [
     "https://www.googleapis.com/auth/youtube.readonly",
 ]
 
-# 채널 표시명 ↔ env 슬러그 — publish_youtube와 동일 맵 재사용(드리프트 방지)
-try:
-    from publish_youtube import CHANNEL_ENV, token_env_name
-except ImportError:  # 단독 import 등 폴백
-    CHANNEL_ENV = {"스토리순삭": "STORYSUNSAK", "재미쇼츠": "JAEMISHOTS"}
-
-    def token_env_name(channel):
-        key = CHANNEL_ENV.get(channel)
-        return f"YT_REFRESH_TOKEN_{key}" if key else "YT_REFRESH_TOKEN"
+# 채널→토큰/OAuth 매핑 단일 소스(config/channels.json) — 하드코딩/퍼지매칭 제거
+import channel_registry as registry
 
 
 # ─────────────────────────── 순수 (단위테스트) ───────────────────────────
 
-def match_channel(title):
-    """YouTube 채널 표시명 → 우리 채널명(공백 무시 부분일치). 매칭 실패 시 None."""
-    t = "".join((title or "").split())  # 공백 제거 후 비교('스토리 순삭'=='스토리순삭')
-    if not t:
-        return None
-    for name in CHANNEL_ENV:
-        n = "".join(name.split())
-        if n in t or t in n:
-            return name
-    return None
+def resolve_record(title, channel_id, handle, intended, records, force=False):
+    """OAuth로 잡힌 채널(title/channel_id/handle)과 지정(intended)으로 저장할 config 레코드를 결정. 순수.
 
-
-def resolve_key(title, intended, force=False):
-    """발급된 토큰의 실제 채널(title)과 의도한 채널(intended)로 저장 키를 결정. 순수.
-
-    반환 (key, ok, message). ok=False면 저장 보류(미스매치/미확인). force=True면 경고만 하고 강제.
-    이 가드가 'Laeebly(개인) 토큰을 스토리순삭 키로 저장' 같은 조용한 오연결을 막는다.
+    반환 (record|None, ok, message). ok=False면 저장 보류(미스매치/미확인/미등록). force=True면 경고만 하고 강제.
+    channel_id 정확매칭을 우선 신뢰하므로, 'Laeebly(개인) 토큰을 브랜드 채널 키로 저장' 같은 조용한 오연결을 막는다.
     """
-    detected = match_channel(title)
+    detected = registry.resolve(records=records, channel_id=channel_id, handle=handle, name=title)
+    has_signal = bool(title or channel_id or handle)
     if intended:
-        key = token_env_name(intended)
-        if detected and detected != intended:
-            return key, force, f"선택 채널 '{title}'(={detected}) ≠ 지정 '{intended}' — 브라우저에서 잘못 선택했을 수 있음"
-        if not title:
-            return key, True, "채널 자동확인 불가(readonly 권한 등) — 지정값을 신뢰. 업로드 후 채널 재확인 권장"
+        want = registry.resolve(records=records, name=intended)
+        if want is None:
+            return None, force, f"지정 채널 '{intended}'이 config/channels.json에 없음 — 먼저 등록하세요"
+        if detected and detected.get("token_slug") != want.get("token_slug"):
+            return want, force, f"선택 채널 '{title or handle or channel_id}'(={detected.get('name')}) ≠ 지정 '{intended}' — 브라우저에서 잘못 선택했을 수 있음"
+        if not has_signal:
+            return want, True, "채널 자동확인 불가(readonly 권한 등) — 지정값을 신뢰. 업로드 후 채널 재확인 권장"
         if detected is None:
-            return key, force, f"선택 채널 '{title}'이 '{intended}' 표준명과 달라 확신 불가 — 같은 채널이면 --force"
-        return key, True, ""
-    # intended 미지정 → 자동확인된 채널로만 저장(개인/엉뚱 채널이면 보류)
+            return want, force, f"선택 채널 '{title}'이 '{intended}' 등록정보와 매칭 안 됨 — 같은 채널이면 --force"
+        return want, True, ""
+    # intended 미지정 → 자동확인된 등록 채널로만 저장(개인/미등록 채널이면 보류)
     if detected:
-        return token_env_name(detected), True, ""
-    if not title:
-        return "YT_REFRESH_TOKEN", False, "채널 자동확인 불가 & --channel 미지정 — 저장 보류"
-    return "YT_REFRESH_TOKEN", False, f"채널 '{title}'이 발행 채널(스토리순삭/재미쇼츠)과 매칭 안 됨 — 발행 대상이면 --channel 지정"
+        return detected, True, ""
+    if not has_signal:
+        return None, False, "채널 자동확인 불가 & --channel 미지정 — 저장 보류"
+    return None, False, f"채널 '{title}'이 등록 채널과 매칭 안 됨 — 발행 대상이면 config 등록 후 --channel 지정"
 
 
 def upsert_env_text(text, updates):
@@ -99,16 +83,17 @@ def upsert_env_text(text, updates):
 # ─────────────────────────── OAuth / 채널 확인 (I/O) ───────────────────────────
 
 def detect_channel(creds):
-    """channels.list(mine=true) → (title, channel_id). 실패 시 (None, None)."""
+    """channels.list(mine=true) → (title, channel_id, handle). 실패 시 (None, None, None)."""
     try:
         from googleapiclient.discovery import build
         yt = build("youtube", "v3", credentials=creds)
         items = (yt.channels().list(part="snippet", mine=True).execute() or {}).get("items") or []
         if items:
-            return items[0]["snippet"].get("title"), items[0]["id"]
+            sn = items[0].get("snippet") or {}
+            return sn.get("title"), items[0].get("id"), sn.get("customUrl")
     except Exception as e:  # noqa: BLE001 — 확인 실패해도 발급 자체는 진행
         print(f"  (채널 자동확인 실패: {type(e).__name__} {e})")
-    return None, None
+    return None, None, None
 
 
 def main():
@@ -130,30 +115,40 @@ def main():
         print("⚠️ refresh_token이 없습니다. prompt=consent로 재시도하거나 기존 동의를 해제 후 다시 실행하세요.")
         return
 
-    title, ch_id = detect_channel(creds)
-    key, ok, msg = resolve_key(title, a.channel, a.force)
+    title, ch_id, handle = detect_channel(creds)
+    records = registry.load_channels()
+    rec, ok, msg = resolve_record(title, ch_id, handle, a.channel, records, a.force)
     print()
-    print(f"이 토큰이 제어하는 채널: {title or '(자동확인 실패)'}" + (f"  [{ch_id}]" if ch_id else ""))
+    print(f"이 토큰이 제어하는 채널: {title or '(자동확인 실패)'}"
+          + (f"  [{ch_id}]" if ch_id else "") + (f"  {handle}" if handle else ""))
     if msg:
         print(f"⚠️ {msg}")
-    print(f"→ 저장 키: {key}")
     if not ok:
-        print("→ 저장 보류. 브라우저에서 **발행할 브랜드 채널(스토리순삭/재미쇼츠)**을 선택해 재실행하세요.")
+        print("→ 저장 보류. 브라우저에서 **발행할 브랜드 채널**을 선택해 재실행하세요(config/channels.json 등록분).")
         print("  (그 채널이 선택지에 안 보이면 = 브랜드 계정이 아니라 Studio 권한 위임 → 그 계정 토큰으론 API 발행 불가)")
         return
 
+    slug = rec.get("token_slug")
+    token_key = registry.token_env_name(slug)
+    cid_key, cs_key = registry.client_env_names(rec.get("gcp_project"))  # 프로젝트 분리: 전용 클라이언트 키
+    print(f"→ 채널={rec.get('name')} slug={slug} project={rec.get('gcp_project')}")
+    print(f"→ 저장 키: {cid_key}, {cs_key}, {token_key}")
+
     updates = {
-        "YT_CLIENT_ID": creds.client_id,
-        "YT_CLIENT_SECRET": creds.client_secret,
-        key: creds.refresh_token,
+        cid_key: creds.client_id,
+        cs_key: creds.client_secret,
+        token_key: creds.refresh_token,
     }
     if a.write_env:
         p = pathlib.Path(a.env_path)
         text = p.read_text(encoding="utf-8") if p.exists() else ""
         p.write_text(upsert_env_text(text, updates), encoding="utf-8")
         print(f"\n✅ .env 기록 완료: {p}")
-        print(f"   기록한 키: YT_CLIENT_ID, YT_CLIENT_SECRET, {key}  (비밀값은 출력하지 않음)")
-        print("   채널이 하나 더 있으면 이 명령을 다시 실행하고 브라우저에서 그 채널을 선택하세요.")
+        print(f"   기록한 키: {cid_key}, {cs_key}, {token_key}  (비밀값은 출력하지 않음)")
+        # 자동확인된 channel_id 를 config에 백필(비어있을 때만) → 다음 발급부터 정확매칭
+        if ch_id and registry.backfill_channel_id(slug, ch_id):
+            print(f"   config/channels.json 백필: {slug}.channel_id={ch_id}")
+        print("   채널이 더 있으면 이 명령을 다시 실행하고 브라우저에서 그 채널을 선택하세요.")
     else:
         print("\n========== 아래를 .env 에 복사 (또는 --write-env 로 자동 기록) ==========")
         for k, v in updates.items():
