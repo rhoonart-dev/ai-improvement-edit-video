@@ -138,6 +138,14 @@ $PY scripts/m4_ab_analysis.py --experiment loudness_v1 --window-days 7
 - **버퍼링 로그**: 백그라운드 생성은 `python -u`로 돌려야 진행 로그가 보임(아니면 완료 전까지 0바이트). checkpoint_*.json으로도 단계 추적.
 - **생성 시간**: 롱폼(90분 에피소드)=쇼츠 1편에 ~68분(12청크 × ~3분 Gemini 분석). 배치는 밤새 돌린다는 각오. 짧은 클립은 ~5분.
 - **발행 토큰**: 채널별 `YT_REFRESH_TOKEN_<slug>` 없으면 §3-5로 하드 실패(오채널 차단). P2 채널(킥킥극장 등)은 `YT_CLIENT_ID_P2`도 필요.
+- **★API 업로드는 무조건 "광고 사용 중지됨"으로 착지** (스크립트 버그 아님 — YouTube 구조적 제약 2겹):
+  ① Data API v3 `videos.insert` 의 `status` 에 **수익 창출 필드가 아예 없음**(privacyStatus·publishAt·license·
+  embeddable·publicStatsViewable·selfDeclaredMadeForKids·containsSyntheticMedia 뿐) → API로 광고 못 켬.
+  ② Studio "업로드 기본 설정"(YPP 시 수익화 기본값 포함)은 **youtube.com/upload 브라우저 업로드에만** 적용 —
+  API 업로드는 기본값 미상속. → **Studio 공개 전환 시 수익 창출 토글도 같이 켤 것**(사람 개입 ①에 병합).
+  자동화하려면 Content ID/파트너 API(CMS 권한) 필요. 단 **채널이 YPP 미승인이면 어느 경로로도 불가** — 먼저 확인.
+- **업로드 토큰 스코프**: youtube.upload 전용이라 `videos.list` 조회는 403. 발행 검증은 oEmbed
+  (`https://www.youtube.com/oembed?url=...&format=json` → author_name)로 채널 정합성 확인 가능(unlisted도 응답함).
 - **형제 DB 분단**: 과거 xxondf(형제 repo)와 fdidiqd로 갈렸으나 fdidiqd로 통일. 형제 repo(`ai-improve-edit-video`)는 아직 xxondf 가리킬 수 있음 — 쓸 거면 PIPELINE_DB_URL을 fdidiqd로.
 - **디스크**: 소스 마스터 ~2.9GB × N + 생성 중간파일. 여유 확인.
 - **DB 마이그레이션**: `docs/migrations/*.sql` — 적용은 사용자 확인 후(공유 DB). MCP `apply_migration` 또는 psql.
