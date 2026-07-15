@@ -44,12 +44,23 @@ ai-video(롱폼→쇼츠 추출 솔루션)를 **증거 기반으로 자기개선
 - **Phase N0**(KNOB_EXPANSION_PLAN): CI 게이트(작품 부트스트랩) · 코호트 가드레일 · R6 · 발행 스니펫(0004). 테스트 217 passed.
 - **DB 단일화**: gen_queue를 fdidiqd로 이관(0005). 뱅크 **채점 완료**(good 693/mid 1324/bad 573).
 - **제안기 v0**(`scripts/knob_proposer.py`): 실행 결과 `results/knob_proposer_report.md` — ★최상위 후보 = **loudness_dynamics**(예능×비서사 δ=−0.53). 대형 클러스터는 관측 신호 약함(M1 재확인).
-- **ai-video 생성 실기동 검증**: SNL 1화→59.8초 쇼츠(68분), 도깨비 클립→52.7초 쇼츠. **provenance 스탬프 완비**(config_hash 계산됨, provenance_complete=true → ingest 계약 충족).
+- **ai-video 생성 실기동 검증 — base 쇼츠 3편 완료**(2026-07-15). 두 소스 경로(`--video` 로컬 · `--youtube-url`) 모두 검증.
+  **provenance 스탬프 완비**(git_sha b935d20 · config{app,design} · prompt_set_hash → config_hash 계산됨,
+  `provenance_complete=true` = ingest 계약 충족). 산출물(ai-video 레포 기준):
+
+  | 작품 (채널) | 결과 | job 경로 (`~/rhoonart/ai-video/`) |
+  |---|---|---|
+  | SNL 코리아 리부트 시즌8 (킥킥극장) | 59.8초 1080×1920 (생성 68분) | `outputs_ab/smoke_snl_ep1/SNL_코리아_리부트_시즌8_ce/` |
+  | 유미의 세포들 시즌3 (재미쇼츠) | 58.4초 1080×1920 25MB | `outputs_ab/yumi_ep1/유미의_세포들_시즌3_c7/` |
+  | 도깨비 10주년 여행 (숏테토칩) | 52.7초 1080×1920 (플레이리스트 1번 클립) | `outputs_ab/dokkaebi_c1/도깨비_10주년_여행_11/` |
+
 - ai-video main = 노브(`--silence/length-profile`·`--loudness-lufs`) + `--from-step render` 재렌더 지원. autogen `DEFAULT_WT`가 main 바라봄.
 
-**진행 중 / 다음:**
-- **loudness 쌍 A/B 라운드**(`docs/rounds/loudness_v1_runbook.md`) 준비 완료 — 첫 실행 대기.
-- 생성 배치: SNL(킥킥극장)·유미(재미쇼츠)·도깨비(숏테토칩) base 쇼츠 생성 중(§4 참조).
+**진행 중 / 다음 (여기서 이어받으면 됨):**
+- **loudness 쌍 A/B 라운드**(`docs/rounds/loudness_v1_runbook.md`) — base 3편이 나왔으므로 **다음은 각 job 을
+  `--from-step render` 로 treatment(`--loudness-lufs -14`)/control(`off`) 재렌더 → 인제스트 → 발행(R5 ≤48h) → register → +7d 판정**.
+  ⚠ 단, 쌍 A/B 는 **최소 5쌍** 필요(부호검정) — 현재 3편이라 쌍 수 확보(추가 생성) 여부를 사용자와 먼저 합의할 것.
+- base 쇼츠를 A/B 없이 그대로 발행할지, loudness 쌍 A/B 로 갈지는 **사용자 확인 사항**(아직 미발행).
 
 ## 3. 채널 → 작품 → 소스 매핑 (이번 운영분)
 
