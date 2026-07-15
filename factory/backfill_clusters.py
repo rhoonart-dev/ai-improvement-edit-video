@@ -37,14 +37,15 @@ def main():
                "title_text": r.get("title_text"),
                "licensed_video_title": r.get("licensed_video_title")}
         try:
-            cid, tone, lic, has_src = reg.resolve(
+            cid, tone, lic, has_src, ip_key = reg.resolve(
                 ctl, description=r.get("description_text"), video_path=vid)
         except Exception as e:
             print(f"  {sid}: 실패 {str(e)[:80]}")
             continue
         pipe.upsert("eb_shorts_features",
                     [{"shorts_id": sid, "cluster_id": cid, "is_laeebly_licensed": lic,
-                      "has_source_video": has_src}], on_conflict="shorts_id")
+                      "has_source_video": has_src, "ip_key": ip_key}],
+                    on_conflict="shorts_id")
         done += 1
         tag = "자체제작" if has_src is False else f"cluster={cid}"
         print(f"  {sid:14} → {tag}  (영상 {'有' if vid else '無'})")

@@ -72,7 +72,10 @@ def compute_scores(rows: list[dict], baseline_rows: list[dict] | None = None,
         vids.append({
             "sid": r["shorts_id"], "channel_id": r.get("channel_id"),
             "cluster_id": r.get("cluster_id"),
-            "ip": r.get("identification_code") or r.get("licensed_video_title"),  # 원작(IP) 키
+            # 원작(IP) 키: eb_ip 해석 결과(ip_key) 우선 — 코드/제목 분열 통일(§3-1③)
+            "ip": r.get("ip_key") or r.get("identification_code")
+                  or r.get("licensed_video_title"),
+            "origin": r.get("origin") or "market",   # 'ours'=자사 발행분(§3-2)
             "pt": pt, "views": float(r["views"]),
             "kwr": r.get("kept_watching_rate"), "eng": eng,
             "stored_lift": float(sl) if sl is not None else None,
@@ -109,9 +112,13 @@ def compute_scores(rows: list[dict], baseline_rows: list[dict] | None = None,
             v["lift"] = v["views"] / v["baseline"] if v.get("baseline") else None
 
     # ── 정규화② 백분위 ── 모집단을 (pt, sid, value)로 두고, 캐스케이드+시간필터 ──
+    #    자사(origin='ours') 클립은 채점 '대상'은 되지만 모집단(분모)에는 절대 안 들어간다
+    #    — 자기 산출물이 시장 기준선을 밀어올리는 에코챔버 차단(§3-2).
     def _pops(metric):
         by_ip, by_cl, glob = {}, {}, []
         for v in vids:
+            if v.get("origin") == "ours":
+                continue
             mv = v.get(metric)
             if mv is None:
                 continue

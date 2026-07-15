@@ -6,7 +6,7 @@ autoloop 이 인제스트·평가한다. 즉 "생성 명령을 사람이 매번 
 (무엇을 만들지 = 소스 선택은 사람/전략 입력. 콘텐츠 자율수집은 별도 단계.)
 
 env: PIPELINE_DB_URL, GEMINI_API_KEY,
-     AI_VIDEO_WORKTREE(생성 실행 디렉토리, 기본 ../ai-video-t0-2), AI_VIDEO_GEN_PY(기본 ai-video .venv python),
+     AI_VIDEO_WORKTREE(생성 실행 디렉토리, 기본 ai-video main), AI_VIDEO_GEN_PY(기본 ai-video .venv python),
      AI_VIDEO_ROOT
 실행:
   enqueue: ... autogen.py --enqueue --work "로맨스의 절댓값" --source /path/EP06.mp4 --channel 스토리순삭 [--topic .. --episode 6 --max-shorts 1]
@@ -21,14 +21,27 @@ import re
 import subprocess
 import sys
 
-DEFAULT_WT = "/Users/gimsewon/rhoonart/ai-video-t0-2"
+# 생성은 ai-video main 에서 — cut-2 병합(2026-07-14)으로 main 이 노브 플래그
+#   (--silence/length-profile·--loudness-lufs) + T0-2 provenance 스탬프를 모두 보유.
+#   (구 기본값 ai-video-t0-2/feat/run-provenance 는 노브 미지원 → §3-4 로 요란히 실패했음.)
+DEFAULT_WT = "/Users/gimsewon/rhoonart/ai-video"
 DEFAULT_PY = "/Users/gimsewon/rhoonart/ai-video/.venv/bin/python"
 
 
 # ─────────────────────────── 순수 (단위테스트) ───────────────────────────
 
-def build_gen_cmd(job, python, worktree, no_research=True):
-    """gen_queue job(dict) → ai-video create_shorts argv. (worktree는 cwd/PYTHONPATH로 별도 전달)"""
+def build_gen_cmd(job, python, worktree, no_research=True, flags=None):
+    """gen_queue job(dict) → ai-video create_shorts argv. (worktree는 cwd/PYTHONPATH로 별도 전달)
+
+    §3-4 생성 경로 설정 통일: 노브 플래그(flags)를 generate_batch 경로와 동일하게 부착.
+      flags=None(기본) → generate_batch.GOOD_FLAGS (현행 챔피언 config)
+      flags=[...]      → 라운드 config (loop_controller.config_to_flags 산출물)
+      flags=[]         → 플래그 없이 (노브 미지원 구 worktree 호환 — A/B 코호트엔 쓰지 말 것)
+    ⚠ AI_VIDEO_WORKTREE 는 cut-4 노브(--silence-profile 등)를 지원하는 브랜치여야 한다.
+      미지원 브랜치면 argparse 에러로 '요란하게' 실패한다 — 조용히 다른 설정으로 생성되는 것보다 안전."""
+    if flags is None:
+        from generate_batch import GOOD_FLAGS
+        flags = GOOD_FLAGS
     src = str(job["source"])
     cmd = [python, "-m", "app.cli", "create_shorts",
            "--title", job["work_title"],
@@ -40,6 +53,7 @@ def build_gen_cmd(job, python, worktree, no_research=True):
         cmd += ["--episode", str(job["episode"])]
     if no_research:
         cmd += ["--no-research"]
+    cmd += list(flags)
     return cmd
 
 
@@ -85,8 +99,28 @@ def main():
     ap.add_argument("--max-shorts", type=int, default=1)
     ap.add_argument("--limit", type=int, default=1)
     ap.add_argument("--research", action="store_true", help="작품 리서치 포함(기본 생략=빠름)")
+    # §3-4: 라운드 config 주입(generate_batch 와 동일 인터페이스). 미지정=GOOD_FLAGS(챔피언).
+    ap.add_argument("--silence-profile", default=None)
+    ap.add_argument("--length-profile", default=None)
+    ap.add_argument("--loudness-lufs", default=None)
+    ap.add_argument("--no-knob-flags", action="store_true",
+                    help="노브 플래그 미부착(노브 미지원 구 worktree 호환 — A/B 코호트 금지)")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
+
+    flags = None                                   # None → GOOD_FLAGS
+    if a.no_knob_flags:
+        flags = []
+    elif a.silence_profile or a.length_profile or a.loudness_lufs:
+        from generate_batch import GOOD_FLAGS
+        d = dict(zip(GOOD_FLAGS[::2], GOOD_FLAGS[1::2]))
+        if a.silence_profile:
+            d["--silence-profile"] = a.silence_profile
+        if a.length_profile:
+            d["--length-profile"] = a.length_profile
+        if a.loudness_lufs:
+            d["--loudness-lufs"] = a.loudness_lufs
+        flags = [x for kv in d.items() for x in kv]
 
     import psycopg
     conn = psycopg.connect(os.environ["PIPELINE_DB_URL"])
@@ -112,7 +146,7 @@ def main():
         jobs = fetch_pending(conn, a.limit)
         print(f"[autogen] pending {len(jobs)}개 처리 (worktree={wt})")
         for job in jobs:
-            cmd = build_gen_cmd(job, py, wt, no_research=not a.research)
+            cmd = build_gen_cmd(job, py, wt, no_research=not a.research, flags=flags)
             print(f"  RUN {job['work_title']}: {' '.join(cmd[:5])} … (source={job['source']})")
             if a.dry_run:
                 continue

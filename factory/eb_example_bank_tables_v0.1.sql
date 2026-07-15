@@ -136,6 +136,8 @@ create table if not exists eb_shorts_features (
   performance_score            numeric,           -- 복합 성과 점수 0~100
   perf_label                   text
     check (perf_label is null or perf_label in ('good','mid','bad')),  -- 고정컷: <33 bad/33~66 mid/≥66 good
+  score_basis                  text               -- 'full'=계속시청 포함 / 'reach_only'(웨이브2 좌측절단)
+    check (score_basis is null or score_basis in ('full','reach_only')),
   score_version                text,              -- 가중치 config 버전
   scored_at                    timestamptz,
 
@@ -145,6 +147,10 @@ create table if not exists eb_shorts_features (
   is_laeebly_licensed          boolean,           -- 이 쇼츠 원작이 laeebly 라이선스인지(적재 시 세팅)
   has_source_video             boolean,           -- 원본 영상물(드라마/영화/예능) 편집 클립인가.
                                                   --   false=자체제작(밈·이슈·이미지+TTS)→cluster null. 회사 관심대상=true.
+  ip_key                       text,              -- 원작(IP) 모집단 키 — eb_ip.ip_key 소프트 참조(§3-1③).
+                                                  --   라이선스=코드 / 비라이선스 원작식별='t:'+정규화제목 / 자체제작=null.
+  origin                       text               -- 'ours'=자사(ai-video) 발행분 → 인출·모집단·기저 하드 제외(§3-2).
+    check (origin is null or origin in ('market','ours')),
   ingested_at                  timestamptz default now(),
   updated_at                   timestamptz default now(),
 
@@ -171,6 +177,8 @@ create index if not exists eb_sf_idcode_idx   on eb_shorts_features(identificati
 create index if not exists eb_sf_publish_idx  on eb_shorts_features(publish_time);
 create index if not exists eb_sf_channel_idx  on eb_shorts_features(channel_id);
 create index if not exists eb_sf_label_idx    on eb_shorts_features(perf_label);
+create index if not exists eb_sf_ip_key_idx   on eb_shorts_features(ip_key);
+create index if not exists eb_sf_origin_idx   on eb_shorts_features(origin);
 
 -- 버킷 자유 tags GIN — codification 패스의 태그 빈도/조회 핵심
 create index if not exists eb_sf_hook_tags_gin     on eb_shorts_features using gin ((hook_0_3s->'tags')         jsonb_path_ops);

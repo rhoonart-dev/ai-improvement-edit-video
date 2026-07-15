@@ -43,6 +43,35 @@ LABEL_CUTS = (33.0, 66.0)          # good/mid/bad 고정 컷: <33 bad, 33~66 mid
                                    #   점수가 이미 '이전 대비 백분위 가중합'(0~100)이라 고정 임계.
 SCORE_VERSION = "v0.3"             # as-of + 고정컷 + 절대조회 균형(lift .25 / 절대 .15)
 
+# ── 에코챔버 차단 (§3-2) ──────────────────────────────────────────────
+# 자사(ai-video 발행) 채널 = config/channels.json 등록 전부(멀티채널, PR #5/#6). 단일 소스.
+#   적재 시 eb_shorts_features.origin='ours' 세팅 → 인출·모집단·기저에서 하드 제외.
+#   채널 ID(UC…)가 있으면 OUR_CHANNEL_IDS 로 이중 식별(이름 변경 대비).
+def _load_our_channels():
+    """config/channels.json 에서 (채널명 튜플, 채널ID 튜플). 없으면 안전 폴백."""
+    import json
+    p = HERE.parent / "config" / "channels.json"
+    if not p.exists():
+        return ("재미쇼츠", "이불 속 극장"), ()
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        recs = data if isinstance(data, list) else (data.get("channels") or [])
+        names = tuple(r["name"] for r in recs if r.get("name"))
+        ids = tuple(r["channel_id"] for r in recs if r.get("channel_id"))
+        return (names or ("재미쇼츠", "이불 속 극장")), ids
+    except (OSError, ValueError, KeyError):
+        return ("재미쇼츠", "이불 속 극장"), ()
+
+
+OUR_CHANNEL_NAMES, OUR_CHANNEL_IDS = _load_our_channels()
+# 골든 홀드아웃 클러스터(주입 금지 — 뱅크 오염·mode collapse 카나리아, §3-2).
+#   Phase 2(주입 v0) 시작 전 표본 충분한 클러스터 1~2개를 지정할 것.
+#   ⚠ 지정은 뱅크 채점(perf_label) 후 designate_holdout.py 로 — 미채점 데이터로는 못 고름.
+INJECTION_HOLDOUT_CLUSTERS: frozenset = frozenset()
+# 홀드아웃 작품 세트(노브 판정에 절대 불사용 — 분기별 champion 무편향 측정, §3-7).
+#   반복 사용 작품에의 과적합을 추적. 채점·라운드 이력 축적 후 designate_holdout.py 로 지정.
+HOLDOUT_WORKS: frozenset = frozenset()
+
 SCHEMA_VERSION = "0.4"
 CODE_VERSION = "factory-v0.1"
 VLM_SLEEP_SEC = 2                  # Gemini 호출 간 최소 간격

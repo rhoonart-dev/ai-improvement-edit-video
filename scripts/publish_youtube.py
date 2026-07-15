@@ -5,8 +5,8 @@
 ② --publish opt-in(기본 dry-run) ③ 기본 privacy=private. 자동 발행이라도 이 가드를 통과해야만 실제 업로드.
 
 ⚠️ OAuth 자격증명 필요(채널 업로드 권한):
-   env YT_CLIENT_ID, YT_CLIENT_SECRET, YT_REFRESH_TOKEN[_<CHANNELSLUG>]
-   (Google Cloud OAuth client + 채널별 refresh token. 없으면 코드는 동작하나 실제 업로드 불가 → 명확히 에러.)
+   env YT_CLIENT_ID, YT_CLIENT_SECRET, YT_REFRESH_TOKEN_<CHANNELSLUG> (채널별 전용 토큰만.
+   §3-5: generic YT_REFRESH_TOKEN 폴백 제거 — 미등록 채널·토큰 미설정은 하드 실패 = 오채널 차단.)
 deps: google-api-python-client google-auth google-auth-oauthlib
 env: PIPELINE_DB_URL, YT_*
 실행:
@@ -35,9 +35,14 @@ UPLOAD_SCOPE = "https://www.googleapis.com/auth/youtube.upload"
 # ─────────────────────────── 순수 (단위테스트) ───────────────────────────
 
 def token_env_name(channel):
-    """채널 표시명 → YT refresh token env 변수명. 미등록 채널은 generic YT_REFRESH_TOKEN."""
+    """채널 표시명 → YT refresh token env 변수명. 레지스트리(config/channels.json)로 해석.
+    §3-5 오채널 업로드 차단: 미등록 채널(token_slug 없음)은 generic 폴백 없이 하드 실패 —
+    잘못된 채널명으로 '아무 채널'에 업로드되는 사고를 기계적으로 차단(레지스트리의 generic
+    폴백을 여기서 봉쇄)."""
     rec = registry.resolve(channel)
-    return registry.token_env_name(rec.get("token_slug") if rec else None)
+    if not rec or not rec.get("token_slug"):
+        raise ValueError(f"미등록 채널 {channel!r} — config/channels.json 에 등록된 채널만 업로드 가능")
+    return f"YT_REFRESH_TOKEN_{rec['token_slug']}"
 
 
 def build_snippet(title, hashtags=None, category=CATEGORY_ENTERTAINMENT):
@@ -80,13 +85,15 @@ def fetch_clip_title(conn, clip_id):
 
 def _credentials(channel):
     """채널별 refresh token + (프로젝트 분리) 프로젝트별 OAuth 클라이언트로 Credentials 조립.
-    레지스트리 미등록/전역(DEFAULT) 채널은 전역 YT_CLIENT_ID/SECRET·YT_REFRESH_TOKEN 으로 폴백."""
+    OAuth 클라이언트(앱)는 gcp_project 별(DEFAULT면 전역 YT_CLIENT_ID/SECRET) — 앱은 채널 정체성이
+    아니라 폴백 OK. 단 채널을 식별하는 **refresh token 은 채널별만**(generic 폴백 제거, §3-5) —
+    token_env_name 이 미등록 채널을 하드 실패시키므로 여기 도달하면 등록 채널이 보장됨."""
     from google.oauth2.credentials import Credentials
     rec = registry.resolve(channel)
     cid_key, cs_key = registry.client_env_names(rec.get("gcp_project") if rec else None)
     cid = os.environ.get(cid_key) or os.environ.get("YT_CLIENT_ID")
     cs = os.environ.get(cs_key) or os.environ.get("YT_CLIENT_SECRET")
-    rt = os.environ.get(token_env_name(channel)) or os.environ.get("YT_REFRESH_TOKEN")
+    rt = os.environ.get(token_env_name(channel))   # §3-5: generic 폴백 없음(채널별 토큰만)
     if not (cid and cs and rt):
         return None
     return Credentials(None, refresh_token=rt, client_id=cid, client_secret=cs,
@@ -140,8 +147,16 @@ def main():
         vid = upload(a.video, snip, a.privacy, a.channel)
         print("uploaded content_id:", vid)
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from datetime import datetime, timezone
         from link_published import link_published
-        n = link_published(conn, a.clip_id, content_id=vid, channel=a.channel)
+        now = datetime.now(timezone.utc)
+        # published_at 을 업로드 순간으로 기록 — R5(§4-3)·판정 창 계산의 근거.
+        # (laeebly ETL 이 이후 자체 publish_time 으로 백필하지만, 등록 시점엔 이 값이 유일.)
+        # snippet — 실제 발행된 형태를 provenance 로 기록(§3-8).
+        snippet = {**snip, "channel": a.channel, "privacy": a.privacy,
+                   "published_at": now.isoformat()}
+        n = link_published(conn, a.clip_id, content_id=vid, channel=a.channel,
+                           published_at=now, snippet=snippet)
         print(f"linked clip {a.clip_id} → {vid} (rows={n})")
     finally:
         conn.close()
