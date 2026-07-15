@@ -56,11 +56,28 @@ ai-video(롱폼→쇼츠 추출 솔루션)를 **증거 기반으로 자기개선
 
 - ai-video main = 노브(`--silence/length-profile`·`--loudness-lufs`) + `--from-step render` 재렌더 지원. autogen `DEFAULT_WT`가 main 바라봄.
 
+- **인제스트·안전judge·발행 완주(2026-07-15)** — 루프 전 구간(생성→provenance 적재→안전게이트→발행→content_id 링크)이 실데이터로 작동 확인:
+
+  | 클립 (채널) | clip_id | judge | 발행 |
+  |---|---|---|---|
+  | 유미 (재미쇼츠) | `85e91beb…` | quality 0.75 · 환각無 | ✅ **unlisted** `XBkvHH6xF4o` |
+  | 도깨비 (숏테토칩) | `a55eb414…` | quality 0.6 · 환각無 | ✅ **unlisted** `4N9WczqtMrc` |
+  | SNL (킥킥극장) | `bb3f3b49…` | **quality 0.275 · 환각=True** | ⛔ **게이트 차단(미발행)** |
+
+  ⚠ **공개 전환은 사람 몫**(Studio) — 위 2편은 unlisted 상태. 공개 전엔 apv 측정 불가(도달 없음).
+
+**★ 발견된 실결함 — SNL 제목-내용 불일치(낚시)**
+judge 사유: *"제목에서 강조한 '알몸 뒤태로 걸어가는' 핵심 장면이 영상이 끝날 때까지 전혀 등장하지 않는
+낚시성 영상"*(제목 `수영 대결에서 참패한 강사 알몸 뒤태로 당당히 걸어감`). 즉 **제목이 컷에 없는 장면을
+약속** — 안전게이트가 정확히 이 용도로 작동해 발행을 막았다(설계 검증됨). 후속: ①SNL 재생성 시 제목
+생성이 실제 컷 범위만 참조하도록 수정 검토(K7은 *성과* 노브로 동결이지만, 이건 성과가 아니라 **안전**
+결함이므로 동결 대상 아님) ②백로그 등재 후보.
+
 **진행 중 / 다음 (여기서 이어받으면 됨):**
-- **loudness 쌍 A/B 라운드**(`docs/rounds/loudness_v1_runbook.md`) — base 3편이 나왔으므로 **다음은 각 job 을
-  `--from-step render` 로 treatment(`--loudness-lufs -14`)/control(`off`) 재렌더 → 인제스트 → 발행(R5 ≤48h) → register → +7d 판정**.
-  ⚠ 단, 쌍 A/B 는 **최소 5쌍** 필요(부호검정) — 현재 3편이라 쌍 수 확보(추가 생성) 여부를 사용자와 먼저 합의할 것.
-- base 쇼츠를 A/B 없이 그대로 발행할지, loudness 쌍 A/B 로 갈지는 **사용자 확인 사항**(아직 미발행).
+- **loudness 쌍 A/B 라운드**(`docs/rounds/loudness_v1_runbook.md`) — 아직 미착수. 각 job 을
+  `--from-step render` 로 treatment(`--loudness-lufs -14`)/control(`off`) 재렌더 → 인제스트 → 발행(R5 ≤48h) → register → +7d 판정.
+  ⚠ 쌍 A/B 는 **최소 5쌍** 필요(부호검정) — 발행 가능분이 현재 2편뿐이라 **쌍 수 확보(추가 생성)를 사용자와 먼저 합의할 것**.
+- 위 발행분 2편은 **base**(A/B arm 아님) — 자사 채널 클립이라 시장 비교군에서 자동 제외(§3-2), 벤치마크 측정 대상.
 
 ## 3. 채널 → 작품 → 소스 매핑 (이번 운영분)
 
