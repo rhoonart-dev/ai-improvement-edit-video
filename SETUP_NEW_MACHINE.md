@@ -199,3 +199,29 @@ $PY scripts/m4_ab_analysis.py --experiment loudness_v1 --window-days 7
 | 숏콘 | P2 | (없음) |
 
 ※ §8의 "예능 3작품 gen_queue YouTube URL 소스" 규칙은 작품 기준(스트릿 레스토랑 파이터·언더커버 셰프·놀라운 토요일) — 채널이 바뀌어도 소스 방식은 동일.
+
+## 11. 환경 버전 이슈 & 해결 (2026-07-23 2차 세션 실측)
+
+새 Mac(Apple Silicon)에서 **brew가 전부 최신 버전**을 깔았는데 ai-video 코드는 더 낮은 버전을 전제로 해서, 생성 파이프라인이 단계별로 4번 터졌다. 순서대로 겪은 것:
+
+| # | 증상 | 원인 | 즉시 대응 |
+|---|---|---|---|
+| 1 | ai-video venv 설치 통째 실패 | `fastapi==0.135.1`이 **Python ≥3.10** 요구, 시스템은 3.9.6 | ai-video venv만 **brew Python 3.11**로 재생성(핀 미변경). brain venv는 3.9 유지 |
+| 2 | `ModuleNotFoundError: yt_dlp` (`--youtube-url` 경로) | requirements.txt에 **yt-dlp 누락** (코드 `app/modules/youtube_downloader.py`는 import) | ai-video venv에 `pip install yt-dlp` |
+| 3 | 얼굴검출 `haarcascade_frontalface_default.xml` 없음 (13/15단계 reframe) | `opencv-python>=4.9.0.80`이 **5.0.0**을 잡음 → OpenCV 5.x는 번들 cascade 제거 | `opencv-python==4.11.0.86`으로 다운그레이드 |
+| 4 | 렌더 실패 `ass filter … Invalid argument` (14/15 render) | brew **ffmpeg 8.1.2**가 자막 필터(`ass=…:fontsdir=…`)/`-filter_complex_script` 문법 거부 | **ffmpeg@7 (7.1.5)** 설치 후 `/opt/homebrew/bin/ffmpeg` 링크 교체 |
+
+부수 함정: `--from-step render` 재개 시 `--video`를 **상대경로**로 주면 ffmpeg가 job 폴더 기준으로 소스를 못 찾음 → **절대경로**로 줄 것.
+
+### requirements.txt 대조 — 근본 원인
+- **느슨한 `>=` 상한 없음**: `opencv-python>=4.9.0.80` → 메이저 5.x 유입(#3 직접 원인).
+- **누락 런타임 의존성**: `yt-dlp` 없음(#2).
+- **환경 전제 미기재**: fastapi 핀이 사실상 Python 3.10+ 요구인데 명시 없음(#1). ffmpeg는 시스템 바이너리라 pip으로 관리 안 되지만 "6~7 필요, 8 미지원"이 어디에도 없음(#4).
+
+### 어떻게 했어야 했나 (개발자가 레포에 반영할 항목)
+1. **메이저 상한 고정**: `opencv-python>=4.9.0.80,<5`.
+2. **누락 의존성 추가**: `yt-dlp`(핀과 함께).
+3. **Python 버전 선언**: ai-video `requires-python=">=3.10"` 명시. brain=3.9 / ai-video=3.10+ 로 다르다는 점도 기록.
+4. **ffmpeg 버전 기록/고정**: "ffmpeg 7 사용, 8 미지원" 명시. 이상적으론 렌더러를 ffmpeg 8 필터 문법 변화에도 견디게 수정.
+5. **락파일 도입**: `>=`로 흘리지 말고 `pip freeze`/`uv lock`로 정확한 버전 고정 — 위 4건 전부 락파일이면 안 터졌다.
+6. **셋업 검증에 ai-video 스모크 추가**: 현재 검증은 brain `pytest`만. 긴 생성(15~30분) 전에 **짧은 클립 end-to-end 스모크 렌더 1회**를 셋업 체크리스트에 넣으면 #2~#4를 미리 잡는다.
