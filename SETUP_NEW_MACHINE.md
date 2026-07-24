@@ -43,8 +43,19 @@ gh repo clone rht-22/ai-video
 brain 레포 루트에 `.env` 생성 (`.env.example` 참고, 기존 머신에서 복사 권장) 후 **반드시 수정**:
 
 ```
-AI_VIDEO_ROOT=/Users/<나>/rhoonart/ai-video   # ← 원저자 경로(/Users/gimsewon/...) 그대로 두면 안 됨
+# 레포 위치가 ~/rhoonart가 아니면(예: ~/Downloads) 아래 3개 전부 실제 경로로.
+# 원저자 경로(/Users/gimsewon/...)가 코드 기본값(폴백)으로 박혀 있어 그대로 두면 안 됨.
+AI_VIDEO_ROOT=/Users/<나>/rhoonart/ai-video                        # ingest git_sha 폴백·feature_extractor
+AI_VIDEO_WORKTREE=/Users/<나>/rhoonart/ai-video                    # autogen.py --process (gen_queue 생성)
+AI_VIDEO_GEN_PY=/Users/<나>/rhoonart/ai-video/.venv/bin/python     # autogen.py가 쓸 파이썬
 ```
+
+⚠️ **경로는 머신마다 다르다 (2026-07-24 실측).** 문서·CLAUDE.md의 명령 예시는 전부 `~/rhoonart` 전제라
+레포를 다른 곳에 클론했으면 복붙 전에 경로를 바꿔야 한다. 특히 `AI_VIDEO_WORKTREE`/`AI_VIDEO_GEN_PY`는
+빠뜨리기 쉬운데, 없으면 `autogen.py --process`(예능 3작품의 gen_queue 경로)가 존재하지 않는
+`/Users/gimsewon/...` 폴백으로 subprocess를 실행하려다 실패한다 ([scripts/autogen.py:27-28](scripts/autogen.py) 기본값).
+수동 `create_shorts` 경로만 쓰는 동안은 안 걸려서 조용히 잠복하는 함정. (코드 기본값의 절대경로 제거는
+개발자 반영 대상 — `docs/PIPELINE_FIXES.md` 참조.)
 
 `factory/` 스크립트를 쓸 거면 `factory/.env`도 별도 필요 (PIPELINE_URL, PIPELINE_SERVICE_KEY 등 — CLAUDE.md §1 참조).
 
@@ -189,6 +200,7 @@ $PY scripts/m4_ab_analysis.py --experiment loudness_v1 --window-days 7
 | 클론 404 | 해당 레포에 계정 초대 안 됨 | 레포별 협업자 초대 확인 (조직이 rhoonart-dev / rht-22로 다름) |
 | Drive 커넥터 검색이 빈 결과 | 미열람 공유 항목 인덱스 한계 | rclone 사용 (folder-id 직접 지정) |
 | 브라우저 자동 다운로드 무반응 | Chrome 신뢰 제스처 정책 | rclone 사용 (또는 사람이 직접 클릭) |
+| `autogen.py --process`가 `/Users/gimsewon/...` 경로 없음으로 실패 | `.env`에 `AI_VIDEO_WORKTREE`/`AI_VIDEO_GEN_PY` 미설정 → 원저자 폴백 사용 | §2의 env 3종을 실제 레포 경로로 설정 |
 
 ## 10. 채널–작품 매핑 (2026-07-23 갱신)
 
