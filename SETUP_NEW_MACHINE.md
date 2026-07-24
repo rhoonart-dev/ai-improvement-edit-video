@@ -35,7 +35,7 @@ gh auth login --hostname github.com --git-protocol https --web
 ## 2. 레포 클론 + .env
 
 ```bash
-cd ~/rhoonart   # 원저자 규약. 다른 곳도 되지만 형제 디렉토리 유지 권장
+cd ~/ves   # 폴더 규약명(2026-07-24부터 ves, 구 rhoonart — 기존 머신엔 ~/rhoonart일 수 있음). 다른 곳도 되지만 형제 디렉토리 유지 권장
 gh repo clone rhoonart-dev/ai-improvement-edit-video
 gh repo clone rht-22/ai-video
 ```
@@ -43,14 +43,14 @@ gh repo clone rht-22/ai-video
 brain 레포 루트에 `.env` 생성 (`.env.example` 참고, 기존 머신에서 복사 권장) 후 **반드시 수정**:
 
 ```
-# 레포 위치가 ~/rhoonart가 아니면(예: ~/Downloads) 아래 3개 전부 실제 경로로.
+# 레포 위치가 ~/ves가 아니면(예: ~/Downloads) 아래 3개 전부 실제 경로로.
 # 원저자 경로(/Users/gimsewon/...)가 코드 기본값(폴백)으로 박혀 있어 그대로 두면 안 됨.
-AI_VIDEO_ROOT=/Users/<나>/rhoonart/ai-video                        # ingest git_sha 폴백·feature_extractor
-AI_VIDEO_WORKTREE=/Users/<나>/rhoonart/ai-video                    # autogen.py --process (gen_queue 생성)
-AI_VIDEO_GEN_PY=/Users/<나>/rhoonart/ai-video/.venv/bin/python     # autogen.py가 쓸 파이썬
+AI_VIDEO_ROOT=/Users/<나>/ves/ai-video                        # ingest git_sha 폴백·feature_extractor
+AI_VIDEO_WORKTREE=/Users/<나>/ves/ai-video                    # autogen.py --process (gen_queue 생성)
+AI_VIDEO_GEN_PY=/Users/<나>/ves/ai-video/.venv/bin/python     # autogen.py가 쓸 파이썬
 ```
 
-⚠️ **경로는 머신마다 다르다 (2026-07-24 실측).** 문서·CLAUDE.md의 명령 예시는 전부 `~/rhoonart` 전제라
+⚠️ **경로는 머신마다 다르다 (2026-07-24 실측).** 문서·CLAUDE.md의 명령 예시는 전부 `~/ves` 전제라
 레포를 다른 곳에 클론했으면 복붙 전에 경로를 바꿔야 한다. 특히 `AI_VIDEO_WORKTREE`/`AI_VIDEO_GEN_PY`는
 빠뜨리기 쉬운데, 없으면 `autogen.py --process`(예능 3작품의 gen_queue 경로)가 존재하지 않는
 `/Users/gimsewon/...` 폴백으로 subprocess를 실행하려다 실패한다 ([scripts/autogen.py:27-28](scripts/autogen.py) 기본값).
@@ -65,11 +65,11 @@ AI_VIDEO_GEN_PY=/Users/<나>/rhoonart/ai-video/.venv/bin/python     # autogen.py
 > 하지 말 것 — 개발자가 확인 후 직접 정리할 예정. 시스템 `python3` 그대로 사용한다.
 
 ```bash
-cd ~/rhoonart/ai-video
+cd ~/ves/ai-video
 python3 -m venv .venv && .venv/bin/pip install -U pip && .venv/bin/pip install -r requirements.txt
 .venv/bin/pip install yt-dlp gdown   # ⚠ requirements.txt에 빠져 있으나 필수 — 아래 참고
 
-cd ~/rhoonart/ai-improvement-edit-video
+cd ~/ves/ai-improvement-edit-video
 python3 -m venv .venv && .venv/bin/pip install -U pip && .venv/bin/pip install -r requirements.txt
 ```
 
@@ -85,7 +85,7 @@ python3 -m venv .venv && .venv/bin/pip install -U pip && .venv/bin/pip install -
 설치 검증 (factory 제외):
 
 ```bash
-cd ~/rhoonart/ai-improvement-edit-video
+cd ~/ves/ai-improvement-edit-video
 .venv/bin/python -m pytest scripts/ extract/ -q   # factory/는 현재 검증 대상 아님
 ```
 
@@ -133,10 +133,10 @@ cp ~/Downloads/sources/$WORK/$EP.txt ~/Downloads/sources/$WORK/$EP.srt   # txt �
 ## 5. 쇼츠 생성 (ai-video)
 
 ```bash
-cd ~/rhoonart/ai-video
+cd ~/ves/ai-video
 eval "$(/opt/homebrew/bin/brew shellenv)"          # ffmpeg PATH — 백그라운드 셸일수록 필수!
-set -a; . ~/rhoonart/ai-improvement-edit-video/.env; set +a
-export AI_VIDEO_ROOT=~/rhoonart/ai-video
+set -a; . ~/ves/ai-improvement-edit-video/.env; set +a
+export AI_VIDEO_ROOT=~/ves/ai-video
 
 .venv/bin/python -u -m app.cli create_shorts \
   --title "<작품명>" \                               # DB 정본(works 테이블)과 일치해야 발행 가능
@@ -165,11 +165,11 @@ export AI_VIDEO_ROOT=~/rhoonart/ai-video
 ## 7. 인제스트 → 발행 → A/B 등록 (brain)
 
 ```bash
-cd ~/rhoonart/ai-improvement-edit-video
+cd ~/ves/ai-improvement-edit-video
 PY=.venv/bin/python
 
 # 인제스트 (프로덕션 DB 쓰기 — --dry-run으로 먼저 확인 가능)
-$PY scripts/ingest_aivideo_run.py --run-dir ~/rhoonart/ai-video/outputs_ab/<라벨>/<job> \
+$PY scripts/ingest_aivideo_run.py --run-dir ~/ves/ai-video/outputs_ab/<라벨>/<job> \
   --short-label shorts_1 --channel "<채널명>" [--dry-run]
 
 # 발행 (실제 YouTube 업로드! 채널·제목 확인 후. 오채널은 토큰 매칭으로 하드 실패)
