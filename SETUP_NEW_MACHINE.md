@@ -56,10 +56,16 @@ AI_VIDEO_ROOT=/Users/<나>/rhoonart/ai-video   # ← 원저자 경로(/Users/gim
 ```bash
 cd ~/rhoonart/ai-video
 python3 -m venv .venv && .venv/bin/pip install -U pip && .venv/bin/pip install -r requirements.txt
+.venv/bin/pip install yt-dlp gdown   # ⚠ requirements.txt에 빠져 있으나 필수 — 아래 참고
 
 cd ~/rhoonart/ai-improvement-edit-video
 python3 -m venv .venv && .venv/bin/pip install -U pip && .venv/bin/pip install -r requirements.txt
 ```
+
+⚠️ **ai-video requirements.txt에 `yt-dlp` 추가 필요 (개발자 반영 대상, 2026-07-23 발견)**:
+`app/modules/youtube_downloader.py`가 `import yt_dlp` 하는데 requirements.txt에 없어
+`--youtube-url` 실행 시 ModuleNotFoundError로 즉사. requirements에 반영되기 전까지는
+위처럼 venv에 수동 설치할 것 (`gdown`도 마찬가지로 requirements에 없음 — 구 공용 venv에는 둘 다 있었음).
 
 알려진 이슈 (그대로 두기 — 개발자 확인 예정):
 - 시스템 Python 3.9에서 `factory/db.py`, `factory/scoring.py` import 에러 → **factory는 현재 안 돌리므로 무시. 수정 금지**
@@ -75,6 +81,10 @@ cd ~/rhoonart/ai-improvement-edit-video
 ⚠️ 지난 세션(2026-07-23) 특이사항 — 참고만, 임의 수정 금지:
 - 당시 실행 환경의 pip 인덱스가 구버전 스냅샷이라 fastapi 등 6개 핀을 낮춰 설치했음. 일반 네트워크 머신에서는 requirements 그대로 설치되면 그걸로 끝.
 - google-genai SDK 구버전에서 Gemini 분석 시 `ThinkingConfig thinking_level` 오류가 났고, `ai-video/app/modules/gemini_client.py`의 GeminiClient.__init__에 임시 호환 셔임을 넣어 우회했음(로컬 패치, 미커밋). **이 패치의 유지/정리 여부는 개발자 확인 사항.** 새 머신에서 같은 오류가 나면 개발자에게 보고.
+
+⚠️ 2026-07-24 세션 추가 발견 — 참고만, 임의 수정 금지:
+- `thinking_level` 오류 재발 확인. 근본 원인: `thinking_level`은 google-genai 1.48+ 전용인데 1.48부터 Python ≥3.10 요구 → **py3.9에서는 SDK 업그레이드로 해결 불가**(설치 상한 1.47). 사용자 승인 하에 지난 세션과 동일한 셔임을 로컬 재적용함.
+- venv용 yt-dlp도 py3.9 상한이 2025.10.14인데 이 버전은 YouTube 다운로드가 깨짐("The page needs to be reloaded"). 우회: `brew install yt-dlp`(최신) 로 소스를 미리 1080p 다운로드 후 `--video`+`--subtitle`(VTT 지원)로 생성 실행. 즉 **이 머신에서 `--youtube-url` 경로는 현재 사용 불가**. yt-dlp android 클라이언트 우회는 360p 상한이라 쓰지 말 것.
 
 ## 4. 소스 다운로드 (rclone — 한 번 설정하면 이후 전자동)
 
