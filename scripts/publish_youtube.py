@@ -46,10 +46,11 @@ def token_env_name(channel):
 
 
 def build_snippet(title, hashtags=None, category=CATEGORY_ENTERTAINMENT):
-    """YouTube snippet — 제목(개행→공백, ≤100자) + 설명(해시태그) + tags(≤15). 순수."""
+    """YouTube snippet — 제목(개행→공백, ≤100자) + 설명(해시태그) + tags(≤15). 순수.
+    해시태그 내 공백은 언더바 치환 — 공백이 있으면 YouTube가 첫 단어까지만 태그로 인식."""
     t = " ".join((title or "").split())[:100]
     tags = [h.lstrip("#").strip() for h in (hashtags or []) if h and h.strip()]
-    desc = " ".join("#" + x for x in tags) if tags else ""
+    desc = " ".join("#" + "_".join(x.split()) for x in tags) if tags else ""
     return {"title": t or "shorts", "description": desc, "tags": tags[:15], "categoryId": category}
 
 

@@ -16,6 +16,14 @@ def test_snippet_newline_and_tags():
     assert s["categoryId"] == pub.CATEGORY_ENTERTAINMENT
 
 
+def test_snippet_hashtag_spaces_to_underscore():
+    # 공백 포함 작품명 해시태그 → 언더바 치환 (공백이 있으면 YouTube가 태그를 끊어버림)
+    s = pub.build_snippet("제목", ["도깨비 10주년 여행", "#언니네 산지직송 in 칼라페"])
+    assert s["description"] == "#도깨비_10주년_여행 #언니네_산지직송_in_칼라페"
+    # tags 는 원문 유지 (YouTube tags 는 공백 허용)
+    assert s["tags"] == ["도깨비 10주년 여행", "언니네 산지직송 in 칼라페"]
+
+
 def test_snippet_title_max_100():
     assert len(pub.build_snippet("가" * 150)["title"]) == 100
 
