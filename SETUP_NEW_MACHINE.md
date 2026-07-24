@@ -248,3 +248,20 @@ $PY scripts/m4_ab_analysis.py --experiment loudness_v1 --window-days 7
 4. **ffmpeg 버전 기록/고정**: "ffmpeg 7 사용, 8 미지원" 명시. 이상적으론 렌더러를 ffmpeg 8 필터 문법 변화에도 견디게 수정.
 5. **락파일 도입**: `>=`로 흘리지 말고 `pip freeze`/`uv lock`로 정확한 버전 고정 — 위 4건 전부 락파일이면 안 터졌다.
 6. **셋업 검증에 ai-video 스모크 추가**: 현재 검증은 brain `pytest`만. 긴 생성(15~30분) 전에 **짧은 클립 end-to-end 스모크 렌더 1회**를 셋업 체크리스트에 넣으면 #2~#4를 미리 잡는다.
+
+## 12. 발견된 파이프라인 버그 (2026-07-24 운영 중 실측)
+
+숏나우저(놀라운 토요일)·여운 보관소(샤먼: 미신전) 실발행 중 발견. #1은 수정·push, 나머지는 개발자 확인 대기.
+
+| # | 버그 | 증상(실측) | 위치 | 상태 |
+|---|---|---|---|---|
+| 1 | **대사 자막 0건이면 TTS 내레이션 자막도 꺼짐** | 샤먼: TTS 음성은 나오는데 자막 미표시. renderer.py:540 주석("TTS 자막은 메인 자막과 무관")과 어긋남 | `app/pipeline.py` render 단계 else 분기 (`tts_subtitle_path=None`) | ✅ 수정 — ai-video `fix/tts-subtitles-empty-dialogue` (d10ac15) |
+| 2 | **폴백이 원본 길이 초과 구간 선택** | Gemini story 실패→폴백이 payoff `911.0~958.0`(원본 911.023s) 지정 → payoff 실질 0초, hook만 남아 **8.6초** 반쪽 영상 | story 폴백 로직 (clip_end_sec clamp 없음) | ⏳ 미수정 — `clip_end_sec ≤ source_duration` clamp 필요 |
+| 3 | **발행 게이트가 validator 결과를 안 봄** | `duration_ok=false`(8.6s)·`audio_peak_ok=false` 영상이 그대로 발행됨. 게이트는 judge(환각/안전)만 확인 | `scripts/publish_youtube.py` `gate_ok()` | ⏳ 미수정 — validator의 duration_ok/audio_peak_ok false면 차단 추가 |
+| 4 | **인제스트가 실제 렌더 길이가 아닌 계획값 기록** | DB clip `dur=55.5`인데 실제 shorts.mp4는 8.6초 | `scripts/ingest_aivideo_run.py` (edit_plan 기준) | ⏳ 미수정 — ffprobe 실제 길이 기록 |
+| 5 | **YouTube 소스 ASR 캡션을 정제 없이 번인** | 놀라운 토요일: `--youtube-url`이 받은 자동생성 자막(`>>` 화자마커·겹침 타임스탬프·오인식)이 그대로 화면에 박힘 | youtube_downloader → 자막 파이프라인 | ⏳ 우회(`--no-subtitles`) — 근본은 SRT 전처리(`>>` 제거·겹침 정리) |
+
+### 운영 교훈
+- **발행 전 실측 필수**: `ffprobe`로 실제 shorts.mp4 길이 + `run_log.json`의 validate 3항목(duration/audio_peak/black_frames)을 직접 확인. judge 통과 ≠ 온전한 영상(judge는 안전 전용).
+- **YouTube 소스는 자동자막 주의**: 정식 자막이 아니면 `--no-subtitles` 고려.
+- **Gemini 지출 한도(429 RESOURCE_EXHAUSTED)**: 초과 시 story가 폴백으로 빠져 #2 유발. https://ai.studio/spend 에서 관리.
