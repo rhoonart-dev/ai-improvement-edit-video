@@ -84,6 +84,7 @@ cd ~/rhoonart/ai-improvement-edit-video
 
 ⚠️ 2026-07-24 세션 추가 발견 — 참고만, 임의 수정 금지:
 - `thinking_level` 오류 재발 확인. 근본 원인: `thinking_level`은 google-genai 1.48+ 전용인데 1.48부터 Python ≥3.10 요구 → **py3.9에서는 SDK 업그레이드로 해결 불가**(설치 상한 1.47). 사용자 승인 하에 지난 세션과 동일한 셔임을 로컬 재적용함.
+- ⚠️ **생성 병렬 실행 금지 (실측 결함)**: 서로 다른 작품 3편을 동시에 `create_shorts` 실행하면 Gemini 분석 컨텍스트가 혼입될 수 있음 — 실제로 언니네 산지직송 쇼츠에 도깨비 내레이션("신나게 출발하는 도깨비 남매들")이 붙었음. 단독 실행 시 정상. 원인 추정: 청크 파일명이 작업 간 공통(`chunk_0.0_600.0.mp4`)이라 Gemini File API 업로드 참조 충돌. **생성은 반드시 한 편씩 순차로.** 개발자 확인 대상(청크 파일명에 job id 프리픽스 등).
 - venv용 yt-dlp도 py3.9 상한이 2025.10.14인데 이 버전은 YouTube 다운로드가 깨짐("The page needs to be reloaded"). 우회: `brew install yt-dlp`(최신) 로 소스를 미리 1080p 다운로드 후 `--video`+`--subtitle`(VTT 지원)로 생성 실행. 즉 **이 머신에서 `--youtube-url` 경로는 현재 사용 불가**. yt-dlp android 클라이언트 우회는 360p 상한이라 쓰지 말 것.
 
 ## 4. 소스 다운로드 (rclone — 한 번 설정하면 이후 전자동)
