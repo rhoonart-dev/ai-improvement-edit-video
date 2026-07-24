@@ -1,0 +1,37 @@
+{
+  "_doc": "scene_loop.py 설정. 채널별로 작품 소스 폴더에서 회차를 순서대로 집어 회차당 quota개 '서로 다른' 장면을 만든다. 회차 완료 판정은 count_mode 로: 'public'=유튜브에 공개된 장면만 카운트(비공개 제외), 'rendered'=렌더된 서로 다른 장면. 기존 코드는 수정하지 않는다.",
+  "quota_per_episode": 3,
+  "max_retries": 2,
+  "per_run_scenes_per_channel": 1,
+  "count_mode": "public",
+  "youtube_api_key_env": "REACT_APP_YOUTUBE_API_KEY",
+  "max_pending_unpublished": 3,
+  "dup_iou_threshold": 0.5,
+  "dup_center_tolerance_sec": 15,
+  "gen_timeout_sec": 5400,
+  "gen_flags": ["--silence-profile", "aggressive", "--length-profile", "tight", "--loudness-lufs", "-14"],
+  "outputs_scan_dirs": ["outputs", "outputs_ab"],
+  "channels": [
+    {
+      "channel": "재미쇼츠",
+      "work_title": "유미의 세포들 시즌3",
+      "source_dir": "/Users/lunaleuteumaeg6/Downloads/sources/yumi",
+      "video_glob": "*.mp4",
+      "episode_regex": "(\\d+)\\ud654"
+    },
+    {
+      "channel": "이불 속 극장",
+      "work_title": "로맨스의 절댓값",
+      "source_dir": "/Users/lunaleuteumaeg6/Downloads/sources/romance",
+      "video_glob": "EP*.mp4",
+      "episode_regex": "EP(\\d+)"
+    },
+    {
+      "channel": "다람쥐 숏토리",
+      "work_title": "언더커버 셰프",
+      "source_dir": "/Users/lunaleuteumaeg6/Downloads/sources/undercover",
+      "video_glob": "EP*.mp4",
+      "episode_regex": "EP(\\d+)"
+    }
+  ]
+}
