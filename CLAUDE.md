@@ -17,15 +17,15 @@ ai-video(롱폼→쇼츠 추출 솔루션)를 **증거 기반으로 자기개선
 
 | 항목 | 값 |
 |---|---|
-| **brain 레포** | `~/rhoonart/ai-improvement-edit-video` (GitHub: `rhoonart-dev/ai-improvement-edit-video`) |
+| **brain 레포** | `~/ves/ai-improvement-edit-video` (GitHub: `rhoonart-dev/ai-improvement-edit-video`) |
 | **작업 브랜치** | `claude/review-implement-pr-plan-6bb3ac` (PR #4). ※워크트리에서 작업했음 — main 머지 후엔 main 사용 |
-| **ai-video 레포** | `~/rhoonart/ai-video` (GitHub: `rht-22/ai-video`). **main**이 노브 플래그 + T0-2 provenance 보유(cut-2 병합, b935d20) |
-| **Python venv** | `~/rhoonart/ai-video/.venv/bin/python` (공용 — psycopg(v3)·psycopg2-binary·scipy·numpy·google-genai·yt-dlp·gdown 포함) |
+| **ai-video 레포** | `~/ves/ai-video` (GitHub: `rht-22/ai-video`). **main**이 노브 플래그 + T0-2 provenance 보유(cut-2 병합, b935d20) |
+| **Python venv** | `~/ves/ai-video/.venv/bin/python` (공용 — psycopg(v3)·psycopg2-binary·scipy·numpy·google-genai·yt-dlp·gdown 포함) |
 | **파이프라인 DB** | **fdidiqd** (Supabase `video-improvement-pipeline`, ref `fdidiqdhcyctdbogxkdu`, ap-northeast-2). **단일 DB**(gen_queue 포함 23테이블). 마이그레이션 0001~0005 적용됨 |
 | **원천 DB(읽기전용)** | **laeebly** (ref `mehvzxzajydffflqcuuk`) — youtube_studio 성과·licensed_video 작품 |
 
 ### 다른 머신에서 셋업
-1. 두 레포 clone (`~/rhoonart/` 아래 형제로).
+1. 두 레포 clone (`~/ves/` 아래 형제로). ※폴더 규약명 2026-07-24부터 `ves`(구 `rhoonart`) — 기존 머신엔 `~/rhoonart`로 남아 있을 수 있고, 경로가 다르면 `.env`의 `AI_VIDEO_ROOT`·`AI_VIDEO_WORKTREE`·`AI_VIDEO_GEN_PY`를 실제 경로로.
 2. venv: ai-video에 venv 만들고 `pip install -r ai-video/requirements.txt` + brain `requirements.txt`(psycopg2-binary 추가 필요).
 3. **`.env` 2개 생성**(둘 다 gitignore — 값은 커밋 안 됨):
    - **brain 레포 루트 `.env`** (envload가 읽음 — publish/loop 스크립트용):
@@ -48,7 +48,7 @@ ai-video(롱폼→쇼츠 추출 솔루션)를 **증거 기반으로 자기개선
   **provenance 스탬프 완비**(git_sha b935d20 · config{app,design} · prompt_set_hash → config_hash 계산됨,
   `provenance_complete=true` = ingest 계약 충족). 산출물(ai-video 레포 기준):
 
-  | 작품 (채널) | 결과 | job 경로 (`~/rhoonart/ai-video/`) |
+  | 작품 (채널) | 결과 | job 경로 (`~/ves/ai-video/`) |
   |---|---|---|
   | SNL 코리아 리부트 시즌8 (킥킥극장) | 59.8초 1080×1920 (생성 68분) | `outputs_ab/smoke_snl_ep1/SNL_코리아_리부트_시즌8_ce/` |
   | 유미의 세포들 시즌3 (재미쇼츠) | 58.4초 1080×1920 25MB | `outputs_ab/yumi_ep1/유미의_세포들_시즌3_c7/` |
@@ -91,11 +91,11 @@ judge 사유: *"제목에서 강조한 '알몸 뒤태로 걸어가는' 핵심 �
 - **Drive 소스는 비공개(401)** — gdown 무인증 불가. **Claude in Chrome**(로그인된 세션)으로 폴더 열어 대용량 mp4(~2.9GB) 다운로드해야 함. 바이러스검사 경고는 "다운로드" 재클릭.
 - 나머지 6채널 매핑도 `licensed_video`(laeebly)에서 제목으로 찾을 수 있음.
 
-## 4. 핵심 명령 (venv = `~/rhoonart/ai-video/.venv/bin/python`, `PY`로 표기)
+## 4. 핵심 명령 (venv = `~/ves/ai-video/.venv/bin/python`, `PY`로 표기)
 
 ```bash
-BRAIN=~/rhoonart/ai-improvement-edit-video          # (워크트리면 그 경로)
-PY=~/rhoonart/ai-video/.venv/bin/python
+BRAIN=~/ves/ai-improvement-edit-video          # (워크트리면 그 경로)
+PY=~/ves/ai-video/.venv/bin/python
 export PIPELINE_DB_URL="$(grep '^PIPELINE_DB_URL=' $BRAIN/factory/.env | cut -d= -f2-)"
 
 # 테스트 (전 계층)
@@ -108,8 +108,8 @@ $PY factory/run_factory.py --score-only --score-mode mutual
 $PY scripts/knob_proposer.py --md results/knob_proposer_report.md
 
 # 생성 (ai-video main, 무거움: 롱폼 ~60분/편, 짧은클립 ~5분) — GEMINI_API_KEY 필요
-cd ~/rhoonart/ai-video
-export GEMINI_API_KEY=... AI_VIDEO_ROOT=~/rhoonart/ai-video
+cd ~/ves/ai-video
+export GEMINI_API_KEY=... AI_VIDEO_ROOT=~/ves/ai-video
 .venv/bin/python -u -m app.cli create_shorts --title "<작품명(DB 정본)>" \
    --video <로컬.mp4>  또는  --youtube-url <url> \
    --max-shorts 1 --no-research --outdir outputs_ab/<라벨>
@@ -122,7 +122,7 @@ export GEMINI_API_KEY=... AI_VIDEO_ROOT=~/rhoonart/ai-video
    --loudness-lufs off  --outdir outputs_ab/<라벨>/ctrl      # control
 
 # 인제스트 (생성물 → fdidiqd, provenance 적재)
-cd $BRAIN && $PY scripts/ingest_aivideo_run.py --run-dir ~/rhoonart/ai-video/outputs_ab/<라벨>/<job> --short-label shorts_1 --channel <채널> [--dry-run]
+cd $BRAIN && $PY scripts/ingest_aivideo_run.py --run-dir ~/ves/ai-video/outputs_ab/<라벨>/<job> --short-label shorts_1 --channel <채널> [--dry-run]
 
 # 발행 (사람 개입 ①: private 업로드 → Studio 공개). 오채널 하드 실패·안전게이트 통과 필요
 $PY scripts/publish_youtube.py --clip-id <uuid> --video <shorts.mp4> --channel "<채널>" --publish --privacy unlisted
