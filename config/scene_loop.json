@@ -40,11 +40,12 @@
     },
     {
       "channel": "다람쥐 숏토리",
-      "work_title": "언더커버 셰프",
+      "work_title": "언더커버셰프",
       "source_dir": "/Users/lunaleuteumaeg6/Downloads/sources/undercover",
       "video_glob": "EP*.mp4",
       "episode_regex": "EP(\\d+)",
-      "start_episode": 1
+      "start_episode": 1,
+      "_warn": "🛑 지오블락 필수 작품인데 '다람쥐 숏토리'는 지오블락 불가 채널 — 중지 대상. 발행 단계에서도 publish_youtube 가 차단한다(CLAUDE.md §3-1). 재미쇼츠로 옮기거나 이 항목을 제거할 것."
     },
     {
       "channel": "숏나우저",
