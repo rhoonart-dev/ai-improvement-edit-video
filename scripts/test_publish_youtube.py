@@ -51,6 +51,32 @@ def test_snippet_without_episode_keeps_legacy_shape():
     assert s["description"] == "#놀라운_토요일"
 
 
+def test_parse_hashtags():
+    assert pub.parse_hashtags("#o483K") == ["o483K"]
+    assert pub.parse_hashtags("#o483K #예능") == ["o483K", "예능"]
+    assert pub.parse_hashtags("o483K, eMQvA") == ["o483K", "eMQvA"]
+    assert pub.parse_hashtags(None) == [] and pub.parse_hashtags("  ") == []
+
+
+def test_snippet_work_code_hashtag():
+    # 식별코드는 해시태그 줄 끝에 붙되 YouTube tags 에는 안 들어간다
+    s = pub.build_snippet("여고괴담은 다 맞혔는데", ["놀라운 토요일"],
+                          work_title="놀라운 토요일", episode=425, work_hashtags=["o483K"])
+    assert s["description"] == "놀라운 토요일 425화\n\n#놀라운_토요일 #o483K"
+    assert s["tags"] == ["놀라운 토요일"]
+
+
+def test_snippet_work_code_dedup():
+    # 이미 같은 해시태그가 있으면 중복 추가하지 않는다
+    s = pub.build_snippet("제목", ["o483K"], work_hashtags=["#o483K"])
+    assert s["description"] == "#o483K"
+
+
+def test_snippet_work_code_without_episode():
+    s = pub.build_snippet("제목", ["샤먼: 미신전"], work_hashtags=["eMQvA"])
+    assert s["description"] == "#샤먼_미신전 #eMQvA"
+
+
 def test_snippet_title_max_100():
     assert len(pub.build_snippet("가" * 150)["title"]) == 100
 

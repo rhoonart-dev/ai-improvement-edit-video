@@ -8,7 +8,7 @@
    env YT_CLIENT_ID, YT_CLIENT_SECRET, YT_REFRESH_TOKEN_<CHANNELSLUG> (채널별 전용 토큰만.
    §3-5: generic YT_REFRESH_TOKEN 폴백 제거 — 미등록 채널·토큰 미설정은 하드 실패 = 오채널 차단.)
 deps: google-api-python-client google-auth google-auth-oauthlib
-env: PIPELINE_DB_URL, YT_*
+env: PIPELINE_DB_URL, YT_*, LAEEBLY_DB_URL(작품 식별코드 해시태그 조회 — 없으면 경고 후 생략)
 실행:
   dry-run: ... publish_youtube.py --clip-id <uuid> --video <local.mp4> --channel 스토리순삭
   실제:    ... publish_youtube.py --clip-id <uuid> --video <local.mp4> --channel 스토리순삭 --publish [--privacy unlisted]
@@ -52,14 +52,21 @@ def hashtag_body(text):
 
 
 def build_snippet(title, hashtags=None, category=CATEGORY_ENTERTAINMENT,
-                  work_title=None, episode=None):
+                  work_title=None, episode=None, work_hashtags=None):
     """YouTube snippet — 제목(개행→공백, ≤100자) + 설명 + tags(≤15). 순수.
 
     설명 = "<작품명> <N>화" 한 줄 + 빈 줄 + 해시태그 줄. episode 가 None 이면 회차 줄 없이
-    해시태그만(기존 동작). work_title 미지정 시 첫 해시태그를 작품명으로 사용."""
+    해시태그만(기존 동작). work_title 미지정 시 첫 해시태그를 작품명으로 사용.
+    work_hashtags = 작품 식별코드 등 laeebly 요구 해시태그 — 해시태그 줄 뒤에 붙는다(중복 제거).
+    YouTube tags 에는 넣지 않는다(설명란 표기 요구사항이라)."""
     t = " ".join((title or "").split())[:100]
     tags = [h.lstrip("#").strip() for h in (hashtags or []) if h and h.strip()]
-    tag_line = " ".join("#" + hashtag_body(x) for x in tags) if tags else ""
+    bodies = [hashtag_body(x) for x in tags]
+    for w in (work_hashtags or []):
+        b = hashtag_body(str(w).lstrip("#"))
+        if b and b not in bodies:
+            bodies.append(b)
+    tag_line = " ".join("#" + b for b in bodies if b)
     head = ""
     if episode is not None:
         work = " ".join((work_title or (tags[0] if tags else "")).split())
@@ -94,6 +101,38 @@ def fetch_clip_title(conn, clip_id):
                      left join public.works w on w.id=c.work_id where m.clip_id=%s""", (clip_id,))
         r = c.fetchone()
     return (r[0], r[1]) if r else (None, None)
+
+
+def parse_hashtags(text):
+    """'#o483K #예능' 같은 문자열 → ['o483K', '예능'] (# 없는 토큰도 허용). 순수."""
+    return [tok.lstrip("#").strip() for tok in re.split(r"[\s,]+", text or "") if tok.strip()]
+
+
+def fetch_work_hashtags(work_title):
+    """작품명 → laeebly가 요구하는 설명란 해시태그 목록(식별코드 등). 없거나 조회 실패면 [].
+
+    우선순위: required_hashtags_description(라이선서 명시 원문) > '#'+identification_code.
+    ⚠️ 제목 **완전일치**만 사용한다 — '놀라운 토요일'과 '놀라운 토요일 (g)'처럼 코드가 다른
+    유사 제목이 실재하므로, 부분일치로 고르면 엉뚱한 작품의 권리코드를 붙이게 된다.
+    laeebly 는 읽기전용 원천 DB(LAEEBLY_DB_URL)."""
+    url = os.environ.get("LAEEBLY_DB_URL")
+    if not url or not work_title:
+        return []
+    try:
+        import psycopg
+        with psycopg.connect(url) as conn, conn.cursor() as c:
+            c.execute("""select required_hashtags_description, identification_code
+                         from licensed_video where title = %s""", (work_title,))
+            rows = c.fetchall()
+    except Exception as exc:  # 원천 DB 장애가 발행을 막지는 않게 — 경고만
+        print(f"[주의] laeebly 조회 실패({type(exc).__name__}) — 식별코드 해시태그 생략")
+        return []
+    if len(rows) != 1:  # 0건(미등록 작품) 또는 2건 이상(동명이의) → 임의 선택 금지
+        print(f"[주의] laeebly에서 {work_title!r} 완전일치 {len(rows)}건 — 식별코드 해시태그 생략"
+              f"{' (--work-code 로 지정하세요)' if rows else ''}")
+        return []
+    req, code = rows[0]
+    return parse_hashtags(req) if (req or "").strip() else ([code.strip()] if (code or "").strip() else [])
 
 
 def fetch_episode(conn, clip_id):
@@ -152,6 +191,9 @@ def main():
     ap.add_argument("--title")
     ap.add_argument("--episode", type=int, default=None,
                     help="방영 회차(설명란 '<작품명> N화'). 미지정 시 gen_queue에서 run_id로 자동 해석")
+    ap.add_argument("--work-code", default=None,
+                    help="작품 식별코드 해시태그(예: o483K). 미지정 시 laeebly licensed_video 에서 "
+                         "작품명 완전일치로 자동 조회")
     ap.add_argument("--hashtags", nargs="*")
     ap.add_argument("--safety-floor", type=float, default=None,
                     help="명백히 깨진 산출물 차단용 안전 바닥. 미지정=judge quality로 안 막음(성과예측 아님)")
@@ -170,7 +212,13 @@ def main():
         if episode is None:
             print("[주의] 회차 미상 — 설명란에 '<작품명> N화' 줄이 빠집니다. "
                   "큐를 거치지 않은 런이면 --episode <N> 으로 지정하세요.")
-        snip = build_snippet(title, hashtags, work_title=work, episode=episode)
+        # 작품 식별코드: --work-code 명시값 우선, 없으면 laeebly(licensed_video)에서 제목으로 조회
+        work_tags = parse_hashtags(a.work_code) if a.work_code else fetch_work_hashtags(work)
+        if not work_tags:
+            print("[주의] 작품 식별코드 해시태그 없음 — 라이선스 표기 요구가 있는 작품이면 "
+                  "--work-code <코드> 로 지정해 다시 발행하세요.")
+        snip = build_snippet(title, hashtags, work_title=work, episode=episode,
+                             work_hashtags=work_tags)
         ok, reason = gate_ok(conn, a.clip_id, a.safety_floor)
         print(f"gate: {'PASS' if ok else 'BLOCK'} ({reason}) | title={snip['title']!r} privacy={a.privacy} oauth={'O' if _credentials(a.channel) else 'X(미설정)'}")
         if not a.publish:
