@@ -16,7 +16,9 @@ env: PIPELINE_DB_URL, YT_*, LAEEBLY_DB_URL(작품 식별코드 해시태그 조�
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import pathlib
 import re
 import sys
 
@@ -28,6 +30,8 @@ except ImportError:  # 단독 import 컨텍스트
 
 import channel_registry as registry  # 채널→토큰/OAuth 매핑 단일 소스(config/channels.json)
 
+REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
+NOTICE_CONFIG_PATH = REPO_ROOT / "config" / "work_publish_notice.json"
 CATEGORY_ENTERTAINMENT = "24"
 UPLOAD_SCOPE = "https://www.googleapis.com/auth/youtube.upload"
 
@@ -52,13 +56,18 @@ def hashtag_body(text):
 
 
 def build_snippet(title, hashtags=None, category=CATEGORY_ENTERTAINMENT,
-                  work_title=None, episode=None, work_hashtags=None):
+                  work_title=None, episode=None, work_hashtags=None,
+                  work_display=None, notice_lines=None):
     """YouTube snippet — 제목(개행→공백, ≤100자) + 설명 + tags(≤15). 순수.
 
-    설명 = "<작품명> <N>화" 한 줄 + 빈 줄 + 해시태그 줄. episode 가 None 이면 회차 줄 없이
-    해시태그만(기존 동작). work_title 미지정 시 첫 해시태그를 작품명으로 사용.
-    work_hashtags = 작품 식별코드 등 laeebly 요구 해시태그 — 해시태그 줄 뒤에 붙는다(중복 제거).
-    YouTube tags 에는 넣지 않는다(설명란 표기 요구사항이라)."""
+    설명 = "<작품표기> <N>화" 한 줄 (+ 필수 표기 줄들) + 빈 줄 + 해시태그 줄.
+    - work_display: 첫 줄에서 작품명 대신 쓸 표기. 권리사가 특정 문구를 요구할 때 사용
+      (예: 샤먼 → "티빙 오리지널 [샤먼: 미신전]"). 미지정 시 work_title, 그것도 없으면 첫 해시태그.
+      ⚠️ 유튜브 설명란은 꺾쇠(<>)를 못 쓰므로 대괄호로 표기한다.
+    - notice_lines: 첫 줄 아래에 그대로 넣을 필수 표기 줄들.
+    - episode 가 None 이어도 필수 표기는 남아야 하므로 work_display/notice_lines 는 출력된다.
+    - work_hashtags: 작품 식별코드 등 laeebly 요구 해시태그 — 해시태그 줄 뒤에 붙는다(중복 제거).
+      YouTube tags 에는 넣지 않는다(설명란 표기 요구사항이라)."""
     t = " ".join((title or "").split())[:100]
     tags = [h.lstrip("#").strip() for h in (hashtags or []) if h and h.strip()]
     bodies = [hashtag_body(x) for x in tags]
@@ -67,10 +76,17 @@ def build_snippet(title, hashtags=None, category=CATEGORY_ENTERTAINMENT,
         if b and b not in bodies:
             bodies.append(b)
     tag_line = " ".join("#" + b for b in bodies if b)
-    head = ""
-    if episode is not None:
-        work = " ".join((work_title or (tags[0] if tags else "")).split())
-        head = f"{work} {episode}화".strip()
+
+    lines = []
+    work = " ".join((work_display or work_title or (tags[0] if tags else "")).split())
+    if episode is not None and work:
+        lines.append(f"{work} {episode}화")
+    elif work_display:                 # 회차 미상이어도 권리사 필수 표기는 빠지면 안 된다
+        lines.append(work)
+    for ln in (notice_lines or []):
+        if str(ln).strip():
+            lines.append(str(ln).strip())
+    head = "\n".join(lines)
     desc = f"{head}\n\n{tag_line}".strip() if head else tag_line
     return {"title": t or "shorts", "description": desc, "tags": tags[:15], "categoryId": category}
 
@@ -108,6 +124,40 @@ def parse_hashtags(text):
     return [tok.lstrip("#").strip() for tok in re.split(r"[\s,]+", text or "") if tok.strip()]
 
 
+# 권리사 가이드가 '설명란 표기'를 요구하는지 감지하는 힌트(추출이 아니라 **경고용**).
+NOTICE_HINT_RE = re.compile(r"(설명란|더보기란)[^가-힣]{0,40}(표기|명시|기재)|표기\s*필수")
+
+
+def guide_requires_notice(guide_html):
+    """권리사 가이드가 설명란 표기를 요구하는 것으로 보이는가. 순수.
+
+    guide 는 산문 HTML 이라 문구를 기계적으로 추출하면 오히려 위험하다. 그래서 여기서는
+    '요구가 있어 보이는데 설정이 비어 있음'을 경고하는 용도로만 쓴다(자동 삽입 안 함)."""
+    if not guide_html:
+        return False
+    return bool(NOTICE_HINT_RE.search(re.sub(r"<[^>]+>", " ", guide_html)))
+
+
+def load_notice_config(path=NOTICE_CONFIG_PATH):
+    """config/work_publish_notice.json → {작품명: {...}}. 파일이 없거나 깨지면 {} (발행은 계속)."""
+    try:
+        return (json.loads(pathlib.Path(path).read_text(encoding="utf-8")) or {}).get("works") or {}
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def work_notice(work_title, config=None):
+    """작품명 → (work_display, notice_lines). 설정이 없으면 (None, []).
+
+    권리사 가이드(laeebly licensed_video.guide)의 표기 요구를 **사람이 읽고** 이 설정에 옮겨 적는다."""
+    cfg = config if config is not None else load_notice_config()
+    rec = cfg.get(work_title) or {}
+    lines = rec.get("notice_lines") or []
+    if isinstance(lines, str):
+        lines = [lines]
+    return rec.get("work_display"), list(lines)
+
+
 GRADE_SUFFIX = " (g)"          # laeebly 의 '(g)' 변형 작품 접미사
 GRADE_COMPANY = "CJ ENM"       # 이 권리사면 (g) 코드를 써야 한다
 
@@ -142,7 +192,8 @@ def fetch_work_hashtags(work_title):
     try:
         import psycopg
         with psycopg.connect(url) as conn, conn.cursor() as c:
-            c.execute("""select title, required_hashtags_description, identification_code, company
+            c.execute("""select title, required_hashtags_description, identification_code, company,
+                                guide
                          from licensed_video where title in (%s, %s)""",
                       (base, base + GRADE_SUFFIX))
             rows = c.fetchall()
@@ -158,10 +209,11 @@ def fetch_work_hashtags(work_title):
         print(f"[주의] laeebly에서 {base!r} 완전일치 없음 — 식별코드 해시태그 생략 "
               f"(--work-code 로 지정하세요)")
         return []
-    title, req, code, company = row
+    title, req, code, company, guide = row
     tags = parse_hashtags(req) if (req or "").strip() else ([code.strip()] if (code or "").strip() else [])
     if title != base:
         print(f"[laeebly] {company} 규칙 → '{title}' 코드 사용: {' '.join('#'+t for t in tags) or '(없음)'}")
+    fetch_work_hashtags.last_guide = guide       # main 의 필수표기 누락 경고에서 재사용(추가 조회 회피)
     return tags
 
 
@@ -243,12 +295,21 @@ def main():
             print("[주의] 회차 미상 — 설명란에 '<작품명> N화' 줄이 빠집니다. "
                   "큐를 거치지 않은 런이면 --episode <N> 으로 지정하세요.")
         # 작품 식별코드: --work-code 명시값 우선, 없으면 laeebly(licensed_video)에서 제목으로 조회
+        fetch_work_hashtags.last_guide = None
         work_tags = parse_hashtags(a.work_code) if a.work_code else fetch_work_hashtags(work)
         if not work_tags:
             print("[주의] 작품 식별코드 해시태그 없음 — 라이선스 표기 요구가 있는 작품이면 "
                   "--work-code <코드> 로 지정해 다시 발행하세요.")
+        # 권리사 필수 표기(설명란 문구) — config/work_publish_notice.json 에 사람이 옮겨 적은 값
+        work_display, notice_lines = work_notice(work)
+        if not (work_display or notice_lines) and guide_requires_notice(
+                getattr(fetch_work_hashtags, "last_guide", None)):
+            print(f"[경고] laeebly 가이드가 설명란 표기를 요구하는 것으로 보이는데 "
+                  f"config/work_publish_notice.json 에 {work!r} 설정이 없습니다. "
+                  f"가이드를 확인하고 등록한 뒤 발행하세요.")
         snip = build_snippet(title, hashtags, work_title=work, episode=episode,
-                             work_hashtags=work_tags)
+                             work_hashtags=work_tags, work_display=work_display,
+                             notice_lines=notice_lines)
         ok, reason = gate_ok(conn, a.clip_id, a.safety_floor)
         print(f"gate: {'PASS' if ok else 'BLOCK'} ({reason}) | title={snip['title']!r} privacy={a.privacy} oauth={'O' if _credentials(a.channel) else 'X(미설정)'}")
         if not a.publish:

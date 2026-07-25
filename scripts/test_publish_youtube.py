@@ -86,6 +86,48 @@ def test_pick_licensed_row_missing():
     assert pub.pick_licensed_row([_lv("작품 (g)", "ZZZ99")], "작품")[2] == "ZZZ99"
 
 
+def test_snippet_work_display_replaces_work_title():
+    # 권리사 필수 표기: '티빙 오리지널 [샤먼: 미신전] 1화'
+    s = pub.build_snippet("평범해 보이는 남자의 고백", ["샤먼: 미신전"], work_title="샤먼: 미신전",
+                          episode=1, work_hashtags=["eMQvA"],
+                          work_display="티빙 오리지널 [샤먼: 미신전]")
+    assert s["description"] == "티빙 오리지널 [샤먼: 미신전] 1화\n\n#샤먼_미신전 #eMQvA"
+
+
+def test_snippet_notice_lines_added_below():
+    s = pub.build_snippet("제목", ["작품"], work_title="작품", episode=3,
+                          notice_lines=["제공: 어딘가", " "])
+    assert s["description"] == "작품 3화\n제공: 어딘가\n\n#작품"
+
+
+def test_snippet_work_display_survives_unknown_episode():
+    # 회차를 몰라도 필수 표기는 빠지면 안 된다
+    s = pub.build_snippet("제목", ["샤먼: 미신전"], work_title="샤먼: 미신전", episode=None,
+                          work_display="티빙 오리지널 [샤먼: 미신전]")
+    assert s["description"] == "티빙 오리지널 [샤먼: 미신전]\n\n#샤먼_미신전"
+
+
+def test_guide_requires_notice_detects_real_guide():
+    # 샤먼 guide 실문구
+    assert pub.guide_requires_notice("<li>설명란에 '티빙 오리지널 &lt;샤먼: 미신전&gt;' 표기 필수</li>")
+    # 놀라운 토요일 guide 처럼 표기 요구가 없으면 False
+    assert not pub.guide_requires_notice("<p>사용 가능 회차: 2026년~(399회~), 최신 회차 위주 작업 권장</p>")
+    assert not pub.guide_requires_notice(None)
+
+
+def test_work_notice_reads_config():
+    cfg = {"샤먼: 미신전": {"work_display": "티빙 오리지널 [샤먼: 미신전]"},
+           "다른작품": {"notice_lines": "한 줄 고지"}}
+    assert pub.work_notice("샤먼: 미신전", cfg) == ("티빙 오리지널 [샤먼: 미신전]", [])
+    assert pub.work_notice("다른작품", cfg) == (None, ["한 줄 고지"])   # 문자열도 허용
+    assert pub.work_notice("미등록", cfg) == (None, [])
+
+
+def test_notice_config_file_is_valid_and_has_shaman():
+    cfg = pub.load_notice_config()
+    assert cfg.get("샤먼: 미신전", {}).get("work_display") == "티빙 오리지널 [샤먼: 미신전]"
+
+
 def test_snippet_work_code_hashtag():
     # 식별코드는 해시태그 줄 끝에 붙되 YouTube tags 에는 안 들어간다
     s = pub.build_snippet("여고괴담은 다 맞혔는데", ["놀라운 토요일"],
