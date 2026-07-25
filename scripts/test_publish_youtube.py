@@ -86,6 +86,54 @@ def test_pick_licensed_row_missing():
     assert pub.pick_licensed_row([_lv("작품 (g)", "ZZZ99")], "작품")[2] == "ZZZ99"
 
 
+def test_guide_requires_geoblock():
+    # 실제 가이드 문구들
+    assert pub.guide_requires_geoblock("<li>국내에만 노출되도록 지오블락 수행</li>")
+    assert pub.guide_requires_geoblock("- 지오블락 필요 (한국만 노출)")
+    assert pub.guide_requires_geoblock("지오 블락 처리 필수")
+    assert not pub.guide_requires_geoblock("<p>해당 링크 플레이리스트에 있는 영상들만 사용 가능</p>")
+    assert not pub.guide_requires_geoblock(None)
+
+
+def test_channel_geoblock_capable_from_registry():
+    # config/channels.json 기준 — 현재 지오블락 가능한 채널은 재미쇼츠뿐
+    assert pub.channel_geoblock_capable("재미쇼츠") is True
+    assert pub.channel_geoblock_capable("다람쥐 숏토리") is False
+    assert pub.channel_geoblock_capable("흥행수집") is False
+    assert pub.channel_geoblock_capable("미등록채널") is False        # 미등록은 안전측으로 불가
+
+
+def test_geoblock_gate_blocks_incapable_channel():
+    geo = "지오블락 처리 필수 (대한민국만 허용)"
+    ok, why = pub.geoblock_ok(geo, "다람쥐 숏토리")      # 언더커버셰프 케이스
+    assert ok is False and "처리 불가" in why
+    ok, _ = pub.geoblock_ok(geo, "재미쇼츠")             # 유미의 세포들 케이스
+    assert ok is True
+
+
+def test_geoblock_gate_passes_when_not_required():
+    ok, why = pub.geoblock_ok("<p>홀드백 3일</p>", "숏나우저")
+    assert ok is True and "불필요" in why
+    assert pub.geoblock_ok(None, "숏나우저")[0] is True   # 가이드 조회 실패 시 막지 않음
+
+
+def test_hashtags_from_row_prefers_required_field():
+    assert pub.hashtags_from_row(("작품", "#AAA11", "BBB22", "CJ ENM", None)) == ["AAA11"]
+    assert pub.hashtags_from_row(("작품", "", "BBB22", "CJ ENM", None)) == ["BBB22"]
+    assert pub.hashtags_from_row(None) == []
+
+
+def test_channels_json_work_titles_match_laeebly_style():
+    # 작품명은 laeebly 표기와 정확히 같아야 코드/가이드 조회가 된다(공백·콜론 주의)
+    import json, pathlib
+    chs = json.loads((pathlib.Path(pub.REPO_ROOT) / "config" / "channels.json")
+                     .read_text(encoding="utf-8"))
+    works = {w for ch in chs for w in (ch.get("works") or [])}
+    assert "언더커버셰프" in works and "언더커버 셰프" not in works
+    assert "샤먼: 미신전" in works and "샤먼 : 미신전" not in works
+    assert "SNL 코리아 리부트 시즌8" in works
+
+
 def test_snippet_work_display_replaces_work_title():
     # 권리사 필수 표기: '티빙 오리지널 [샤먼: 미신전] 1화'
     s = pub.build_snippet("평범해 보이는 남자의 고백", ["샤먼: 미신전"], work_title="샤먼: 미신전",

@@ -158,6 +158,38 @@ def work_notice(work_title, config=None):
     return rec.get("work_display"), list(lines)
 
 
+# 지오블락(대한민국 한정 노출) 필수 여부 — 권리사 가이드 문구로 판정.
+GEOBLOCK_HINT_RE = re.compile(r"지오\s?블(락|럭)|geo\s?block", re.I)
+
+
+def guide_requires_geoblock(guide_html):
+    """권리사 가이드가 지오블락을 요구하는가. 순수. (laeebly 기준 21개 작품이 해당)"""
+    if not guide_html:
+        return False
+    return bool(GEOBLOCK_HINT_RE.search(re.sub(r"<[^>]+>", " ", guide_html)))
+
+
+def channel_geoblock_capable(channel):
+    """채널이 지오블락 처리가 가능한가 — config/channels.json 의 geoblock_capable.
+    미등록/미표기는 **불가로 본다**(안전측). 현재 가능한 채널은 재미쇼츠뿐."""
+    rec = registry.resolve(channel) or {}
+    return bool(rec.get("geoblock_capable"))
+
+
+def geoblock_ok(work_guide, channel):
+    """(통과여부, 사유). 지오블락 필수 작품을 처리 불가 채널로 올리면 차단한다.
+
+    지오블락은 유튜브 PC 업로드에서 **사람이** 하는 설정이라 이 스크립트가 대신 해줄 수 없다.
+    따라서 '가능한 채널에만 배정'이 유일한 방어선이고, 여기서 기계적으로 막는다.
+    (근거: 유미의 세포들 가이드 "지오블락 불가한 채널은 참여 불가" — CLAUDE.md §3-1)"""
+    if not guide_requires_geoblock(work_guide):
+        return True, "지오블락 불필요"
+    if channel_geoblock_capable(channel):
+        return True, f"지오블락 필수 · {channel} 처리 가능"
+    return False, (f"지오블락 필수 작품인데 '{channel}' 은 처리 불가 채널 "
+                   f"(config/channels.json geoblock_capable) — 배정을 바꾸세요")
+
+
 GRADE_SUFFIX = " (g)"          # laeebly 의 '(g)' 변형 작품 접미사
 GRADE_COMPANY = "CJ ENM"       # 이 권리사면 (g) 코드를 써야 한다
 
@@ -178,16 +210,16 @@ def pick_licensed_row(rows, base_title):
     return base or gvar
 
 
-def fetch_work_hashtags(work_title):
-    """작품명 → laeebly가 요구하는 설명란 해시태그 목록(식별코드 등). 없거나 조회 실패면 [].
+def fetch_licensed_row(work_title):
+    """작품명 → 실제로 쓸 licensed_video 행 (title, req_hashtags, code, company, guide) 또는 None.
 
-    우선순위: required_hashtags_description(라이선서 명시 원문) > '#'+identification_code.
     ⚠️ 제목 **완전일치**만 사용한다(기본행 + '(g)' 변형 두 제목만 조회) — 부분일치로 고르면
     엉뚱한 작품의 권리코드를 붙이게 된다. CJ ENM 작품은 pick_licensed_row 가 (g)를 고른다.
+    ⚠️ 그래서 작품명은 laeebly 표기와 정확히 같아야 한다(config/channels.json·DB works.title).
     laeebly 는 읽기전용 원천 DB(LAEEBLY_DB_URL)."""
     url = os.environ.get("LAEEBLY_DB_URL")
     if not url or not work_title:
-        return []
+        return None
     base = re.sub(r"\s*\(g\)$", "", work_title).strip()
     try:
         import psycopg
@@ -198,23 +230,36 @@ def fetch_work_hashtags(work_title):
                       (base, base + GRADE_SUFFIX))
             rows = c.fetchall()
     except Exception as exc:  # 원천 DB 장애가 발행을 막지는 않게 — 경고만
-        print(f"[주의] laeebly 조회 실패({type(exc).__name__}) — 식별코드 해시태그 생략")
-        return []
+        print(f"[주의] laeebly 조회 실패({type(exc).__name__}) — 식별코드·권리규칙 확인 불가")
+        return None
     if len(rows) > 2:  # 동명 중복행 → 임의 선택 금지
-        print(f"[주의] laeebly에 {base!r} 동명 행 {len(rows)}건 — 식별코드 해시태그 생략 "
+        print(f"[주의] laeebly에 {base!r} 동명 행 {len(rows)}건 — 임의 선택하지 않음 "
               f"(--work-code 로 지정하세요)")
-        return []
+        return None
     row = pick_licensed_row(rows, base)
     if row is None:
-        print(f"[주의] laeebly에서 {base!r} 완전일치 없음 — 식별코드 해시태그 생략 "
+        print(f"[주의] laeebly에서 {base!r} 완전일치 없음 — 작품명이 laeebly 표기와 다를 수 있습니다 "
               f"(--work-code 로 지정하세요)")
+        return None
+    if row[0] != base:
+        print(f"[laeebly] {row[3]} 규칙 → '{row[0]}' 행 사용")
+    return row
+
+
+def hashtags_from_row(row):
+    """licensed_video 행 → 설명란 해시태그 목록. 순수.
+    우선순위: required_hashtags_description(라이선서 명시 원문) > '#'+identification_code."""
+    if not row:
         return []
-    title, req, code, company, guide = row
-    tags = parse_hashtags(req) if (req or "").strip() else ([code.strip()] if (code or "").strip() else [])
-    if title != base:
-        print(f"[laeebly] {company} 규칙 → '{title}' 코드 사용: {' '.join('#'+t for t in tags) or '(없음)'}")
-    fetch_work_hashtags.last_guide = guide       # main 의 필수표기 누락 경고에서 재사용(추가 조회 회피)
-    return tags
+    _, req, code, _, _ = row
+    if (req or "").strip():
+        return parse_hashtags(req)
+    return [code.strip()] if (code or "").strip() else []
+
+
+def fetch_work_hashtags(work_title):
+    """작품명 → laeebly가 요구하는 설명란 해시태그 목록. 없거나 조회 실패면 []."""
+    return hashtags_from_row(fetch_licensed_row(work_title))
 
 
 def fetch_episode(conn, clip_id):
@@ -294,27 +339,32 @@ def main():
         if episode is None:
             print("[주의] 회차 미상 — 설명란에 '<작품명> N화' 줄이 빠집니다. "
                   "큐를 거치지 않은 런이면 --episode <N> 으로 지정하세요.")
-        # 작품 식별코드: --work-code 명시값 우선, 없으면 laeebly(licensed_video)에서 제목으로 조회
-        fetch_work_hashtags.last_guide = None
-        work_tags = parse_hashtags(a.work_code) if a.work_code else fetch_work_hashtags(work)
+        # laeebly 권리 정보 1회 조회 — 식별코드 해시태그 · 필수 표기 판정 · 지오블락 게이트에 함께 씀
+        lic_row = fetch_licensed_row(work)
+        work_guide = lic_row[4] if lic_row else None
+        work_tags = parse_hashtags(a.work_code) if a.work_code else hashtags_from_row(lic_row)
         if not work_tags:
             print("[주의] 작품 식별코드 해시태그 없음 — 라이선스 표기 요구가 있는 작품이면 "
                   "--work-code <코드> 로 지정해 다시 발행하세요.")
         # 권리사 필수 표기(설명란 문구) — config/work_publish_notice.json 에 사람이 옮겨 적은 값
         work_display, notice_lines = work_notice(work)
-        if not (work_display or notice_lines) and guide_requires_notice(
-                getattr(fetch_work_hashtags, "last_guide", None)):
+        if not (work_display or notice_lines) and guide_requires_notice(work_guide):
             print(f"[경고] laeebly 가이드가 설명란 표기를 요구하는 것으로 보이는데 "
                   f"config/work_publish_notice.json 에 {work!r} 설정이 없습니다. "
                   f"가이드를 확인하고 등록한 뒤 발행하세요.")
         snip = build_snippet(title, hashtags, work_title=work, episode=episode,
                              work_hashtags=work_tags, work_display=work_display,
                              notice_lines=notice_lines)
+        # 지오블락 게이트 — 스크립트가 대신 못 하는 업로드 설정이라 배정 자체를 막는다(§3-1)
+        geo_ok, geo_reason = geoblock_ok(work_guide, a.channel)
+        print(f"geoblock: {'PASS' if geo_ok else 'BLOCK'} ({geo_reason})")
         ok, reason = gate_ok(conn, a.clip_id, a.safety_floor)
         print(f"gate: {'PASS' if ok else 'BLOCK'} ({reason}) | title={snip['title']!r} privacy={a.privacy} oauth={'O' if _credentials(a.channel) else 'X(미설정)'}")
         if not a.publish:
             print("[dry-run] --publish 시 실제 업로드. 안전: 게이트 통과 + opt-in 필요.")
             return
+        if not geo_ok:
+            sys.exit(f"지오블락 게이트 차단 — 발행 안 함: {geo_reason}")
         if not ok:
             sys.exit(f"게이트 차단 — 발행 안 함: {reason}")
         vid = upload(a.video, snip, a.privacy, a.channel)
