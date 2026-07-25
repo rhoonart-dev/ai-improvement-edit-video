@@ -108,31 +108,61 @@ def parse_hashtags(text):
     return [tok.lstrip("#").strip() for tok in re.split(r"[\s,]+", text or "") if tok.strip()]
 
 
+GRADE_SUFFIX = " (g)"          # laeebly 의 '(g)' 변형 작품 접미사
+GRADE_COMPANY = "CJ ENM"       # 이 권리사면 (g) 코드를 써야 한다
+
+
+def pick_licensed_row(rows, base_title):
+    """licensed_video 행들 [(title, req_hashtags, code, company)] → 실제로 쓸 1건(없으면 None).
+
+    laeebly 에는 같은 작품이 기본행과 '<작품명> (g)' 두 벌로 있는 경우가 있다(실측 7건, 전부
+    CJ ENM). **권리사가 CJ ENM 이면 (g) 쪽 식별코드를 써야 한다**는 규칙이라 (g)를 우선한다.
+    그 외에는 기본행. 순수 함수."""
+    by = {r[0]: r for r in rows}
+    base, gvar = by.get(base_title), by.get(base_title + GRADE_SUFFIX)
+    if base is None and gvar is None:
+        return None
+    companies = {str(r[3] or "").strip().upper() for r in (base, gvar) if r is not None}
+    if gvar is not None and GRADE_COMPANY.upper() in companies:
+        return gvar
+    return base or gvar
+
+
 def fetch_work_hashtags(work_title):
     """작품명 → laeebly가 요구하는 설명란 해시태그 목록(식별코드 등). 없거나 조회 실패면 [].
 
     우선순위: required_hashtags_description(라이선서 명시 원문) > '#'+identification_code.
-    ⚠️ 제목 **완전일치**만 사용한다 — '놀라운 토요일'과 '놀라운 토요일 (g)'처럼 코드가 다른
-    유사 제목이 실재하므로, 부분일치로 고르면 엉뚱한 작품의 권리코드를 붙이게 된다.
+    ⚠️ 제목 **완전일치**만 사용한다(기본행 + '(g)' 변형 두 제목만 조회) — 부분일치로 고르면
+    엉뚱한 작품의 권리코드를 붙이게 된다. CJ ENM 작품은 pick_licensed_row 가 (g)를 고른다.
     laeebly 는 읽기전용 원천 DB(LAEEBLY_DB_URL)."""
     url = os.environ.get("LAEEBLY_DB_URL")
     if not url or not work_title:
         return []
+    base = re.sub(r"\s*\(g\)$", "", work_title).strip()
     try:
         import psycopg
         with psycopg.connect(url) as conn, conn.cursor() as c:
-            c.execute("""select required_hashtags_description, identification_code
-                         from licensed_video where title = %s""", (work_title,))
+            c.execute("""select title, required_hashtags_description, identification_code, company
+                         from licensed_video where title in (%s, %s)""",
+                      (base, base + GRADE_SUFFIX))
             rows = c.fetchall()
     except Exception as exc:  # 원천 DB 장애가 발행을 막지는 않게 — 경고만
         print(f"[주의] laeebly 조회 실패({type(exc).__name__}) — 식별코드 해시태그 생략")
         return []
-    if len(rows) != 1:  # 0건(미등록 작품) 또는 2건 이상(동명이의) → 임의 선택 금지
-        print(f"[주의] laeebly에서 {work_title!r} 완전일치 {len(rows)}건 — 식별코드 해시태그 생략"
-              f"{' (--work-code 로 지정하세요)' if rows else ''}")
+    if len(rows) > 2:  # 동명 중복행 → 임의 선택 금지
+        print(f"[주의] laeebly에 {base!r} 동명 행 {len(rows)}건 — 식별코드 해시태그 생략 "
+              f"(--work-code 로 지정하세요)")
         return []
-    req, code = rows[0]
-    return parse_hashtags(req) if (req or "").strip() else ([code.strip()] if (code or "").strip() else [])
+    row = pick_licensed_row(rows, base)
+    if row is None:
+        print(f"[주의] laeebly에서 {base!r} 완전일치 없음 — 식별코드 해시태그 생략 "
+              f"(--work-code 로 지정하세요)")
+        return []
+    title, req, code, company = row
+    tags = parse_hashtags(req) if (req or "").strip() else ([code.strip()] if (code or "").strip() else [])
+    if title != base:
+        print(f"[laeebly] {company} 규칙 → '{title}' 코드 사용: {' '.join('#'+t for t in tags) or '(없음)'}")
+    return tags
 
 
 def fetch_episode(conn, clip_id):

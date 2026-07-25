@@ -58,6 +58,34 @@ def test_parse_hashtags():
     assert pub.parse_hashtags(None) == [] and pub.parse_hashtags("  ") == []
 
 
+def _lv(title, code, company="CJ ENM"):
+    """licensed_video 행 흉내 — (title, required_hashtags_description, identification_code, company)"""
+    return (title, f"#{code}", code, company)
+
+
+def test_pick_licensed_row_cjenm_prefers_g():
+    # CJ ENM 이면 '(g)' 변형 코드를 써야 한다(실측: 놀라운 토요일 o483K / (g) CCGDN)
+    rows = [_lv("놀라운 토요일", "o483K"), _lv("놀라운 토요일 (g)", "CCGDN")]
+    assert pub.pick_licensed_row(rows, "놀라운 토요일")[2] == "CCGDN"
+
+
+def test_pick_licensed_row_non_cjenm_keeps_base():
+    rows = [_lv("어떤 작품", "AAA11", company="다른배급사"),
+            _lv("어떤 작품 (g)", "BBB22", company="다른배급사")]
+    assert pub.pick_licensed_row(rows, "어떤 작품")[2] == "AAA11"
+
+
+def test_pick_licensed_row_cjenm_without_g_uses_base():
+    rows = [_lv("샤먼: 미신전", "eMQvA")]
+    assert pub.pick_licensed_row(rows, "샤먼: 미신전")[2] == "eMQvA"
+
+
+def test_pick_licensed_row_missing():
+    assert pub.pick_licensed_row([], "없는 작품") is None
+    # 기본행 없이 (g)만 있으면 그거라도 쓴다
+    assert pub.pick_licensed_row([_lv("작품 (g)", "ZZZ99")], "작품")[2] == "ZZZ99"
+
+
 def test_snippet_work_code_hashtag():
     # 식별코드는 해시태그 줄 끝에 붙되 YouTube tags 에는 안 들어간다
     s = pub.build_snippet("여고괴담은 다 맞혔는데", ["놀라운 토요일"],
