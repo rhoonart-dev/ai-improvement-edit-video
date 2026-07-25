@@ -12,6 +12,15 @@
   - **런어웨이 방지**: public 이 quota 미만이라도 '미공개 대기 장면'이 max_pending_unpublished 개
     쌓이면 그 회차 생성을 멈추고 사람의 공개를 기다린다(리뷰 풀 유지).
   - 다음 회차 소스 파일이 아직 폴더에 없으면 대기.
+  - 회차는 start_episode(기본 1)부터 오름차순. 장기 방영작은 이 값으로 시작점을 올린다.
+
+소스 유형 두 가지 (채널 설정 source_type):
+  - 'local'  : source_dir 의 회차 파일을 glob 로 발견 → create_shorts --video (기존 동작)
+  - 'youtube': channel_url 의 업로드를 훑어(캐시 24h) 제목에서 회차를 뽑고, 회차당 **가장 긴
+    영상** 1건을 그 회차 소스로 삼아 create_shorts --youtube-url. 같은 회차에 예고(45~80초)·
+    선공개·클립·하이라이트가 섞여 올라오므로 min_source_duration_sec 로 짧은 것을 걸러야 한다.
+    유튜브 소스는 매 실행이 소스를 새로 받아 edit_plan 의 video_path 가 달라지므로, 중복 판정은
+    경로가 아니라 회차 디렉토리(outputs/scene_loop/<채널>/ep<N>/)로 한다.
 
 공개 여부 판정(코드 미변경): 장면 run_id → (DB clip_metadata.ai_video_run_id ↔ clips.video_external_id)
   → 유튜브 Data API videos.list(공개 API 키) 로 privacyStatus. API키로 조회되고 status=='public' 인
@@ -30,6 +39,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import hashlib
 import json
 import os
 import re
@@ -50,6 +60,8 @@ except ImportError:
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = REPO_ROOT / "config" / "scene_loop.json"
 STATE_PATH = REPO_ROOT / "results" / "scene_loop_state.json"
+YT_INDEX_DIR = REPO_ROOT / "results" / "youtube_index"
+DEFAULT_TITLE_EP_REGEX = r"\bEP[.\s]?(\d{1,3})\b"   # '… | amazingsaturday EP.425'
 
 
 # ─────────────────────────── 설정/상태 I/O ───────────────────────────
@@ -86,6 +98,146 @@ def discover_episodes(source_dir, video_glob, episode_regex, start_episode=1):
                 found.append((n, str(Path(p).resolve())))
     found.sort(key=lambda x: x[0])
     return found
+
+
+def episode_dir_name(ep_num):
+    """회차 → 산출물 디렉토리명. outdir 생성과 회차 스캔이 같은 규칙을 쓰도록 한 곳에 둔다."""
+    return f"ep{ep_num:02d}"
+
+
+def is_url(s):
+    return str(s or "").startswith(("http://", "https://"))
+
+
+def source_label(video_path):
+    """로그용 짧은 소스 표기 — 로컬은 파일명, 유튜브는 URL 그대로."""
+    return str(video_path) if is_url(video_path) else Path(video_path).name
+
+
+def channel_source_type(ch):
+    """채널 설정 → 'local' | 'youtube'. source_type 명시 우선, 없으면 channel_url 유무로 추론."""
+    st = (ch.get("source_type") or "").strip().lower()
+    if st:
+        return st
+    return "youtube" if ch.get("channel_url") else "local"
+
+
+# ── 유튜브 소스: 채널 업로드를 회차 단위로 소비 ──
+#   장기 방영 예능처럼 소스가 로컬 폴더가 아니라 유튜브 채널인 작품용. 채널 업로드를 한 번
+#   훑어(캐시) 제목에서 회차를 뽑고, 회차당 '가장 긴 영상' 1건을 그 회차의 소스로 삼는다.
+#   (같은 회차에 예고 80초·클립 580초·하이라이트 1160초가 섞여 올라오므로 길이로 고른다.)
+
+def parse_index_lines(text):
+    """yt-dlp --print 출력 → [{'id','title','duration'}]. 순수.
+    구분자는 실제 탭. (셸에서 '\\t' 를 넘기면 리터럴로 들어오므로 그 형태도 받아준다.)"""
+    out = []
+    for line in (text or "").splitlines():
+        parts = line.split("\t", 2)
+        if len(parts) < 3:
+            parts = line.split("\\t", 2)
+        if len(parts) < 3:
+            continue
+        dur, vid, title = parts[0].strip(), parts[1].strip(), parts[2]
+        try:
+            d = float(dur)
+        except ValueError:
+            d = None
+        if vid:
+            out.append({"id": vid, "title": title, "duration": d})
+    return out
+
+
+def index_episodes(entries, title_regex=DEFAULT_TITLE_EP_REGEX, start_episode=1, min_duration_sec=0):
+    """[{'id','title','duration'}] → {회차: [entry…]}. 순수.
+    제목에서 회차를 못 뽑거나 · start_episode 미만이거나 · 너무 짧으면(예고/티저) 제외.
+
+    길이(duration)는 min_duration_sec>0 일 때만 본다 — 길이 미상(None)인 목록에서도
+    회차 자체는 살아남아야 하므로, 하한이 없으면 길이로 거르지 않는다."""
+    pat = re.compile(title_regex)
+    out = {}
+    for e in entries:
+        m = pat.search(e.get("title") or "")
+        if not m:
+            continue
+        n = int(m.group(1))
+        if n < start_episode:
+            continue
+        if min_duration_sec > 0:
+            d = e.get("duration")
+            if d is None or float(d) < min_duration_sec:
+                continue          # 하한이 있는데 확인 불가/미달 → 예고편 위험이라 제외
+        out.setdefault(n, []).append(e)
+    return out
+
+
+def pick_episode_entry(cands):
+    """한 회차의 후보 중 실제로 쓸 1건 — 가장 긴 영상(예고·티저 회피). 동률이면 id 사전순. 순수."""
+    if not cands:
+        return None
+    return max(cands, key=lambda e: (float(e.get("duration") or 0), e.get("id") or ""))
+
+
+def youtube_watch_url(video_id):
+    return f"https://www.youtube.com/watch?v={video_id}"
+
+
+def _yt_index_cache_path(channel_url):
+    return YT_INDEX_DIR / f"{hashlib.sha1(channel_url.encode('utf-8')).hexdigest()[:12]}.json"
+
+
+def fetch_youtube_index(gen_py, channel_url, timeout=1800):
+    """채널 업로드 flat 목록 → [{'id','title','duration'}]. 느리므로(수천건) 호출자가 캐시한다.
+    ⚠️ yt-dlp 콘솔스크립트는 shebang 이 옛 경로일 수 있어 반드시 '-m yt_dlp' 로 부른다."""
+    cmd = [gen_py, "-m", "yt_dlp", "--flat-playlist", "--no-warnings",
+           "--print", "%(duration)s\t%(id)s\t%(title)s", channel_url]
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    if r.returncode != 0:
+        raise RuntimeError(f"yt-dlp 채널 목록 실패 rc={r.returncode}: {(r.stderr or '')[-300:]}")
+    return parse_index_lines(r.stdout)
+
+
+def get_youtube_index(gen_py, channel_url, cache_hours, log, now=None):
+    """캐시된 채널 인덱스(없거나 오래되면 갱신). 캐시는 results/youtube_index/<해시>.json."""
+    p = _yt_index_cache_path(channel_url)
+    now = now or datetime.now()
+    if p.exists():
+        try:
+            c = json.loads(p.read_text(encoding="utf-8"))
+            age_h = (now - datetime.fromisoformat(c["fetched_at"])).total_seconds() / 3600
+            if age_h < cache_hours and c.get("entries"):
+                log(f"  [youtube] 인덱스 캐시 사용 ({len(c['entries'])}건, {age_h:.1f}시간 전)")
+                return c["entries"]
+        except (OSError, json.JSONDecodeError, KeyError, ValueError, TypeError):
+            pass
+    log(f"  [youtube] 채널 인덱스 갱신 중 (수천 건이라 몇 분 걸릴 수 있음) — {channel_url}")
+    entries = fetch_youtube_index(gen_py, channel_url)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps({"channel_url": channel_url,
+                             "fetched_at": now.isoformat(timespec="seconds"),
+                             "entries": entries}, ensure_ascii=False), encoding="utf-8")
+    log(f"  [youtube] 인덱스 {len(entries)}건 저장")
+    return entries
+
+
+def discover_episodes_youtube(gen_py, ch, cache_hours, log):
+    """유튜브 채널 → [(회차, watch_url)] 오름차순. 회차당 가장 긴 영상 1건."""
+    entries = get_youtube_index(gen_py, ch["channel_url"], cache_hours, log)
+    idx = index_episodes(entries, ch.get("title_episode_regex", DEFAULT_TITLE_EP_REGEX),
+                         ch.get("start_episode", 1), ch.get("min_source_duration_sec", 0))
+    out = []
+    for n in sorted(idx):
+        e = pick_episode_entry(idx[n])
+        if e:
+            out.append((n, youtube_watch_url(e["id"])))
+    return out
+
+
+def discover_episodes_for(ch, gen_py=None, cache_hours=24, log=lambda m: None):
+    """채널 설정 → [(회차, 소스)] 오름차순. 소스는 로컬 경로 또는 유튜브 URL."""
+    if channel_source_type(ch) == "youtube":
+        return discover_episodes_youtube(gen_py, ch, cache_hours, log)
+    return discover_episodes(ch["source_dir"], ch["video_glob"], ch["episode_regex"],
+                             ch.get("start_episode", 1))
 
 
 def scene_span(edit_plan):
@@ -169,12 +321,33 @@ def existing_output_scenes(scan_roots, video_path):
     return scenes
 
 
-def rendered_scenes(state, channel, ep_num, video_path, scan_roots, iou_th, center_tol):
+def episode_output_scenes(scan_roots, channel, ep_num):
+    """scene_loop 가 만든 (채널,회차) 산출물 → [{'span','run_id'}].
+
+    유튜브 소스는 매 실행이 소스를 새 outdir 로 내려받아 edit_plan.input.video_path 가 매번
+    달라진다 → 경로 매칭(existing_output_scenes)이 안 먹으므로 회차 디렉토리로 찾는다."""
+    scenes = []
+    for root in scan_roots:
+        pat = str(Path(root) / "scene_loop" / channel / episode_dir_name(ep_num) / "**" / "edit_plan.json")
+        for ep in glob.glob(pat, recursive=True):
+            try:
+                d = json.loads(Path(ep).read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            sp = scene_span(d)
+            if sp:
+                scenes.append({"span": sp, "run_id": _run_id_of(Path(ep).parent)})
+    return scenes
+
+
+def rendered_scenes(state, channel, ep_num, video_path, scan_roots, iou_th, center_tol,
+                    youtube=False):
     """이 (채널,회차)의 '서로 다른 렌더 장면' 목록 [{'span','run_ids'}] — 상태 + 기존 산출물 병합."""
     st = (((state.get("channels") or {}).get(channel) or {}).get("episodes") or {}) \
         .get(str(ep_num), {}).get("scenes", [])
     raw = [{"span": s["span"], "run_id": s.get("run_id")} for s in st if s.get("span")]
-    raw += existing_output_scenes(scan_roots, video_path)
+    raw += (episode_output_scenes(scan_roots, channel, ep_num) if youtube
+            else existing_output_scenes(scan_roots, video_path))
     return merge_scenes(raw, iou_th, center_tol)
 
 
@@ -239,8 +412,10 @@ def count_public_scenes(scenes, conn, channel, api_key):
 # ─────────────────────────── 생성 (ai-video 그대로 호출) ───────────────────────────
 
 def build_cmd(gen_py, work_title, video_path, outdir, gen_flags):
+    """소스가 URL 이면 --youtube-url(ai-video 가 직접 받아 씀), 아니면 --video. 순수."""
+    src = ["--youtube-url", video_path] if is_url(video_path) else ["--video", video_path]
     return [gen_py, "-m", "app.cli", "create_shorts",
-            "--title", work_title, "--video", video_path,
+            "--title", work_title, *src,
             "--max-shorts", "1", "--no-research", "--outdir", outdir, *gen_flags]
 
 
@@ -256,18 +431,19 @@ def newest_job_dir(outdir):
 
 # ─────────────────────────── 채널 상태 판정 ───────────────────────────
 
-def channel_plan(cfg, ch, state, conn, api_key, scan_roots):
+def channel_plan(cfg, ch, state, conn, api_key, scan_roots, gen_py=None, log=lambda m: None):
     """이 채널이 지금 무엇을 할지 판정.
     반환 (action, ep_num, vp, info) — action ∈ {'gen','wait_publish','done_all','no_source'}."""
     quota = cfg["quota_per_episode"]
     max_pending = cfg.get("max_pending_unpublished", quota)
     iou_th, ctol = cfg["dup_iou_threshold"], cfg["dup_center_tolerance_sec"]
-    eps = discover_episodes(ch["source_dir"], ch["video_glob"], ch["episode_regex"],
-                            ch.get("start_episode", 1))
+    is_yt = channel_source_type(ch) == "youtube"
+    eps = discover_episodes_for(ch, gen_py, cfg.get("youtube_index_cache_hours", 24), log)
     if not eps:
         return ("no_source", None, None, {"eps": []})
     for ep_num, vp in eps:
-        scenes = rendered_scenes(state, ch["channel"], ep_num, vp, scan_roots, iou_th, ctol)
+        scenes = rendered_scenes(state, ch["channel"], ep_num, vp, scan_roots, iou_th, ctol,
+                                 youtube=is_yt)
         pub = count_public_scenes(scenes, conn, ch["channel"], api_key)
         info = {"eps": eps, "rendered": len(scenes), "public": pub,
                 "pending": len(scenes) - pub, "scenes": scenes}
@@ -286,7 +462,8 @@ def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_ro
     scan_roots = [str(Path(ai_video_root) / d) for d in cfg.get("outputs_scan_dirs", ["outputs"])]
     tag = f"[{ch['channel']} · {ch['work_title']}]"
     try:
-        action, ep_num, vp, info = channel_plan(cfg, ch, state, conn, api_key, scan_roots)
+        action, ep_num, vp, info = channel_plan(cfg, ch, state, conn, api_key, scan_roots,
+                                                gen_py, log)
     except urllib.error.URLError as e:
         log(f"{tag} ⚠ 유튜브 공개상태 조회 실패({e}) → 오늘 이 채널 스킵(오판 방지)")
         return
@@ -295,7 +472,8 @@ def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_ro
         return
 
     if action == "no_source":
-        log(f"{tag} 소스 폴더에 회차 파일 없음 → 스킵 ({ch['source_dir']})")
+        where = ch.get("channel_url") if channel_source_type(ch) == "youtube" else ch.get("source_dir")
+        log(f"{tag} 쓸 수 있는 회차 없음 → 스킵 ({where})")
         return
     if action == "done_all":
         log(f"{tag} 발견된 회차({[e for e,_ in info['eps']]}) 모두 공개 {quota}개 충족 → 다음 회차 소스 대기")
@@ -307,7 +485,7 @@ def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_ro
 
     # action == 'gen'
     log(f"{tag} EP{ep_num}: 공개 {info['public']}/{quota} (렌더 {info['rendered']}, 미공개 {info['pending']})"
-        f" → 이번에 1장면 생성 (소스 {Path(vp).name})")
+        f" → 이번에 1장면 생성 (소스 {source_label(vp)})")
     if dry_run:
         log(f"{tag}   (dry-run) 생성 생략")
         return
@@ -317,7 +495,7 @@ def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_ro
     prior_spans = [sc["span"] for sc in info["scenes"]]
     for attempt in range(1, attempts + 1):
         outdir = str(Path(ai_video_root) / "outputs" / "scene_loop" / ch["channel"] /
-                     f"ep{ep_num:02d}" / f"try{attempt}_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+                     episode_dir_name(ep_num) / f"try{attempt}_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
         Path(outdir).mkdir(parents=True, exist_ok=True)
         cmd = build_cmd(gen_py, ch["work_title"], vp, outdir, cfg["gen_flags"])
         log(f"{tag}   시도 {attempt}/{attempts}: {' '.join(cmd[:6])} … → {outdir}")
@@ -354,16 +532,17 @@ def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_ro
 
 # ─────────────────────────── status ───────────────────────────
 
-def cmd_status(cfg, state, conn, api_key, ai_video_root, log):
+def cmd_status(cfg, state, conn, api_key, ai_video_root, log, gen_py=None):
     scan_roots = [str(Path(ai_video_root) / d) for d in cfg.get("outputs_scan_dirs", ["outputs"])]
     quota = cfg["quota_per_episode"]
     iou_th, ctol = cfg["dup_iou_threshold"], cfg["dup_center_tolerance_sec"]
     for ch in cfg["channels"]:
-        eps = discover_episodes(ch["source_dir"], ch["video_glob"], ch["episode_regex"],
-                            ch.get("start_episode", 1))
-        log(f"[{ch['channel']} · {ch['work_title']}]  회차 파일: {[e for e,_ in eps] or '없음'}")
+        is_yt = channel_source_type(ch) == "youtube"
+        eps = discover_episodes_for(ch, gen_py, cfg.get("youtube_index_cache_hours", 24), log)
+        log(f"[{ch['channel']} · {ch['work_title']}]  회차: {[e for e,_ in eps] or '없음'}")
         for ep_num, vp in eps:
-            scenes = rendered_scenes(state, ch["channel"], ep_num, vp, scan_roots, iou_th, ctol)
+            scenes = rendered_scenes(state, ch["channel"], ep_num, vp, scan_roots, iou_th, ctol,
+                                     youtube=is_yt)
             try:
                 pub = count_public_scenes(scenes, conn, ch["channel"], api_key)
                 pubs = str(pub)
@@ -415,7 +594,7 @@ def main():
     conn = _connect_db(log)
     try:
         if a.status:
-            cmd_status(cfg, state, conn, api_key, ai_video_root, log)
+            cmd_status(cfg, state, conn, api_key, ai_video_root, log, gen_py)
             return
         if "GEMINI_API_KEY" not in os.environ and not a.dry_run:
             sys.exit("GEMINI_API_KEY 미설정 — .env 로드 실패? (생성 불가)")

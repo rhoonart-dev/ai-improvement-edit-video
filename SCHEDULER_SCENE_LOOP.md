@@ -71,10 +71,26 @@ brain 레포에 `config/scene_loop.json`을 만든다. **`channels` 배열을 �
 각 채널 항목:
 - `channel` — `config/channels.json`의 채널 `name`과 **정확히 일치** (발행/DB 매칭 키)
 - `work_title` — 그 채널의 작품 제목 (DB 정본, `channels.json`의 `works` 값)
+- `start_episode` — 시작 회차. **기본 1(=1화부터)**. 장기 방영작처럼 앞 회차를 안 쓰면 올린다
+- `source_type` — `local`(기본) 또는 `youtube`. 생략하면 `channel_url` 유무로 추론
+
+**① 로컬 폴더 소스** (`source_type: "local"`)
 - `source_dir` — 이 머신의 소스 폴더 절대경로
 - `video_glob` — 회차 파일 glob (예: `EP*.mp4`, `*.mp4`)
 - `episode_regex` — 파일명에서 회차번호를 뽑는 정규식. 캡처그룹1이 회차번호
   - `EP01.mp4` → `EP(\\d+)` · `유미의세포들3_1화_….mp4` → `(\\d+)화`
+
+**② 유튜브 채널 소스** (`source_type: "youtube"`) — 장기 방영 예능처럼 폴더 소스가 없고
+공식 채널 업로드에서 가져오는 작품용
+- `channel_url` — 채널 업로드 목록 URL (예: `https://www.youtube.com/channel/UC…/videos`)
+- `title_episode_regex` — **영상 제목**에서 회차를 뽑는 정규식. 기본 `\\bEP[.\\s]?(\\d{1,3})\\b`
+  - 예: `… | amazingsaturday EP.425` → 425
+- `min_source_duration_sec` — 이 길이 미만 영상은 후보에서 제외. **필수급 설정** — 같은 회차에
+  예고(45~80초)·선공개(180~270초)·클립(580초)·하이라이트(1000~1170초)가 섞여 올라오므로,
+  하한이 없으면 45초 예고편이 소스로 뽑힐 수 있다. 놀라운 토요일 기준 `600` 권장
+- 회차당 후보가 여럿이면 **가장 긴 영상**을 고른다
+- 채널 목록은 `results/youtube_index/<해시>.json` 에 캐시(`youtube_index_cache_hours`, 기본 24)
+  — 수천 건이라 매번 훑으면 느리다. 처음 1회는 몇 분 걸린다
 
 ```jsonc
 {
@@ -90,6 +106,7 @@ brain 레포에 `config/scene_loop.json`을 만든다. **`channels` 배열을 �
   "gen_timeout_sec": 5400,
   "gen_flags": ["--silence-profile", "aggressive", "--length-profile", "tight", "--loudness-lufs", "-14"],
   "outputs_scan_dirs": ["outputs", "outputs_ab"],
+  "youtube_index_cache_hours": 24,
   "channels": [
     // ↓↓↓ 이 머신 담당 채널만 넣는다 (channels.json과 대조) ↓↓↓
     {
@@ -97,7 +114,17 @@ brain 레포에 `config/scene_loop.json`을 만든다. **`channels` 배열을 �
       "work_title": "<그 채널의 작품 제목(DB 정본)>",
       "source_dir": "/Users/<계정>/Downloads/sources/<작품슬러그>",
       "video_glob": "EP*.mp4",
-      "episode_regex": "EP(\\d+)"
+      "episode_regex": "EP(\\d+)",
+      "start_episode": 1
+    },
+    { // 유튜브 채널에서 회차를 가져오는 작품 (예: 놀라운 토요일 — 410화부터)
+      "channel": "숏나우저",
+      "work_title": "놀라운 토요일",
+      "source_type": "youtube",
+      "channel_url": "https://www.youtube.com/channel/UCTnafh2iyIWh7MhcGBmGU0g/videos",
+      "title_episode_regex": "\\bEP[.\\s]?(\\d{1,3})\\b",
+      "start_episode": 410,
+      "min_source_duration_sec": 600
     }
     // 담당 채널이 여러 개면 항목을 추가
   ]
