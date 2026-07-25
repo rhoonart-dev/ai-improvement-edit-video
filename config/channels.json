@@ -8,7 +8,8 @@
     "genre": "드라마",
     "works": [
       "유미의 세포들 시즌3"
-    ]
+    ],
+    "geoblock_capable": true
   },
   {
     "token_slug": "CINEMAINBED",
@@ -19,7 +20,8 @@
     "genre": "드라마",
     "works": [
       "로맨스의 절댓값"
-    ]
+    ],
+    "geoblock_capable": false
   },
   {
     "token_slug": "DARAMJI",
@@ -29,9 +31,9 @@
     "gcp_project": "DEFAULT",
     "genre": "드라마, 영화",
     "works": [
-      "아파트",
-      "신입사원 강회장"
-    ]
+      "언더커버셰프"
+    ],
+    "geoblock_capable": false
   },
   {
     "token_slug": "NEOGULBANG",
@@ -41,8 +43,9 @@
     "gcp_project": "DEFAULT",
     "genre": "드라마, 영화",
     "works": [
-      "킬러들의 쇼핑몰2"
-    ]
+      "언니네 산지직송 in 칼라페"
+    ],
+    "geoblock_capable": false
   },
   {
     "token_slug": "TETOCHIP",
@@ -52,9 +55,9 @@
     "gcp_project": "DEFAULT",
     "genre": "예능",
     "works": [
-      "도깨비 10주년 여행",
-      "언니네 산지직송 in 칼라페"
-    ]
+      "도깨비 10주년 여행"
+    ],
+    "geoblock_capable": false
   },
   {
     "token_slug": "KIKKIK",
@@ -64,9 +67,9 @@
     "gcp_project": "P2",
     "genre": "예능",
     "works": [
-      "SNL 시즌8",
-      "SNL 시즌7"
-    ]
+      "SNL 코리아 리부트 시즌8"
+    ],
+    "geoblock_capable": false
   },
   {
     "token_slug": "HEUNGHAENG",
@@ -76,9 +79,9 @@
     "gcp_project": "P2",
     "genre": "예능",
     "works": [
-      "스트릿 레스토랑 파이터",
-      "언더커버 셰프"
-    ]
+      "스트릿 레스토랑 파이터"
+    ],
+    "geoblock_capable": false
   },
   {
     "token_slug": "SHOTNOW",
@@ -89,7 +92,8 @@
     "genre": "예능",
     "works": [
       "놀라운 토요일"
-    ]
+    ],
+    "geoblock_capable": false
   },
   {
     "token_slug": "YEOWOON",
@@ -99,9 +103,9 @@
     "gcp_project": "P2",
     "genre": "다큐",
     "works": [
-      "샤먼 : 미신전",
-      "국대"
-    ]
+      "샤먼: 미신전"
+    ],
+    "geoblock_capable": false
   },
   {
     "token_slug": "SHOTCONE",
@@ -110,7 +114,8 @@
     "channel_id": "UCY41EN1sP9CIJE_U-JonziA",
     "gcp_project": "P2",
     "genre": "ENA 일본 채널",
-    "works": []
+    "works": [],
+    "geoblock_capable": false
   },
   {
     "token_slug": "MOLIPDODUK",
@@ -121,7 +126,8 @@
     "genre": "예능",
     "works": [
       "SNL 코리아 리부트 시즌8"
-    ]
+    ],
+    "geoblock_capable": false
   },
   {
     "token_slug": "SCENELAUNDRY",
@@ -132,7 +138,8 @@
     "genre": "예능",
     "works": [
       "코미디빅리그"
-    ]
+    ],
+    "geoblock_capable": false
   },
   {
     "token_slug": "REWINDPOCHA",
@@ -143,7 +150,8 @@
     "genre": "예능",
     "works": [
       "코미디빅리그"
-    ]
+    ],
+    "geoblock_capable": false
   },
   {
     "token_slug": "ENDINGSUNSAK",
@@ -154,7 +162,8 @@
     "genre": "예능",
     "works": [
       "SNL 코리아 리부트 시즌7"
-    ]
+    ],
+    "geoblock_capable": false
   },
   {
     "token_slug": "SHORTSSUNSHINE",
@@ -165,6 +174,7 @@
     "genre": "드라마",
     "works": [
       "참교육"
-    ]
+    ],
+    "geoblock_capable": false
   }
 ]

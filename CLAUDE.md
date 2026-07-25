@@ -17,15 +17,15 @@ ai-video(롱폼→쇼츠 추출 솔루션)를 **증거 기반으로 자기개선
 
 | 항목 | 값 |
 |---|---|
-| **brain 레포** | `~/rhoonart/ai-improvement-edit-video` (GitHub: `rhoonart-dev/ai-improvement-edit-video`) |
+| **brain 레포** | `~/ves/ai-improvement-edit-video` (GitHub: `rhoonart-dev/ai-improvement-edit-video`) |
 | **작업 브랜치** | `claude/review-implement-pr-plan-6bb3ac` (PR #4). ※워크트리에서 작업했음 — main 머지 후엔 main 사용 |
-| **ai-video 레포** | `~/rhoonart/ai-video` (GitHub: `rht-22/ai-video`). **main**이 노브 플래그 + T0-2 provenance 보유(cut-2 병합, b935d20) |
-| **Python venv** | `~/rhoonart/ai-video/.venv/bin/python` (공용 — psycopg(v3)·psycopg2-binary·scipy·numpy·google-genai·yt-dlp·gdown 포함) |
+| **ai-video 레포** | `~/ves/ai-video` (GitHub: `rht-22/ai-video`). **main**이 노브 플래그 + T0-2 provenance 보유(cut-2 병합, b935d20) |
+| **Python venv** | `~/ves/ai-video/.venv/bin/python` (공용 — psycopg(v3)·psycopg2-binary·scipy·numpy·google-genai·yt-dlp·gdown 포함) |
 | **파이프라인 DB** | **fdidiqd** (Supabase `video-improvement-pipeline`, ref `fdidiqdhcyctdbogxkdu`, ap-northeast-2). **단일 DB**(gen_queue 포함 23테이블). 마이그레이션 0001~0005 적용됨 |
 | **원천 DB(읽기전용)** | **laeebly** (ref `mehvzxzajydffflqcuuk`) — youtube_studio 성과·licensed_video 작품 |
 
 ### 다른 머신에서 셋업
-1. 두 레포 clone (`~/rhoonart/` 아래 형제로).
+1. 두 레포 clone (`~/ves/` 아래 형제로). ※폴더 규약명 2026-07-24부터 `ves`(구 `rhoonart`) — 기존 머신엔 `~/rhoonart`로 남아 있을 수 있고, 경로가 다르면 `.env`의 `AI_VIDEO_ROOT`·`AI_VIDEO_WORKTREE`·`AI_VIDEO_GEN_PY`를 실제 경로로.
 2. venv: ai-video에 venv 만들고 `pip install -r ai-video/requirements.txt` + brain `requirements.txt`(psycopg2-binary 추가 필요).
 3. **`.env` 2개 생성**(둘 다 gitignore — 값은 커밋 안 됨):
    - **brain 레포 루트 `.env`** (envload가 읽음 — publish/loop 스크립트용):
@@ -48,7 +48,7 @@ ai-video(롱폼→쇼츠 추출 솔루션)를 **증거 기반으로 자기개선
   **provenance 스탬프 완비**(git_sha b935d20 · config{app,design} · prompt_set_hash → config_hash 계산됨,
   `provenance_complete=true` = ingest 계약 충족). 산출물(ai-video 레포 기준):
 
-  | 작품 (채널) | 결과 | job 경로 (`~/rhoonart/ai-video/`) |
+  | 작품 (채널) | 결과 | job 경로 (`~/ves/ai-video/`) |
   |---|---|---|
   | SNL 코리아 리부트 시즌8 (킥킥극장) | 59.8초 1080×1920 (생성 68분) | `outputs_ab/smoke_snl_ep1/SNL_코리아_리부트_시즌8_ce/` |
   | 유미의 세포들 시즌3 (재미쇼츠) | 58.4초 1080×1920 25MB | `outputs_ab/yumi_ep1/유미의_세포들_시즌3_c7/` |
@@ -91,11 +91,36 @@ judge 사유: *"제목에서 강조한 '알몸 뒤태로 걸어가는' 핵심 �
 - **Drive 소스는 비공개(401)** — gdown 무인증 불가. **Claude in Chrome**(로그인된 세션)으로 폴더 열어 대용량 mp4(~2.9GB) 다운로드해야 함. 바이러스검사 경고는 "다운로드" 재클릭.
 - 나머지 6채널 매핑도 `licensed_video`(laeebly)에서 제목으로 찾을 수 있음.
 
-## 4. 핵심 명령 (venv = `~/rhoonart/ai-video/.venv/bin/python`, `PY`로 표기)
+### 3-1. ⚠️ 채널 배정 제약 — 지오블락 (작품↔채널 매칭 전 반드시 확인)
+
+일부 작품은 권리사 가이드가 **지오블락(대한민국 한정 노출)을 필수**로 요구한다. 그런데 지오블락은
+채널마다 가능 여부가 다르다. **현재 보유 채널 중 지오블락이 가능한 곳은 `재미쇼츠` 뿐이다.**
+
+> **규칙: 지오블락 필수 작품은 `재미쇼츠` 에만 배정한다. 그 외 채널에 배정돼 있으면 즉시 중지.**
+> (유미의 세포들 가이드: "지오블락 불가한 채널은 참여 불가")
+
+- **확인 방법**: laeebly `licensed_video.guide` 에 '지오블락' 이 있으면 대상. 2026-07-26 기준 **21건**
+  (ENA 드라마 다수 · 유미의 세포들 시즌3 · 언더커버셰프 · 구기동 프렌즈 · 킬러들의 쇼핑몰2 등).
+- **현재 상태**(2026-07-26 점검):
+  - ✅ `재미쇼츠` ← 유미의 세포들 시즌3 — 가능, 유지
+  - 🛑 `다람쥐 숏토리` ← 언더커버 셰프 (`config/channels.json`) — **중지 대상**
+  - 🛑 `흥행수집` ← 언더커버셰프 (`gen_queue`, status=pending) — **중지 대상**(아직 생성 전)
+- ⚠️ 작품명 표기가 갈린다: laeebly·gen_queue 는 `언더커버셰프`, channels.json·scene_loop 는
+  `언더커버 셰프`(공백). 자동 대조 시 공백을 제거하고 비교해야 놓치지 않는다.
+- 지오블락은 **업로드 설정**이라 발행 스크립트가 대신 해주지 못한다(유튜브 PC 업로드에서만 가능).
+  따라서 "가능한 채널에만 배정"이 유일한 방어선이다.
+- **기계 게이트 있음**: 채널 가능 여부는 `config/channels.json` 의 `geoblock_capable`(현재 재미쇼츠만
+  true), 작품 필요 여부는 laeebly `guide` 문구로 판정해 `publish_youtube.py` 가 **발행을 차단**한다.
+  미등록·미표기 채널은 안전측으로 불가 처리. 그래도 배정 단계에서 거르는 게 먼저다(생성 비용 낭비 방지).
+- ⚠️ 작품명은 **laeebly 표기와 정확히 일치**해야 가이드·코드 조회가 된다. 2026-07-26 에 `channels.json`
+  3건을 정본으로 교정: `언더커버 셰프`→`언더커버셰프`, `샤먼 : 미신전`→`샤먼: 미신전`,
+  `SNL 시즌8`→`SNL 코리아 리부트 시즌8`.
+
+## 4. 핵심 명령 (venv = `~/ves/ai-video/.venv/bin/python`, `PY`로 표기)
 
 ```bash
-BRAIN=~/rhoonart/ai-improvement-edit-video          # (워크트리면 그 경로)
-PY=~/rhoonart/ai-video/.venv/bin/python
+BRAIN=~/ves/ai-improvement-edit-video          # (워크트리면 그 경로)
+PY=~/ves/ai-video/.venv/bin/python
 export PIPELINE_DB_URL="$(grep '^PIPELINE_DB_URL=' $BRAIN/factory/.env | cut -d= -f2-)"
 
 # 테스트 (전 계층)
@@ -108,8 +133,8 @@ $PY factory/run_factory.py --score-only --score-mode mutual
 $PY scripts/knob_proposer.py --md results/knob_proposer_report.md
 
 # 생성 (ai-video main, 무거움: 롱폼 ~60분/편, 짧은클립 ~5분) — GEMINI_API_KEY 필요
-cd ~/rhoonart/ai-video
-export GEMINI_API_KEY=... AI_VIDEO_ROOT=~/rhoonart/ai-video
+cd ~/ves/ai-video
+export GEMINI_API_KEY=... AI_VIDEO_ROOT=~/ves/ai-video
 .venv/bin/python -u -m app.cli create_shorts --title "<작품명(DB 정본)>" \
    --video <로컬.mp4>  또는  --youtube-url <url> \
    --max-shorts 1 --no-research --outdir outputs_ab/<라벨>
@@ -122,7 +147,7 @@ export GEMINI_API_KEY=... AI_VIDEO_ROOT=~/rhoonart/ai-video
    --loudness-lufs off  --outdir outputs_ab/<라벨>/ctrl      # control
 
 # 인제스트 (생성물 → fdidiqd, provenance 적재)
-cd $BRAIN && $PY scripts/ingest_aivideo_run.py --run-dir ~/rhoonart/ai-video/outputs_ab/<라벨>/<job> --short-label shorts_1 --channel <채널> [--dry-run]
+cd $BRAIN && $PY scripts/ingest_aivideo_run.py --run-dir ~/ves/ai-video/outputs_ab/<라벨>/<job> --short-label shorts_1 --channel <채널> [--dry-run]
 
 # 발행 (사람 개입 ①: private 업로드 → Studio 공개). 오채널 하드 실패·안전게이트 통과 필요
 $PY scripts/publish_youtube.py --clip-id <uuid> --video <shorts.mp4> --channel "<채널>" --publish --privacy unlisted
@@ -138,6 +163,7 @@ $PY scripts/m4_ab_analysis.py --experiment loudness_v1 --window-days 7
 - **버퍼링 로그**: 백그라운드 생성은 `python -u`로 돌려야 진행 로그가 보임(아니면 완료 전까지 0바이트). checkpoint_*.json으로도 단계 추적.
 - **생성 시간**: 롱폼(90분 에피소드)=쇼츠 1편에 ~68분(12청크 × ~3분 Gemini 분석). 배치는 밤새 돌린다는 각오. 짧은 클립은 ~5분.
 - **발행 토큰**: 채널별 `YT_REFRESH_TOKEN_<slug>` 없으면 §3-5로 하드 실패(오채널 차단). P2 채널(킥킥극장 등)은 `YT_CLIENT_ID_P2`도 필요.
+- **작품별 권리 규칙은 laeebly `licensed_video.guide`가 정본** — 소스 범위(채널 전체/플레이리스트 한정/Drive 제공분만)·지오블락(**§3-1**)·홀드백·설명란 필수 표기가 전부 여기 있다. 새 작품을 붙이기 전에 반드시 읽을 것. 설명란 필수 표기는 `config/work_publish_notice.json`에 사람이 옮겨 적으면 발행 시 자동 반영된다(미설정인데 가이드가 요구하면 경고).
 - **형제 DB 분단**: 과거 xxondf(형제 repo)와 fdidiqd로 갈렸으나 fdidiqd로 통일. 형제 repo(`ai-improve-edit-video`)는 아직 xxondf 가리킬 수 있음 — 쓸 거면 PIPELINE_DB_URL을 fdidiqd로.
 - **디스크**: 소스 마스터 ~2.9GB × N + 생성 중간파일. 여유 확인.
 - **DB 마이그레이션**: `docs/migrations/*.sql` — 적용은 사용자 확인 후(공유 DB). MCP `apply_migration` 또는 psql.
