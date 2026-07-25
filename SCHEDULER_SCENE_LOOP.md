@@ -80,11 +80,21 @@ brain 레포에 `config/scene_loop.json`을 만든다. **`channels` 배열을 �
 - `episode_regex` — 파일명에서 회차번호를 뽑는 정규식. 캡처그룹1이 회차번호
   - `EP01.mp4` → `EP(\\d+)` · `유미의세포들3_1화_….mp4` → `(\\d+)화`
 
-**② 유튜브 채널 소스** (`source_type: "youtube"`) — 장기 방영 예능처럼 폴더 소스가 없고
-공식 채널 업로드에서 가져오는 작품용
-- `channel_url` — 채널 업로드 목록 URL (예: `https://www.youtube.com/channel/UC…/videos`)
-- `title_episode_regex` — **영상 제목**에서 회차를 뽑는 정규식. 기본 `\\bEP[.\\s]?(\\d{1,3})\\b`
-  - 예: `… | amazingsaturday EP.425` → 425
+**② 유튜브 소스** (`source_type: "youtube"`) — 폴더 소스가 없고 유튜브에서 가져오는 작품용
+
+> ⚠️ **소스 범위는 권리사 가이드가 정한다.** laeebly `licensed_video.guide`(작품별 규칙 원문)를
+> 먼저 읽고 채운다. 채널 전체가 허용되는 작품과 **특정 플레이리스트만** 허용되는 작품이 섞여 있다.
+> - 놀라운 토요일 → "tvN joy 또는 놀라운 토요일 유튜브 채널 업로드 클립 다운 후 사용" (채널 전체)
+> - 도깨비 10주년 여행 → "해당 링크 플레이리스트에 있는 영상들만 사용 가능" (**플레이리스트 한정**)
+>
+> guide 안의 플레이리스트 링크는 HTML `<a href>` 로 들어 있다. 코드는 이 범위를 추측하지 않는다.
+
+- `source_url` — 채널 업로드 목록 **또는** 플레이리스트 URL. 둘 다 동일하게 처리된다
+  - 채널: `https://www.youtube.com/channel/UC…/videos` · 플레이리스트: `https://www.youtube.com/playlist?list=PL…`
+- `title_episode_regex` — **영상 제목**에서 회차를 뽑는 정규식. **필수**(기본값 없음 — 작품마다
+  표기가 달라 기본값을 두면 엉뚱한 규칙이 조용히 적용된다)
+  - 예: `… | amazingsaturday EP.425` → 425 · `… #도깨비10주년여행 EP.1` → 1
+  - 흔한 값: `\\bEP[.\\s]?(\\d{1,3})\\b`
 - `min_source_duration_sec` — 이 길이 미만 영상은 후보에서 제외. **필수급 설정** — 같은 회차에
   예고(45~80초)·선공개(180~270초)·클립(580초)·하이라이트(1000~1170초)가 섞여 올라오므로,
   하한이 없으면 45초 예고편이 소스로 뽑힐 수 있다. 놀라운 토요일 기준 `600` 권장
@@ -117,13 +127,22 @@ brain 레포에 `config/scene_loop.json`을 만든다. **`channels` 배열을 �
       "episode_regex": "EP(\\d+)",
       "start_episode": 1
     },
-    { // 유튜브 채널에서 회차를 가져오는 작품 (예: 놀라운 토요일 — 410화부터)
+    { // 채널 전체가 허용되는 작품 (놀라운 토요일 — 399회~ 이므로 410부터)
       "channel": "숏나우저",
       "work_title": "놀라운 토요일",
       "source_type": "youtube",
-      "channel_url": "https://www.youtube.com/channel/UCTnafh2iyIWh7MhcGBmGU0g/videos",
+      "source_url": "https://www.youtube.com/channel/UCTnafh2iyIWh7MhcGBmGU0g/videos",
       "title_episode_regex": "\\bEP[.\\s]?(\\d{1,3})\\b",
       "start_episode": 410,
+      "min_source_duration_sec": 600
+    },
+    { // 플레이리스트만 허용되는 작품 (도깨비 10주년 여행 — EP.1~4)
+      "channel": "숏테토칩",
+      "work_title": "도깨비 10주년 여행",
+      "source_type": "youtube",
+      "source_url": "https://www.youtube.com/playlist?list=PLgbB1gJhmG7CbBf0iq8vzN8QPzZ47xq5C",
+      "title_episode_regex": "\\bEP[.\\s]?(\\d{1,3})\\b",
+      "start_episode": 1,
       "min_source_duration_sec": 600
     }
     // 담당 채널이 여러 개면 항목을 추가

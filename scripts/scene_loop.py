@@ -16,11 +16,18 @@
 
 소스 유형 두 가지 (채널 설정 source_type):
   - 'local'  : source_dir 의 회차 파일을 glob 로 발견 → create_shorts --video (기존 동작)
-  - 'youtube': channel_url 의 업로드를 훑어(캐시 24h) 제목에서 회차를 뽑고, 회차당 **가장 긴
-    영상** 1건을 그 회차 소스로 삼아 create_shorts --youtube-url. 같은 회차에 예고(45~80초)·
-    선공개·클립·하이라이트가 섞여 올라오므로 min_source_duration_sec 로 짧은 것을 걸러야 한다.
+  - 'youtube': source_url(채널 업로드 목록 **또는** 플레이리스트)을 훑어(캐시 24h) 제목에서
+    회차를 뽑고, 회차당 **가장 긴 영상** 1건을 그 회차 소스로 삼아 create_shorts --youtube-url.
+    같은 회차에 예고(45~97초)·선공개(167초)·쇼츠성 클립·하이라이트(850~1230초)가 섞여
+    올라오므로 min_source_duration_sec 로 짧은 것을 걸러야 한다.
     유튜브 소스는 매 실행이 소스를 새로 받아 edit_plan 의 video_path 가 달라지므로, 중복 판정은
     경로가 아니라 회차 디렉토리(outputs/scene_loop/<채널>/ep<N>/)로 한다.
+
+⚠️ 소스 범위는 **권리사 가이드(laeebly licensed_video.guide)** 가 정한다. 채널 전체가 허용되는
+   작품(놀라운 토요일: "tvN joy 또는 놀라운 토요일 유튜브 채널 업로드 클립")이 있는가 하면,
+   특정 플레이리스트만 허용되는 작품(도깨비 10주년 여행: "해당 링크 플레이리스트에 있는 영상들만
+   사용 가능")도 있다. 설정값은 가이드를 사람이 읽고 채운다 — 코드가 추측하지 않는다.
+   같은 이유로 title_episode_regex 는 기본값 없이 **필수**다.
 
 공개 여부 판정(코드 미변경): 장면 run_id → (DB clip_metadata.ai_video_run_id ↔ clips.video_external_id)
   → 유튜브 Data API videos.list(공개 API 키) 로 privacyStatus. API키로 조회되고 status=='public' 인
@@ -61,7 +68,6 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = REPO_ROOT / "config" / "scene_loop.json"
 STATE_PATH = REPO_ROOT / "results" / "scene_loop_state.json"
 YT_INDEX_DIR = REPO_ROOT / "results" / "youtube_index"
-DEFAULT_TITLE_EP_REGEX = r"\bEP[.\s]?(\d{1,3})\b"   # '… | amazingsaturday EP.425'
 
 
 # ─────────────────────────── 설정/상태 I/O ───────────────────────────
@@ -114,18 +120,29 @@ def source_label(video_path):
     return str(video_path) if is_url(video_path) else Path(video_path).name
 
 
+def source_url_of(ch):
+    """유튜브 소스 URL — 채널 업로드 목록이든 플레이리스트든 같은 필드(source_url)로 받는다.
+    (channel_url 은 옛 키. 이름이 '채널'로 굳으면 플레이리스트 한정 작품을 표현할 수 없다.)"""
+    return ch.get("source_url") or ch.get("channel_url")
+
+
 def channel_source_type(ch):
-    """채널 설정 → 'local' | 'youtube'. source_type 명시 우선, 없으면 channel_url 유무로 추론."""
+    """채널 설정 → 'local' | 'youtube'. source_type 명시 우선, 없으면 source_url 유무로 추론."""
     st = (ch.get("source_type") or "").strip().lower()
     if st:
         return st
-    return "youtube" if ch.get("channel_url") else "local"
+    return "youtube" if source_url_of(ch) else "local"
 
 
-# ── 유튜브 소스: 채널 업로드를 회차 단위로 소비 ──
-#   장기 방영 예능처럼 소스가 로컬 폴더가 아니라 유튜브 채널인 작품용. 채널 업로드를 한 번
-#   훑어(캐시) 제목에서 회차를 뽑고, 회차당 '가장 긴 영상' 1건을 그 회차의 소스로 삼는다.
-#   (같은 회차에 예고 80초·클립 580초·하이라이트 1160초가 섞여 올라오므로 길이로 고른다.)
+# ── 유튜브 소스: 채널/플레이리스트를 회차 단위로 소비 ──
+#   소스가 로컬 폴더가 아니라 유튜브인 작품용. 권리사 가이드에 따라 **채널 전체 허용**(예:
+#   놀라운 토요일 — tvN joy/공식채널 클립)일 수도, **특정 플레이리스트 한정**(예: 도깨비
+#   10주년 여행 — "해당 링크 플레이리스트에 있는 영상들만 사용 가능")일 수도 있다. yt-dlp 가
+#   둘 다 flat 조회로 동일하게 읽으므로 source_url 하나로 처리한다.
+#   회차는 **제목**에서 뽑는데 표기 규칙이 작품마다 달라 title_episode_regex 를 필수로 받는다
+#   (기본값을 두면 다른 작품에 엉뚱한 규칙이 조용히 적용된다).
+#   회차당 여러 클립이 올라오므로 '가장 긴 영상'을 그 회차 소스로 삼는다 — 예고·선공개·쇼츠성
+#   클립이 섞이기 때문이며, min_source_duration_sec 로 하한을 둔다.
 
 def parse_index_lines(text):
     """yt-dlp --print 출력 → [{'id','title','duration'}]. 순수.
@@ -147,8 +164,8 @@ def parse_index_lines(text):
     return out
 
 
-def index_episodes(entries, title_regex=DEFAULT_TITLE_EP_REGEX, start_episode=1, min_duration_sec=0):
-    """[{'id','title','duration'}] → {회차: [entry…]}. 순수.
+def index_episodes(entries, title_regex, start_episode=1, min_duration_sec=0):
+    """[{'id','title','duration'}] → {회차: [entry…]}. 순수. title_regex 는 **필수**.
     제목에서 회차를 못 뽑거나 · start_episode 미만이거나 · 너무 짧으면(예고/티저) 제외.
 
     길이(duration)는 min_duration_sec>0 일 때만 본다 — 길이 미상(None)인 목록에서도
@@ -181,24 +198,24 @@ def youtube_watch_url(video_id):
     return f"https://www.youtube.com/watch?v={video_id}"
 
 
-def _yt_index_cache_path(channel_url):
-    return YT_INDEX_DIR / f"{hashlib.sha1(channel_url.encode('utf-8')).hexdigest()[:12]}.json"
+def _yt_index_cache_path(source_url):
+    return YT_INDEX_DIR / f"{hashlib.sha1(source_url.encode('utf-8')).hexdigest()[:12]}.json"
 
 
-def fetch_youtube_index(gen_py, channel_url, timeout=1800):
-    """채널 업로드 flat 목록 → [{'id','title','duration'}]. 느리므로(수천건) 호출자가 캐시한다.
+def fetch_youtube_index(gen_py, source_url, timeout=1800):
+    """채널/플레이리스트 flat 목록 → [{'id','title','duration'}]. 느리므로 호출자가 캐시한다.
     ⚠️ yt-dlp 콘솔스크립트는 shebang 이 옛 경로일 수 있어 반드시 '-m yt_dlp' 로 부른다."""
     cmd = [gen_py, "-m", "yt_dlp", "--flat-playlist", "--no-warnings",
-           "--print", "%(duration)s\t%(id)s\t%(title)s", channel_url]
+           "--print", "%(duration)s\t%(id)s\t%(title)s", source_url]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     if r.returncode != 0:
         raise RuntimeError(f"yt-dlp 채널 목록 실패 rc={r.returncode}: {(r.stderr or '')[-300:]}")
     return parse_index_lines(r.stdout)
 
 
-def get_youtube_index(gen_py, channel_url, cache_hours, log, now=None):
+def get_youtube_index(gen_py, source_url, cache_hours, log, now=None):
     """캐시된 채널 인덱스(없거나 오래되면 갱신). 캐시는 results/youtube_index/<해시>.json."""
-    p = _yt_index_cache_path(channel_url)
+    p = _yt_index_cache_path(source_url)
     now = now or datetime.now()
     if p.exists():
         try:
@@ -209,10 +226,10 @@ def get_youtube_index(gen_py, channel_url, cache_hours, log, now=None):
                 return c["entries"]
         except (OSError, json.JSONDecodeError, KeyError, ValueError, TypeError):
             pass
-    log(f"  [youtube] 채널 인덱스 갱신 중 (수천 건이라 몇 분 걸릴 수 있음) — {channel_url}")
-    entries = fetch_youtube_index(gen_py, channel_url)
+    log(f"  [youtube] 소스 인덱스 갱신 중 (채널 전체면 수천 건이라 몇 분 걸릴 수 있음) — {source_url}")
+    entries = fetch_youtube_index(gen_py, source_url)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps({"channel_url": channel_url,
+    p.write_text(json.dumps({"source_url": source_url,
                              "fetched_at": now.isoformat(timespec="seconds"),
                              "entries": entries}, ensure_ascii=False), encoding="utf-8")
     log(f"  [youtube] 인덱스 {len(entries)}건 저장")
@@ -220,9 +237,17 @@ def get_youtube_index(gen_py, channel_url, cache_hours, log, now=None):
 
 
 def discover_episodes_youtube(gen_py, ch, cache_hours, log):
-    """유튜브 채널 → [(회차, watch_url)] 오름차순. 회차당 가장 긴 영상 1건."""
-    entries = get_youtube_index(gen_py, ch["channel_url"], cache_hours, log)
-    idx = index_episodes(entries, ch.get("title_episode_regex", DEFAULT_TITLE_EP_REGEX),
+    """유튜브 채널/플레이리스트 → [(회차, watch_url)] 오름차순. 회차당 가장 긴 영상 1건."""
+    url = source_url_of(ch)
+    if not url:
+        raise ValueError(f"{ch.get('work_title')!r}: source_url 이 없습니다 "
+                         f"(유튜브 소스는 채널 업로드 목록 또는 플레이리스트 URL 필수)")
+    regex = ch.get("title_episode_regex")
+    if not regex:
+        raise ValueError(f"{ch.get('work_title')!r}: title_episode_regex 가 없습니다 — 제목의 회차 "
+                         f"표기는 작품마다 달라 기본값을 두지 않습니다(권리사 가이드 확인 후 명시)")
+    entries = get_youtube_index(gen_py, url, cache_hours, log)
+    idx = index_episodes(entries, regex,
                          ch.get("start_episode", 1), ch.get("min_source_duration_sec", 0))
     out = []
     for n in sorted(idx):
@@ -472,7 +497,7 @@ def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_ro
         return
 
     if action == "no_source":
-        where = ch.get("channel_url") if channel_source_type(ch) == "youtube" else ch.get("source_dir")
+        where = source_url_of(ch) if channel_source_type(ch) == "youtube" else ch.get("source_dir")
         log(f"{tag} 쓸 수 있는 회차 없음 → 스킵 ({where})")
         return
     if action == "done_all":
