@@ -24,6 +24,33 @@ def test_snippet_hashtag_spaces_to_underscore():
     assert s["tags"] == ["도깨비 10주년 여행", "언니네 산지직송 in 칼라페"]
 
 
+def test_snippet_hashtag_strips_special_chars():
+    # 콜론이 남으면 YouTube가 '#샤먼'까지만 태그로 인식 → 특수문자 제거, 공백은 언더바 유지
+    assert pub.hashtag_body("샤먼: 미신전") == "샤먼_미신전"
+    assert pub.hashtag_body("놀라운 토요일") == "놀라운_토요일"
+    s = pub.build_snippet("제목", ["샤먼: 미신전"])
+    assert s["description"] == "#샤먼_미신전"
+    assert s["tags"] == ["샤먼: 미신전"]  # tags 원문은 보존(YouTube tags는 특수문자 허용)
+
+
+def test_snippet_episode_line():
+    # 설명란 = "<작품명> N화" + 빈 줄 + 해시태그
+    s = pub.build_snippet("여고괴담은 다 맞혔는데", ["놀라운 토요일"],
+                          work_title="놀라운 토요일", episode=425)
+    assert s["description"] == "놀라운 토요일 425화\n\n#놀라운_토요일"
+
+
+def test_snippet_episode_falls_back_to_first_hashtag():
+    s = pub.build_snippet("제목", ["샤먼: 미신전"], episode=1)
+    assert s["description"] == "샤먼: 미신전 1화\n\n#샤먼_미신전"
+
+
+def test_snippet_without_episode_keeps_legacy_shape():
+    # 회차 미상(큐 미경유 런)이면 기존과 동일하게 해시태그 줄만
+    s = pub.build_snippet("제목", ["놀라운 토요일"], episode=None)
+    assert s["description"] == "#놀라운_토요일"
+
+
 def test_snippet_title_max_100():
     assert len(pub.build_snippet("가" * 150)["title"]) == 100
 

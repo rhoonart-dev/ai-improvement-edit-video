@@ -45,12 +45,26 @@ def token_env_name(channel):
     return f"YT_REFRESH_TOKEN_{rec['token_slug']}"
 
 
-def build_snippet(title, hashtags=None, category=CATEGORY_ENTERTAINMENT):
-    """YouTube snippet — 제목(개행→공백, ≤100자) + 설명(해시태그) + tags(≤15). 순수.
-    해시태그 내 공백은 언더바 치환 — 공백이 있으면 YouTube가 첫 단어까지만 태그로 인식."""
+def hashtag_body(text):
+    """작품명 → 해시태그 본문. 공백은 언더바 치환(공백이 있으면 YouTube가 첫 단어까지만 태그로 인식),
+    콜론·마침표 등 특수문자는 제거(태그가 그 지점에서 끊겨 '샤먼: 미신전'이 '#샤먼'이 되던 버그). 순수."""
+    return "_".join(re.sub(r"[^\w\s]", "", text or "", flags=re.UNICODE).split())
+
+
+def build_snippet(title, hashtags=None, category=CATEGORY_ENTERTAINMENT,
+                  work_title=None, episode=None):
+    """YouTube snippet — 제목(개행→공백, ≤100자) + 설명 + tags(≤15). 순수.
+
+    설명 = "<작품명> <N>화" 한 줄 + 빈 줄 + 해시태그 줄. episode 가 None 이면 회차 줄 없이
+    해시태그만(기존 동작). work_title 미지정 시 첫 해시태그를 작품명으로 사용."""
     t = " ".join((title or "").split())[:100]
     tags = [h.lstrip("#").strip() for h in (hashtags or []) if h and h.strip()]
-    desc = " ".join("#" + "_".join(x.split()) for x in tags) if tags else ""
+    tag_line = " ".join("#" + hashtag_body(x) for x in tags) if tags else ""
+    head = ""
+    if episode is not None:
+        work = " ".join((work_title or (tags[0] if tags else "")).split())
+        head = f"{work} {episode}화".strip()
+    desc = f"{head}\n\n{tag_line}".strip() if head else tag_line
     return {"title": t or "shorts", "description": desc, "tags": tags[:15], "categoryId": category}
 
 
@@ -80,6 +94,20 @@ def fetch_clip_title(conn, clip_id):
                      left join public.works w on w.id=c.work_id where m.clip_id=%s""", (clip_id,))
         r = c.fetchone()
     return (r[0], r[1]) if r else (None, None)
+
+
+def fetch_episode(conn, clip_id):
+    """clip → 실제 방영 회차(int) 또는 None.
+
+    ⚠️ clips.episode 는 회차가 아니라 멱등 라벨('shorts_1'…)이라 쓸 수 없다. 실제 회차는
+    gen_queue.episode 에만 있으므로 clip_metadata.ai_video_run_id ↔ gen_queue.run_id 로 잇는다.
+    큐를 거치지 않은 수동 런(예: Drive 소스)은 행이 없어 None → 이때는 --episode 로 넘겨야 한다."""
+    with conn.cursor() as c:
+        c.execute("""select gq.episode from public.clip_metadata m
+                     join public.gen_queue gq on gq.run_id = m.ai_video_run_id
+                     where m.clip_id=%s and gq.episode is not null limit 1""", (clip_id,))
+        r = c.fetchone()
+    return r[0] if r else None
 
 
 # ─────────────────────────── YouTube 업로드 ───────────────────────────
@@ -122,6 +150,8 @@ def main():
     ap.add_argument("--video", required=True)
     ap.add_argument("--channel", required=True)
     ap.add_argument("--title")
+    ap.add_argument("--episode", type=int, default=None,
+                    help="방영 회차(설명란 '<작품명> N화'). 미지정 시 gen_queue에서 run_id로 자동 해석")
     ap.add_argument("--hashtags", nargs="*")
     ap.add_argument("--safety-floor", type=float, default=None,
                     help="명백히 깨진 산출물 차단용 안전 바닥. 미지정=judge quality로 안 막음(성과예측 아님)")
@@ -132,12 +162,15 @@ def main():
     import psycopg
     conn = psycopg.connect(os.environ["PIPELINE_DB_URL"])
     try:
-        title = a.title
-        work = None
-        if not title:
-            title, work = fetch_clip_title(conn, a.clip_id)
+        db_title, work = fetch_clip_title(conn, a.clip_id)
+        title = a.title or db_title
         hashtags = a.hashtags or ([work] if work else [])
-        snip = build_snippet(title, hashtags)
+        # 회차: --episode 명시값 우선, 없으면 gen_queue 에서 run_id 로 해석(큐 미경유 런은 None)
+        episode = a.episode if a.episode is not None else fetch_episode(conn, a.clip_id)
+        if episode is None:
+            print("[주의] 회차 미상 — 설명란에 '<작품명> N화' 줄이 빠집니다. "
+                  "큐를 거치지 않은 런이면 --episode <N> 으로 지정하세요.")
+        snip = build_snippet(title, hashtags, work_title=work, episode=episode)
         ok, reason = gate_ok(conn, a.clip_id, a.safety_floor)
         print(f"gate: {'PASS' if ok else 'BLOCK'} ({reason}) | title={snip['title']!r} privacy={a.privacy} oauth={'O' if _credentials(a.channel) else 'X(미설정)'}")
         if not a.publish:
