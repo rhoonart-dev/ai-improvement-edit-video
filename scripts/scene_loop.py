@@ -71,14 +71,19 @@ def save_state(state, path=STATE_PATH):
 
 # ─────────────────────────── 순수 로직 ───────────────────────────
 
-def discover_episodes(source_dir, video_glob, episode_regex):
-    """소스 폴더의 회차 파일 → [(episode_num, abspath)] 오름차순. 회차번호 못 뽑으면 제외."""
+def discover_episodes(source_dir, video_glob, episode_regex, start_episode=1):
+    """소스 폴더의 회차 파일 → [(episode_num, abspath)] 오름차순. 회차번호 못 뽑으면 제외.
+
+    start_episode 미만 회차는 버린다 — 기본 1(=1화부터). 장기 방영작처럼 앞 회차를 쓰지 않는
+    작품은 채널 설정의 start_episode 로 시작점을 올린다(예: 놀라운 토요일 410)."""
     pat = re.compile(episode_regex)
     found = []
     for p in glob.glob(str(Path(source_dir) / video_glob)):
         m = pat.search(Path(p).name)
         if m:
-            found.append((int(m.group(1)), str(Path(p).resolve())))
+            n = int(m.group(1))
+            if n >= start_episode:
+                found.append((n, str(Path(p).resolve())))
     found.sort(key=lambda x: x[0])
     return found
 
@@ -257,7 +262,8 @@ def channel_plan(cfg, ch, state, conn, api_key, scan_roots):
     quota = cfg["quota_per_episode"]
     max_pending = cfg.get("max_pending_unpublished", quota)
     iou_th, ctol = cfg["dup_iou_threshold"], cfg["dup_center_tolerance_sec"]
-    eps = discover_episodes(ch["source_dir"], ch["video_glob"], ch["episode_regex"])
+    eps = discover_episodes(ch["source_dir"], ch["video_glob"], ch["episode_regex"],
+                            ch.get("start_episode", 1))
     if not eps:
         return ("no_source", None, None, {"eps": []})
     for ep_num, vp in eps:
@@ -353,7 +359,8 @@ def cmd_status(cfg, state, conn, api_key, ai_video_root, log):
     quota = cfg["quota_per_episode"]
     iou_th, ctol = cfg["dup_iou_threshold"], cfg["dup_center_tolerance_sec"]
     for ch in cfg["channels"]:
-        eps = discover_episodes(ch["source_dir"], ch["video_glob"], ch["episode_regex"])
+        eps = discover_episodes(ch["source_dir"], ch["video_glob"], ch["episode_regex"],
+                            ch.get("start_episode", 1))
         log(f"[{ch['channel']} · {ch['work_title']}]  회차 파일: {[e for e,_ in eps] or '없음'}")
         for ep_num, vp in eps:
             scenes = rendered_scenes(state, ch["channel"], ep_num, vp, scan_roots, iou_th, ctol)
