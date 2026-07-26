@@ -171,11 +171,6 @@ SELECT w.title, c.id, c.episode, c.duration_sec, c.video_external_id
 FROM clips c JOIN works w ON w.id = c.work_id
 WHERE c.id = 'db2ff1a5-306a-4c6e-82d3-caf8216de2e0';
 -- 기대: 언니네 산지직송 in 칼라페 | db2ff1a5… | shorts_1 | 49.7 | pTdd4lwFTpA
-```
-
-삭제:
-```sql
-BEGIN;
 DELETE FROM judge_runs    WHERE clip_id = 'db2ff1a5-306a-4c6e-82d3-caf8216de2e0';  -- 1행
 DELETE FROM clip_metadata WHERE clip_id = 'db2ff1a5-306a-4c6e-82d3-caf8216de2e0';  -- 1행
 DELETE FROM clips         WHERE id      = 'db2ff1a5-306a-4c6e-82d3-caf8216de2e0';  -- 1행
@@ -228,6 +223,89 @@ ORDER BY c.created_at;
 --   aec87cfd… | shorts_1 | 49.7  | 6K9CS3ui1Ro  (EP1 채택본)
 -- ※ episode IS NULL 인 14행은 scene_loop 이전 유입분이라 이 대조 대상이 아니다.
 ```
+
+---
+
+### 6. 샤먼: 미신전 — 대사자막 켜진 채 생성된 scene_loop 첫 산출물
+
+| 항목 | 값 |
+|---|---|
+| clip_id | `6f18e56c-7a02-4d80-bb8d-49eeec25fb06` |
+| 작품/채널 | 샤먼: 미신전 / 여운 보관소 (`episode='shorts_1'`, 소스 구간 230.6~450.4초) |
+| 이유 | `config/scene_loop.json` 의 `gen_flags` 에 **`--no-subtitles` 가 빠져 있어** 파이프라인 대사자막이 켜진 채 생성됐다. 원본(티빙 클립마스터)에 이미 자막이 하드번인돼 있어 **같은 대사가 이중으로 겹친다**(2번 항목과 동일한 결함의 재발) |
+| YouTube | `xXuCd6b5Fow` (사람이 Studio 에서 별도 삭제) |
+| 대체 | 2026-07-27 `--no-subtitles` 적용 후 같은 회차에서 재생성 |
+| 재발 방지 | `gen_flags` 에 `--no-subtitles` 고정 + `_gen_flags_note` 로 이유 명시. 예약 작업 프롬프트에도 "생성 후 `shorts.filter.txt` 에 `subtitles.ass` 가 있으면 보고" 추가 |
+| 상태 | ⏳ 미처리 (자동 DELETE 차단됨 → 수동) |
+
+### 7. 놀라운 토요일 — Gemini 폴백으로 제목·구성이 망가진 산출물
+
+| 항목 | 값 |
+|---|---|
+| clip_id | `30535485-3c91-4b9f-a58d-56dd764c84e7` |
+| 작품/채널 | 놀라운 토요일 / 숏나우저 (`episode='shorts_1'`, EP410) |
+| 이유 | **Gemini 스토리 구성 실패 → 폴백 경로**. `checkpoint_story.json` 에 근거가 남아 있다: `selection_reason='폴백: Gemini 응답 실패 — 상위 moment 자동 조합'`, `score=0.5`. 결과로 ① 제목이 `작품명` + `hook 설명 앞 20자` 로 조립돼 **문장 중간에서 잘림**(`놀라운 토요일 / 김동현이 바닥에 등을 대고 누워 양발`) ② 구간이 41~993초로 **소스 전체에 퍼짐**(hook 45초·build 546/780초·payoff 960초를 기계적으로 이어붙임) ③ 대사자막도 켜짐(4번과 동일) |
+| YouTube | `6EZWuOz8biE` (사람이 Studio 에서 별도 삭제) |
+| 대체 | 2026-07-27 재생성 |
+| 상태 | ⏳ 미처리 (자동 DELETE 차단됨 → 수동) |
+
+> ⚠️ **judge 는 폴백을 못 거른다** — 이 클립은 quality 0.85 로 통과했다. judge 는 안전(환각·깨짐) 전용이라
+> "정상 경로로 만들어졌는가"는 보지 않는다. 그래서 예약 작업 프롬프트에 `checkpoint_story.json` 의
+> `selection_reason`/`topic_reason` 에 '폴백'·'실패' 가 있으면 **발행하지 말고 보고**하는 가드를 넣었다.
+>
+> ⚠️ 폴백 구간이 소스 전체를 덮으면 **다음 생성이 전부 중복 판정**돼 그 회차가 막힌다. 재생성 전에
+> `results/scene_loop_state.json` 에서 해당 장면을 빼고 산출물을 `outputs/` 밖으로 치워야 한다
+> (2026-07-27 처리분은 `ai-video/_quarantine/20260727_bad_scenes/` 로 이동).
+>
+> ⚠️ **폴백은 재발한다.** 2026-07-27 재생성에서 3채널 중 1채널(이거보고자, `놀라운_토요일_7f`)이 또
+> 폴백을 탔다. 같은 소스·같은 회차인데 숏나우저는 정상(score 0.95)이고 이거보고자만 실패한 것으로 보아
+> **간헐적 Gemini 응답 실패**로 보인다. 이건 발행 전에 걸러 DB 에 안 들어갔다(아래 표 참조).
+> 재발 시 판정 기준: `checkpoint_story.json` → `raw_response.selection_reason` 에 '폴백'/'실패',
+> `storylines[0].score == 0.5`, `edit_plan.timeline` 구간이 소스 전체로 퍼짐.
+
+확인(6·7 공통):
+```sql
+SELECT ch.name, w.title, cl.id, cl.episode, cl.duration_sec, cl.video_external_id
+FROM clips cl
+JOIN clip_metadata m ON m.clip_id = cl.id
+LEFT JOIN works w ON w.id = cl.work_id
+LEFT JOIN channels ch ON ch.id = cl.channel_id
+WHERE cl.id IN ('6f18e56c-7a02-4d80-bb8d-49eeec25fb06',
+                '30535485-3c91-4b9f-a58d-56dd764c84e7');
+-- 기대: 여운 보관소 | 샤먼: 미신전 | 6f18e56c… | xXuCd6b5Fow
+--       숏나우저   | 놀라운 토요일 | 30535485… | 6EZWuOz8biE
+DELETE FROM judge_runs    WHERE clip_id IN ('6f18e56c-7a02-4d80-bb8d-49eeec25fb06',
+                                            '30535485-3c91-4b9f-a58d-56dd764c84e7');  -- 2행
+DELETE FROM clip_metadata WHERE clip_id IN ('6f18e56c-7a02-4d80-bb8d-49eeec25fb06',
+                                            '30535485-3c91-4b9f-a58d-56dd764c84e7');  -- 2행
+DELETE FROM clips         WHERE id      IN ('6f18e56c-7a02-4d80-bb8d-49eeec25fb06',
+                                            '30535485-3c91-4b9f-a58d-56dd764c84e7');  -- 2행
+COMMIT;
+```
+
+검증:
+```sql
+SELECT count(*) FROM clips
+WHERE id IN ('6f18e56c-7a02-4d80-bb8d-49eeec25fb06','30535485-3c91-4b9f-a58d-56dd764c84e7');
+-- 기대: 0
+```
+
+**대체본**(정상 경로로 재생성, 2026-07-27 발행 — 삭제 대상 아님):
+
+| 대체 대상 | 새 clip_id | YouTube | story score | judge quality | 비고 |
+|---|---|---|---|---|---|
+| `6f18e56c`(샤먼) | `2a4d9a55-c4e5-48f6-9ddd-1b4fead1fc2f` | `XAcBH4XZqFU` | 0.92 | 0.825 | 861.3~911.0초, 자막 TTS 만 |
+| `30535485`(놀토) | `b378e6c3-1e2e-4e6a-bd96-9c1284404fb8` | `IbWcgnLUNgQ` | 0.95 | 0.725 | 623.4~673.1초, 자막 TTS 만 |
+
+> story score 는 스토리 구성 단계의 자체 점수(폴백이면 0.5 고정)이고, judge quality 는 발행 게이트가
+> 보는 안전 판정이다. **서로 다른 값이니 섞어 읽지 말 것.**
+
+**DB 에 안 들어간 폐기분**(인제스트 전에 걸러냄 — 원장 등재 불필요, 기록용):
+`놀라운_토요일_7f`(이거보고자 EP410) — 폴백. `_quarantine/20260727_bad_scenes/이거보고자_ep410_fallback/````
+
+삭제:
+```sql
+BEGIN;
 
 ---
 
