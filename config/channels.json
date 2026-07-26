@@ -7,7 +7,8 @@
     "gcp_project": "DEFAULT",
     "genre": "드라마",
     "works": [
-      "유미의 세포들 시즌3"
+      "유미의 세포들 시즌3",
+      "언더커버셰프"
     ],
     "geoblock_capable": true
   },
@@ -29,9 +30,9 @@
     "handle": "@다람쥐숏토리",
     "channel_id": "UCDxftplNleQQRkw6CCjjSWA",
     "gcp_project": "DEFAULT",
-    "genre": "드라마, 영화",
+    "genre": "예능",
     "works": [
-      "언더커버셰프"
+      "원희는 스무살"
     ],
     "geoblock_capable": false
   },
@@ -109,7 +110,7 @@
   },
   {
     "token_slug": "SHOTCONE",
-    "name": "숏콘",
+    "name": "ショトコン",
     "handle": "@shorts-cone",
     "channel_id": "UCY41EN1sP9CIJE_U-JonziA",
     "gcp_project": "P5",
@@ -186,7 +187,9 @@
     "channel_id": "UCHlZ7D5yoVq8PuxJX6_AUxQ",
     "gcp_project": "P6",
     "genre": "커리어·인터뷰",
-    "works": [],
+    "works": [
+      "커리어데이 유튜브 롱폼"
+    ],
     "geoblock_capable": false
   },
   {
