@@ -149,6 +149,88 @@ GROUP BY title;
 
 ---
 
+### 4. 언니네 산지직송 in 칼라페 — 소스가 칼라페가 아닌 클립 (너굴안방)
+
+| 항목 | 값 |
+|---|---|
+| clip_id | `db2ff1a5-306a-4c6e-82d3-caf8216de2e0` (`episode='shorts_1'`, dur 49.7) |
+| 작품 | 언니네 산지직송 in 칼라페 (너굴안방) |
+| 쇼츠 제목 | `식빵 잡으려 기계에 입부터 넣으면? 여배우 은진의 야생성 폭발한 순간` |
+| 이유 | **소스 영상이 칼라페 시즌이 아니다.** 수동 다운로드분 `~/Downloads/sources/sanjik_ep1/source.mp4`(671초)로 만들었는데, 자막에 칼라페 출연진(염정아·박준면·김혜윤·덱스)·'칼라페'·'보홀'·'필리핀'이 **0건**이고 "진영아"·"시즌 2 때 게스트로" 등 다른 시즌 대사만 나온다. 안은진은 이전 시즌 멤버라 제목의 '은진'은 그 영상 기준으론 맞는 이름 — 틀린 건 이름이 아니라 소스다 |
+| YouTube | `pTdd4lwFTpA` (unlisted, 사람이 Studio에서 별도 삭제) |
+| 자식 행 | `judge_runs` 1 · `clip_metadata` 1 — 나머지 5개 테이블은 0건 확인(2026-07-26) |
+| 후속 | scene_loop 상태(`results/scene_loop_state.json`)의 칼라페 EP1 장면에서 제거 완료. 루프는 EP1 소스로 `ECbzm_ha64k`(827초, 제목에 `#언니네산지직송in칼라페 EP.1`)를 고른다 |
+| 상태 | ⏳ 미처리 (자동 DELETE 차단됨 → 수동) |
+
+> ⚠️ 교훈: 소스를 수동으로 받아 쓰면 **작품·회차가 맞는지 검증하는 단계가 없다.** scene_loop 의 유튜브 소스는
+> 제목 해시태그 정규식으로 작품을 한정하므로 이 사고가 구조적으로 막힌다.
+
+확인:
+```sql
+SELECT w.title, c.id, c.episode, c.duration_sec, c.video_external_id
+FROM clips c JOIN works w ON w.id = c.work_id
+WHERE c.id = 'db2ff1a5-306a-4c6e-82d3-caf8216de2e0';
+-- 기대: 언니네 산지직송 in 칼라페 | db2ff1a5… | shorts_1 | 49.7 | pTdd4lwFTpA
+```
+
+삭제:
+```sql
+BEGIN;
+DELETE FROM judge_runs    WHERE clip_id = 'db2ff1a5-306a-4c6e-82d3-caf8216de2e0';  -- 1행
+DELETE FROM clip_metadata WHERE clip_id = 'db2ff1a5-306a-4c6e-82d3-caf8216de2e0';  -- 1행
+DELETE FROM clips         WHERE id      = 'db2ff1a5-306a-4c6e-82d3-caf8216de2e0';  -- 1행
+COMMIT;
+```
+
+---
+
+### 5. 언니네 산지직송 in 칼라페 — 같은 갯벌 장면 중복본 (너굴안방, 비교 후 폐기분)
+
+| 항목 | 값 |
+|---|---|
+| clip_id | `54da4958-3741-4187-8d8c-be7d1167cb41` (`episode='shorts_1'`, dur 49.7) |
+| 작품 | 언니네 산지직송 in 칼라페 (너굴안방) |
+| 쇼츠 제목 | `갯벌에서 다리만 잡다가 거대 알리망오 잡은 박준면` |
+| 이유 | 채택본과 **같은 갯벌 장면**(이 클립 504.2~553.9초 / 채택본 518.2~567.9초, 36초 겹침 — IoU 0.56 으로 루프 중복 임계값 0.5 초과). 둘 중 하나만 남겨야 해서 **리서치 없이 생성된 이쪽을 폐기**. 사람이 두 영상을 비교해 결정(2026-07-26) |
+| YouTube | `qqdYxnsiibA` (private, 사람이 Studio에서 별도 삭제) |
+| 채택본 | clip `aec87cfd-7359-4234-9073-bdae80a245a5` → `6K9CS3ui1Ro` (`갯벌 속에서 발견한 압도적 크기의 괴물 게`, 작품 리서치 켜고 생성) |
+| 자식 행 | `judge_runs` 1 · `clip_metadata` 1 — 나머지 5개 테이블은 0건 확인(2026-07-26) |
+| 산출물 | `~/ves/ai-video/rejected/너굴안방/ep01_7e_인물명오류_20260726/` (스캔 경로 밖으로 옮겨 보관) |
+| 상태 | ⏳ 미처리 (자동 DELETE 차단됨 → 수동) |
+
+확인:
+```sql
+SELECT w.title, c.id, c.episode, c.duration_sec, c.video_external_id
+FROM clips c JOIN works w ON w.id = c.work_id
+WHERE c.id = '54da4958-3741-4187-8d8c-be7d1167cb41';
+-- 기대: 언니네 산지직송 in 칼라페 | 54da4958… | shorts_1 | 49.7 | qqdYxnsiibA
+```
+
+삭제:
+```sql
+BEGIN;
+DELETE FROM judge_runs    WHERE clip_id = '54da4958-3741-4187-8d8c-be7d1167cb41';  -- 1행
+DELETE FROM clip_metadata WHERE clip_id = '54da4958-3741-4187-8d8c-be7d1167cb41';  -- 1행
+DELETE FROM clips         WHERE id      = '54da4958-3741-4187-8d8c-be7d1167cb41';  -- 1행
+COMMIT;
+```
+
+검증(4번·5번 함께 처리 후):
+```sql
+SELECT c.id, c.episode, c.duration_sec, c.video_external_id
+FROM clips c JOIN works w ON w.id = c.work_id
+WHERE w.title = '언니네 산지직송 in 칼라페' AND c.episode IS NOT NULL
+ORDER BY c.created_at;
+-- 기대: db2ff1a5 · 54da4958 가 사라지고 아래 4행이 남는다.
+--   cfe68392… | shorts_1 | 47.77 | L-Yv8zAsJOw  (EP5)
+--   269ac525… | shorts_1 | 49.7  | PIiIfEIHaVg  (EP5)
+--   0cf7f7c5… | shorts_1 | 49.7  | Ea334qKq6Xg  (EP5)
+--   aec87cfd… | shorts_1 | 49.7  | 6K9CS3ui1Ro  (EP1 채택본)
+-- ※ episode IS NULL 인 14행은 scene_loop 이전 유입분이라 이 대조 대상이 아니다.
+```
+
+---
+
 ## 완료 항목
 
 _(없음 — 처리 후 여기로 이동)_
