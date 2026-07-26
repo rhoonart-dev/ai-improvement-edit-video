@@ -6,6 +6,9 @@
 # BRAIN 은 스크립트 위치에서 유도 → 머신/사용자 경로에 무관하게 그대로 동작(이식성).
 BRAIN="$(cd "$(dirname "$0")/.." && pwd)"
 PY="$BRAIN/.venv/bin/python"
+# yt-dlp 포맷 병합·렌더가 ffmpeg 를 PATH 에서 찾는다 — launchd/예약작업 환경엔 brew 경로가 없어
+# 실패하므로 보정한다(없는 디렉토리가 끼어도 무해).
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 LOG="$BRAIN/results/scene_loop.log"
 
 cd "$BRAIN" || exit 1

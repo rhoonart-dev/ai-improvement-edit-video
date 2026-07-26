@@ -162,5 +162,6 @@ Claude Code 에서 아래처럼 요청하면 된다. **프롬프트를 그대로
 | 채널이 `쓸 수 있는 회차 없음` | 로컬: `source_dir`/`video_glob`/`episode_regex` 불일치. 유튜브: `min_source_duration_sec` 가 너무 높거나 `title_episode_regex` 불일치 |
 | ffmpeg `Operation not permitted` | 소스가 `~/Downloads` 안에 있고 TCC 가 막음 → `~/ves/sources/` 로 옮긴다 |
 | `yt-dlp: bad interpreter` | venv 콘솔스크립트 shebang 이 옛 경로. 코드는 `python -m yt_dlp` 로 부르므로 정상. 수동 실행 시에만 주의 |
+| yt-dlp `ffmpeg is not installed` (포맷 병합 실패, rc=1) | launchd/예약작업 환경엔 brew 경로가 PATH 에 없음 → 러너(`scene_loop_run.sh`)가 `/opt/homebrew/bin` 등을 PATH 에 보정 |
 | rclone 로 한글 파일명 필터가 안 먹음 | macOS 유니코드 정규화(NFC/NFD) 차이. `rclone lsjson` 으로 파일 ID 를 얻어 `rclone backend copyid` 사용 |
 | 같은 장면이 또 생성됨 | 소스 경로가 바뀌어 과거 산출물이 스캔에서 누락 → §3-1 로 상태를 심는다 |
