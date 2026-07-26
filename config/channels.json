@@ -40,7 +40,7 @@
     "name": "너굴안방",
     "handle": "@너굴안방",
     "channel_id": "UC9AyTd-Z1qUd3-qQ3VUdNkQ",
-    "gcp_project": "DEFAULT",
+    "gcp_project": "P3",
     "genre": "드라마, 영화",
     "works": [
       "언니네 산지직송 in 칼라페"
@@ -52,7 +52,7 @@
     "name": "숏테토칩",
     "handle": "@숏테토칩",
     "channel_id": "UCiLSQd9OZMr7F5ZwpMUm0Lg",
-    "gcp_project": "DEFAULT",
+    "gcp_project": "P3",
     "genre": "예능",
     "works": [
       "도깨비 10주년 여행"
@@ -100,7 +100,7 @@
     "name": "여운 보관소",
     "handle": "@여운보관소-n6y",
     "channel_id": "UCJekZr2s1wz4e51Z8dFiKNA",
-    "gcp_project": "P2",
+    "gcp_project": "P4",
     "genre": "다큐",
     "works": [
       "샤먼: 미신전"
@@ -112,9 +112,11 @@
     "name": "숏콘",
     "handle": "@shorts-cone",
     "channel_id": "UCY41EN1sP9CIJE_U-JonziA",
-    "gcp_project": "P2",
-    "genre": "ENA 일본 채널",
-    "works": [],
+    "gcp_project": "P5",
+    "genre": "일본 타깃 아이돌·예능",
+    "works": [
+      "혜미리예채파"
+    ],
     "geoblock_capable": false
   },
   {
@@ -122,7 +124,7 @@
     "name": "몰입도둑",
     "handle": "@몰입도둑",
     "channel_id": "UC3M7-h4yAwL9D_Fs4rkld-A",
-    "gcp_project": "DEFAULT",
+    "gcp_project": "P3",
     "genre": "예능",
     "works": [
       "SNL 코리아 리부트 시즌8"
@@ -134,7 +136,7 @@
     "name": "명장면 세탁소",
     "handle": "@명장면세탁소",
     "channel_id": "UC1uw6CqG61VtHTQ6lKxH8Tg",
-    "gcp_project": "DEFAULT",
+    "gcp_project": "P4",
     "genre": "예능",
     "works": [
       "코미디빅리그"
@@ -146,7 +148,7 @@
     "name": "리와인드포차",
     "handle": "@리와인드포차",
     "channel_id": "UCukKseuxHZyB3g2hlkrkzgQ",
-    "gcp_project": "DEFAULT",
+    "gcp_project": "P4",
     "genre": "예능",
     "works": [
       "코미디빅리그"
@@ -158,7 +160,7 @@
     "name": "엔딩순삭",
     "handle": "@엔딩순삭",
     "channel_id": "UCfDNT0621f2SJuiAo3jEsBg",
-    "gcp_project": "P2",
+    "gcp_project": "P5",
     "genre": "예능",
     "works": [
       "SNL 코리아 리부트 시즌7"
@@ -170,10 +172,44 @@
     "name": "쇼츠션샤인",
     "handle": "@쇼츠션샤인",
     "channel_id": "UCGTCfnuEupJkd57cvaFJAYA",
-    "gcp_project": "P2",
+    "gcp_project": "P5",
     "genre": "드라마",
     "works": [
       "참교육"
+    ],
+    "geoblock_capable": false
+  },
+  {
+    "token_slug": "CAREERDAY",
+    "name": "커리어데이 숏츠",
+    "handle": "@careerday_shorts",
+    "channel_id": "UCHlZ7D5yoVq8PuxJX6_AUxQ",
+    "gcp_project": "P6",
+    "genre": "커리어·인터뷰",
+    "works": [],
+    "geoblock_capable": false
+  },
+  {
+    "token_slug": "IGEOBOGOJA",
+    "name": "이거보고자",
+    "handle": "@이거보고자-g5u",
+    "channel_id": "UCTF5QnpKrcghe31e1q0EQAQ",
+    "gcp_project": "P6",
+    "genre": "예능",
+    "works": [
+      "놀라운 토요일"
+    ],
+    "geoblock_capable": false
+  },
+  {
+    "token_slug": "LOCKERROOM",
+    "name": "락커룸",
+    "handle": "@lockerroom_kr",
+    "channel_id": "UCik7rpfsa_MbvaHEdEOzzrQ",
+    "gcp_project": "P6",
+    "genre": "스포츠 다큐",
+    "works": [
+      "국대: 로드 투 노스 아메리카"
     ],
     "geoblock_capable": false
   }
