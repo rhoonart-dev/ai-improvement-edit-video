@@ -165,6 +165,7 @@ $PY scripts/m4_ab_analysis.py --experiment loudness_v1 --window-days 7
 - **워크트리**: 최신 코드는 브랜치/워크트리에만 있음(rekey_eb_ip·knob_proposer·coverage_gate 등). main 머지 후엔 main에서 실행.
 - **버퍼링 로그**: 백그라운드 생성은 `python -u`로 돌려야 진행 로그가 보임(아니면 완료 전까지 0바이트). checkpoint_*.json으로도 단계 추적.
 - **생성 시간**: 롱폼(90분 에피소드)=쇼츠 1편에 ~68분(12청크 × ~3분 Gemini 분석). 배치는 밤새 돌린다는 각오. 짧은 클립은 ~5분.
+- **자막 파일 미제공 작품은 `--no-subtitles` 로 생성한다.** 제공 자막(SRT/VTT 등)이 없으면 원래는 whisper 전사로 자막을 만들지만 **전사 정확도가 너무 낮아** 화면에 오자막이 박힌다(SNL·국대·피의 게임 X 등 마스터에 자막 없음 — laeebly `guide` ⑥ '자막 제공 X'). 정확도 개선 전까지는 이 경우 **자막 없이(`--no-subtitles`) 발행**하기로 합의(2026-07-27). ※TTS 내레이션 자막은 이와 별개(`--no-tts-subtitles`).
 - **발행 토큰**: 채널별 `YT_REFRESH_TOKEN_<slug>` 없으면 §3-5로 하드 실패(오채널 차단). P2 채널(킥킥극장 등)은 `YT_CLIENT_ID_P2`도 필요.
 - **작품별 권리 규칙은 laeebly `licensed_video.guide`가 정본** — 소스 범위(채널 전체/플레이리스트 한정/Drive 제공분만)·지오블락(**§3-1**)·홀드백·설명란 필수 표기가 전부 여기 있다. 새 작품을 붙이기 전에 반드시 읽을 것. 설명란 필수 표기는 `config/work_publish_notice.json`에 사람이 옮겨 적으면 발행 시 자동 반영된다(미설정인데 가이드가 요구하면 경고).
 - **형제 DB 분단**: 과거 xxondf(형제 repo)와 fdidiqd로 갈렸으나 fdidiqd로 통일. 형제 repo(`ai-improve-edit-video`)는 아직 xxondf 가리킬 수 있음 — 쓸 거면 PIPELINE_DB_URL을 fdidiqd로.
