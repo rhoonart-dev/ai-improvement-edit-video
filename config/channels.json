@@ -10,7 +10,19 @@
       "유미의 세포들 시즌3",
       "언더커버셰프"
     ],
-    "geoblock_capable": true
+    "geoblock_capable": true,
+    "country": "KR",
+    "description": "시청자에게 더 많은 재미를 드리기 위해 노력하겠습니다!\n\n작품에 대한 저작권 허락을 받고 영상을 제작하고 있습니다.",
+    "keywords": [
+      "쇼츠",
+      "드라마",
+      "예능",
+      "명장면",
+      "유미의세포들",
+      "언더커버셰프",
+      "하이라이트",
+      "몰아보기"
+    ]
   },
   {
     "token_slug": "CINEMAINBED",
@@ -22,7 +34,19 @@
     "works": [
       "로맨스의 절댓값"
     ],
-    "geoblock_capable": false
+    "geoblock_capable": false,
+    "country": "KR",
+    "description": "이불 속에서 보는 오늘의 드라마 명장면. '로맨스의 절댓값' 공식 라이선스 기반 쇼츠 채널입니다.",
+    "keywords": [
+      "드라마",
+      "로맨스",
+      "쇼츠",
+      "명장면",
+      "로맨스의절댓값",
+      "설렘",
+      "몰아보기",
+      "하이라이트"
+    ]
   },
   {
     "token_slug": "DARAMJI",
@@ -34,7 +58,18 @@
     "works": [
       "원희는 스무살"
     ],
-    "geoblock_capable": false
+    "geoblock_capable": false,
+    "country": "KR",
+    "description": "도토리 모으듯 알짜 예능 장면만 쏙쏙. '원희는 스무살' 공식 라이선스 기반 쇼츠 채널입니다.",
+    "keywords": [
+      "예능",
+      "쇼츠",
+      "명장면",
+      "원희는스무살",
+      "웃긴영상",
+      "하이라이트",
+      "리얼리티"
+    ]
   },
   {
     "token_slug": "NEOGULBANG",
@@ -46,7 +81,18 @@
     "works": [
       "언니네 산지직송 in 칼라페"
     ],
-    "geoblock_capable": false
+    "geoblock_capable": false,
+    "country": "KR",
+    "description": "안방에서 즐기는 오늘의 명장면. '언니네 산지직송 in 칼라페' 공식 라이선스 기반 쇼츠 채널입니다.",
+    "keywords": [
+      "예능",
+      "쇼츠",
+      "명장면",
+      "언니네산지직송",
+      "칼라페",
+      "여행예능",
+      "하이라이트"
+    ]
   },
   {
     "token_slug": "TETOCHIP",
@@ -58,7 +104,18 @@
     "works": [
       "도깨비 10주년 여행"
     ],
-    "geoblock_capable": false
+    "geoblock_capable": false,
+    "country": "KR",
+    "description": "한 번 열면 멈출 수 없는 예능 명장면. '도깨비 10주년 여행' 공식 라이선스 기반 쇼츠 채널입니다.",
+    "keywords": [
+      "예능",
+      "쇼츠",
+      "명장면",
+      "도깨비",
+      "여행예능",
+      "웃긴영상",
+      "하이라이트"
+    ]
   },
   {
     "token_slug": "KIKKIK",
@@ -70,7 +127,18 @@
     "works": [
       "SNL 코리아 리부트 시즌8"
     ],
-    "geoblock_capable": false
+    "geoblock_capable": false,
+    "country": "KR",
+    "description": "킥킥대다 하루가 갑니다. 'SNL 코리아 리부트 시즌8' 공식 라이선스 기반 코미디 쇼츠 채널입니다.",
+    "keywords": [
+      "예능",
+      "코미디",
+      "쇼츠",
+      "SNL코리아",
+      "웃긴영상",
+      "명장면",
+      "개그"
+    ]
   },
   {
     "token_slug": "HEUNGHAENG",
@@ -82,7 +150,18 @@
     "works": [
       "스트릿 레스토랑 파이터"
     ],
-    "geoblock_capable": false
+    "geoblock_capable": false,
+    "country": "KR",
+    "description": "흥행 보증 장면만 수집합니다. '스트릿 레스토랑 파이터' 공식 라이선스 기반 쇼츠 채널입니다.",
+    "keywords": [
+      "예능",
+      "쇼츠",
+      "명장면",
+      "스트릿레스토랑파이터",
+      "요리예능",
+      "먹방",
+      "하이라이트"
+    ]
   },
   {
     "token_slug": "SHOTNOW",
@@ -94,7 +173,18 @@
     "works": [
       "놀라운 토요일"
     ],
-    "geoblock_capable": false
+    "geoblock_capable": false,
+    "country": "KR",
+    "description": "지금 바로 보는 예능 명장면. '놀라운 토요일' 공식 라이선스 기반 쇼츠 채널입니다.",
+    "keywords": [
+      "예능",
+      "쇼츠",
+      "명장면",
+      "놀라운토요일",
+      "놀토",
+      "웃긴영상",
+      "하이라이트"
+    ]
   },
   {
     "token_slug": "YEOWOON",
@@ -106,7 +196,18 @@
     "works": [
       "샤먼: 미신전"
     ],
-    "geoblock_capable": false
+    "geoblock_capable": false,
+    "country": "KR",
+    "description": "오래 남는 장면을 보관합니다. 티빙 오리지널 '샤먼: 미신전' 공식 라이선스 기반 쇼츠 채널입니다.",
+    "keywords": [
+      "다큐",
+      "쇼츠",
+      "샤먼",
+      "미스터리",
+      "티빙오리지널",
+      "명장면",
+      "다큐멘터리"
+    ]
   },
   {
     "token_slug": "SHOTCONE",
@@ -145,7 +246,18 @@
     "works": [
       "SNL 코리아 리부트 시즌8"
     ],
-    "geoblock_capable": false
+    "geoblock_capable": false,
+    "country": "KR",
+    "description": "드라마·영화·예능에서 몰입이 터지는 순간만 골라 훔쳐옵니다. 명장면만 모아보는 채널, 몰입도둑.",
+    "keywords": [
+      "예능",
+      "코미디",
+      "쇼츠",
+      "SNL코리아",
+      "명장면",
+      "웃긴영상",
+      "하이라이트"
+    ]
   },
   {
     "token_slug": "SCENELAUNDRY",
@@ -155,9 +267,20 @@
     "gcp_project": "P4",
     "genre": "예능",
     "works": [
-      "코미디빅리그"
+      "피의 게임 X"
     ],
-    "geoblock_capable": false
+    "geoblock_capable": false,
+    "country": "KR",
+    "description": "흩어진 드라마·영화·예능 명장면을 깨끗하게 정리해 드립니다. 오늘도 한 통 돌립니다. 명장면 세탁소.",
+    "keywords": [
+      "예능",
+      "쇼츠",
+      "명장면",
+      "피의게임X",
+      "서바이벌",
+      "웨이브",
+      "하이라이트"
+    ]
   },
   {
     "token_slug": "REWINDPOCHA",
@@ -167,9 +290,20 @@
     "gcp_project": "P4",
     "genre": "예능",
     "works": [
-      "코미디빅리그"
+      "피의 게임 X"
     ],
-    "geoblock_capable": false
+    "geoblock_capable": false,
+    "country": "KR",
+    "description": "밤에 꺼내 먹는 그 시절 명장면. 드라마·영화·예능 정주행 안주 채널, 리와인드포차.",
+    "keywords": [
+      "예능",
+      "쇼츠",
+      "명장면",
+      "피의게임X",
+      "서바이벌",
+      "웨이브",
+      "몰아보기"
+    ]
   },
   {
     "token_slug": "ENDINGSUNSAK",
@@ -181,7 +315,18 @@
     "works": [
       "SNL 코리아 리부트 시즌7"
     ],
-    "geoblock_capable": false
+    "geoblock_capable": false,
+    "country": "KR",
+    "description": "결말까지 순식간에. 드라마·영화·예능을 가장 빠르게 몰아보는 채널, 엔딩순삭.",
+    "keywords": [
+      "예능",
+      "코미디",
+      "쇼츠",
+      "SNL코리아",
+      "명장면",
+      "웃긴영상",
+      "몰아보기"
+    ]
   },
   {
     "token_slug": "SHORTSSUNSHINE",
@@ -193,7 +338,18 @@
     "works": [
       "참교육"
     ],
-    "geoblock_capable": false
+    "geoblock_capable": false,
+    "country": "KR",
+    "description": "보고 나면 속이 뻥 뚫리는 사이다 장면 모음. '참교육' 공식 라이선스 기반 쇼츠 채널입니다.",
+    "keywords": [
+      "드라마",
+      "쇼츠",
+      "명장면",
+      "참교육",
+      "사이다",
+      "액션",
+      "하이라이트"
+    ]
   },
   {
     "token_slug": "CAREERDAY",
@@ -205,7 +361,19 @@
     "works": [
       "커리어데이 유튜브 롱폼"
     ],
-    "geoblock_capable": false
+    "geoblock_capable": false,
+    "country": "KR",
+    "description": "일과 커리어의 결정적 조언만 짧게. '커리어데이' 공식 인터뷰 영상 기반 쇼츠 채널입니다.",
+    "keywords": [
+      "커리어",
+      "직장인",
+      "인터뷰",
+      "쇼츠",
+      "자기계발",
+      "취업",
+      "이직",
+      "커리어데이"
+    ]
   },
   {
     "token_slug": "IGEOBOGOJA",
@@ -217,7 +385,18 @@
     "works": [
       "놀라운 토요일"
     ],
-    "geoblock_capable": false
+    "geoblock_capable": false,
+    "country": "KR",
+    "description": "자기 전에 딱 하나만 더. 밤마다 찾아오는 짧은 명장면 — '놀라운 토요일' 공식 라이선스 기반 쇼츠 채널입니다.",
+    "keywords": [
+      "예능",
+      "쇼츠",
+      "명장면",
+      "놀라운토요일",
+      "놀토",
+      "웃긴영상",
+      "자기전"
+    ]
   },
   {
     "token_slug": "LOCKERROOM",
@@ -229,6 +408,17 @@
     "works": [
       "국대: 로드 투 노스 아메리카"
     ],
-    "geoblock_capable": false
+    "geoblock_capable": false,
+    "country": "KR",
+    "description": "국가대표의 안쪽 — 전술, 라커룸 연설, 승부의 순간을 짧게 담습니다. '국대: 로드 투 노스 아메리카' 공식 라이선스 기반 쇼츠 채널입니다.",
+    "keywords": [
+      "축구",
+      "국가대표",
+      "스포츠다큐",
+      "쇼츠",
+      "국대",
+      "월드컵",
+      "명장면"
+    ]
   }
 ]
