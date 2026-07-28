@@ -169,11 +169,18 @@ def index_episodes(entries, title_regex, start_episode=1, min_duration_sec=0):
     제목에서 회차를 못 뽑거나 · start_episode 미만이거나 · 너무 짧으면(예고/티저) 제외.
 
     길이(duration)는 min_duration_sec>0 일 때만 본다 — 길이 미상(None)인 목록에서도
-    회차 자체는 살아남아야 하므로, 하한이 없으면 길이로 거르지 않는다."""
+    회차 자체는 살아남아야 하므로, 하한이 없으면 길이로 거르지 않는다.
+
+    제목은 title 뿐 아니라 **alt_titles(과거에 본 제목)도 시도**한다 — 유튜브가 같은 영상을
+    다른 언어 제목으로 돌려주면 회차 표기가 사라져 회차가 통째로 누락되기 때문이다(merge_index 참조)."""
     pat = re.compile(title_regex)
     out = {}
     for e in entries:
-        m = pat.search(e.get("title") or "")
+        m = None
+        for t in [e.get("title")] + list(e.get("alt_titles") or []):
+            m = pat.search(t or "")
+            if m:
+                break
         if not m:
             continue
         n = int(m.group(1))
@@ -202,15 +209,53 @@ def _yt_index_cache_path(source_url):
     return YT_INDEX_DIR / f"{hashlib.sha1(source_url.encode('utf-8')).hexdigest()[:12]}.json"
 
 
-def fetch_youtube_index(gen_py, source_url, timeout=1800):
+def fetch_youtube_index(gen_py, source_url, timeout=1800, lang="ko"):
     """채널/플레이리스트 flat 목록 → [{'id','title','duration'}]. 느리므로 호출자가 캐시한다.
-    ⚠️ yt-dlp 콘솔스크립트는 shebang 이 옛 경로일 수 있어 반드시 '-m yt_dlp' 로 부른다."""
-    cmd = [gen_py, "-m", "yt_dlp", "--flat-playlist", "--no-warnings",
-           "--print", "%(duration)s\t%(id)s\t%(title)s", source_url]
+    ⚠️ yt-dlp 콘솔스크립트는 shebang 이 옛 경로일 수 있어 반드시 '-m yt_dlp' 로 부른다.
+
+    ★ `lang` 을 반드시 지정한다(2026-07-28). 유튜브는 영상 하나에 여러 언어의 제목을 갖고 있고,
+    지정하지 않으면 어느 쪽을 줄지 유튜브가 정한다. 영어 제목은 뒤가 잘려 회차 표기(`EP.N`)가
+    사라지므로 title_episode_regex 가 매칭에 실패하고, **그 회차가 통째로 없는 것처럼 보인다.**
+    실측: 도깨비 플레이리스트 45건 중 20건이 영어 제목으로 와 EP3(4건 전부)가 사라졌다.
+    에러가 아니라 '소스 없음' 으로 보여서 알아채기 어려운 게 이 버그의 최악점이었다."""
+    cmd = [gen_py, "-m", "yt_dlp", "--flat-playlist", "--no-warnings"]
+    if lang:
+        cmd += ["--extractor-args", f"youtube:lang={lang}"]
+    cmd += ["--print", "%(duration)s\t%(id)s\t%(title)s", source_url]
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     if r.returncode != 0:
         raise RuntimeError(f"yt-dlp 채널 목록 실패 rc={r.returncode}: {(r.stderr or '')[-300:]}")
     return parse_index_lines(r.stdout)
+
+
+def merge_index(old_entries, new_entries):
+    """이전 캐시 + 새로 받은 목록 → (병합된 entries, 사라진 id 수). 순수.
+
+    lang 을 고정해도 유튜브가 제목을 바꿔 보내는 일이 남을 수 있어, **한 번이라도 본 제목을
+    alt_titles 에 쌓아 둔다.** index_episodes 가 title·alt_titles 를 모두 시도하므로 한 번
+    회차가 인식된 영상은 이후 제목이 바뀌어도 계속 인식된다.
+
+    ⚠️ **새 목록에 없는 id 는 버린다.** 권리사 가이드가 '해당 플레이리스트에 있는 영상만 사용
+    가능' 인 작품이 있어(도깨비), 목록에서 빠진 영상을 캐시에 남겨 두면 권리 범위를 벗어난
+    영상을 소스로 쓸 수 있다. 대신 몇 건이 사라졌는지 호출자가 로그로 남긴다(조용한 축소 방지)."""
+    prev = {e.get("id"): e for e in (old_entries or []) if e.get("id")}
+    merged = []
+    for e in new_entries:
+        vid = e.get("id")
+        if not vid:
+            continue
+        seen = []
+        old = prev.get(vid)
+        if old:
+            for t in [old.get("title")] + list(old.get("alt_titles") or []):
+                if t and t != e.get("title") and t not in seen:
+                    seen.append(t)
+        out = dict(e)
+        if seen:
+            out["alt_titles"] = seen[:4]      # 무한정 쌓이지 않게 상한
+        merged.append(out)
+    dropped = len(set(prev) - {e["id"] for e in merged})
+    return merged, dropped
 
 
 def get_youtube_index(gen_py, source_url, cache_hours, log, now=None):
@@ -227,12 +272,22 @@ def get_youtube_index(gen_py, source_url, cache_hours, log, now=None):
         except (OSError, json.JSONDecodeError, KeyError, ValueError, TypeError):
             pass
     log(f"  [youtube] 소스 인덱스 갱신 중 (채널 전체면 수천 건이라 몇 분 걸릴 수 있음) — {source_url}")
-    entries = fetch_youtube_index(gen_py, source_url)
+    fresh = fetch_youtube_index(gen_py, source_url)
+    old = []
+    if p.exists():                       # 만료된 캐시라도 제목 누적용으로 읽는다
+        try:
+            old = (json.loads(p.read_text(encoding="utf-8")) or {}).get("entries") or []
+        except (OSError, json.JSONDecodeError, TypeError):
+            old = []
+    entries, dropped = merge_index(old, fresh)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps({"source_url": source_url,
                              "fetched_at": now.isoformat(timespec="seconds"),
                              "entries": entries}, ensure_ascii=False), encoding="utf-8")
-    log(f"  [youtube] 인덱스 {len(entries)}건 저장")
+    kept = sum(1 for e in entries if e.get("alt_titles"))
+    log(f"  [youtube] 인덱스 {len(entries)}건 저장"
+        + (f" (이전 제목 보존 {kept}건)" if kept else "")
+        + (f" ⚠ 목록에서 사라진 {dropped}건은 버렸다(권리 범위 밖 사용 방지)" if dropped else ""))
     return entries
 
 

@@ -143,6 +143,57 @@ def test_build_cmd_omits_episode_when_unknown():
     assert "--episode" not in c
 
 
+# ── 제목 언어가 바뀌어도 회차를 잃지 않아야 한다 ──
+
+def test_fetch_youtube_index_requests_korean_titles():
+    """영어 제목은 뒤가 잘려 EP 표기가 사라진다 → lang 을 반드시 넘겨야 한다."""
+    captured = {}
+
+    def fake_run(cmd, **kw):
+        captured["cmd"] = cmd
+        class R:
+            returncode = 0
+            stdout = "600\tvid1\t제목 EP.3"
+            stderr = ""
+        return R()
+
+    orig = sl.subprocess.run
+    sl.subprocess.run = fake_run
+    try:
+        sl.fetch_youtube_index("py", "https://youtube.com/playlist?list=X")
+    finally:
+        sl.subprocess.run = orig
+    cmd = captured["cmd"]
+    assert "--extractor-args" in cmd
+    assert cmd[cmd.index("--extractor-args") + 1] == "youtube:lang=ko"
+
+
+def test_merge_index_keeps_previously_seen_titles():
+    old = [{"id": "a", "title": "한글 제목 EP.3", "duration": 1187.0}]
+    new = [{"id": "a", "title": "English title truncated ...", "duration": 1187.0}]
+    merged, dropped = sl.merge_index(old, new)
+    assert dropped == 0
+    assert merged[0]["title"] == "English title truncated ..."
+    assert "한글 제목 EP.3" in merged[0]["alt_titles"]
+
+
+def test_merge_index_drops_ids_missing_from_new_list():
+    """플레이리스트에서 빠진 영상은 권리 범위 밖이므로 캐시에 남기지 않는다."""
+    old = [{"id": "a", "title": "A", "duration": 900.0}, {"id": "b", "title": "B", "duration": 900.0}]
+    new = [{"id": "a", "title": "A", "duration": 900.0}]
+    merged, dropped = sl.merge_index(old, new)
+    assert [e["id"] for e in merged] == ["a"] and dropped == 1
+
+
+def test_index_episodes_matches_alt_titles():
+    """현재 제목이 영어라도 과거에 본 한글 제목으로 회차가 잡혀야 한다."""
+    entries = [{"id": "a", "duration": 1187.0,
+                "title": "This is legendary lol. Choose the iconic outfit ...",
+                "alt_titles": ["레전드 나왔다ㅋㅋ … #도깨비10주년여행 EP.3"]}]
+    idx = sl.index_episodes(entries, r"\bEP[.\s]?(\d{1,3})\b", 1, 600)
+    assert list(idx) == [3]
+
+
 # ── 중복 판정은 채널 단위로 닫혀 있어야 한다 ──
 
 def _write_plan(root, channel, ep_num, job, span, video_path):
