@@ -15,3 +15,15 @@ venv/
 outputs/
 *.mp4
 *.mkv
+
+# scene_loop 머신 전용 — 배정·작품 속성·정책의 정본은 config/assignments.json ·
+# works.json · loop_policy.json(전부 추적)이다. 여기 있는 것은 그 머신에서만 의미가 있다.
+# ※ results/ 전체를 무시하면 추적 중인 리포트(results/knob_proposer_report.md 등)가 빠지므로
+#   개별 지정한다.
+config/scene_loop.json
+config/scene_loop.local.json
+results/scene_loop_state.json
+results/scene_loop.log
+results/scene_loop.launchd.*.log
+results/scene_loop.lock/
+results/youtube_index/
