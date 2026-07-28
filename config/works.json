@@ -1,0 +1,59 @@
+{
+  "_doc": "작품 카드 정본 — 작품별 소스·회차 규칙과 권리 제약. 키는 laeebly licensed_video.title 과 글자 그대로 일치해야 한다: 이 키가 create_shorts --title → edit_plan.work_title → works.title → publish_youtube 의 laeebly 완전일치 조회까지 한 줄로 흐르기 때문이다. 한 글자만 달라도 식별코드·가이드·지오블락 조회가 통째로 실패하고 경고만 뜬 채 발행된다. 소비: scripts/channel_registry.py(해석 계층) → scripts/scene_loop.py, scripts/check_assignments.py. 권리 원문의 정본은 laeebly guide 이고 여기 _guide 는 사람이 읽고 옮겨 적은 사본이다 — guide 는 산문 HTML 이라 기계 추출을 하지 않는다. ★카드는 '검증한 작품만' 넣는다. 추측으로 채운 카드는 없는 것보다 나쁘다(엉뚱한 소스로 조용히 생성된다). 어떤 머신이 그 채널을 맡을 때 그 머신에서 확인해 추가한다.",
+  "_fields": {
+    "source.type": "youtube_playlist(플레이리스트 한정) | youtube_channel(채널 전체 허용) | local(제공 파일). ★소스 범위가 곧 이 값이다 — 범위를 별도 필드로 두면 두 필드가 어긋날 수 있고, 어긋난 쪽이 권리 범위면 사고다",
+    "source.url": "youtube_* 필수. playlist 는 /playlist?list=…, channel 은 /@handle/videos 또는 /channel/UC…/videos",
+    "source.dir_slug": "local 필수. 절대경로가 아니라 슬러그 — 실경로는 <머신 sources_root>/<dir_slug> 로 합성한다(작품 속성은 공유, 경로만 머신별)",
+    "source.file_glob": "local 필수. 회차 파일 glob(예: EP*.mp4)",
+    "source.episode_regex": "회차 캡처 정규식(그룹1=회차번호). 필수·기본값 없음. 매칭 대상은 type 이 정한다 — local=파일명, youtube_*=영상 제목",
+    "source.start_episode": "시작 회차(정수, 기본 1). 장기 방영작은 올린다",
+    "source.min_source_duration_sec": "이 길이 미만 후보 제외. youtube_* 필수 — 같은 회차에 예고·선공개·하이라이트가 섞여 올라오므로 하한이 없으면 45초 예고편이 소스가 된다",
+    "constraints.geoblock_required": "지오블락(대한민국 한정 노출) 필수 여부. 정본은 laeebly guide 이고 이 값은 '배정 단계에서 미리 막기' 위한 사본이다 — 발행 차단은 publish_youtube.geoblock_ok 가 guide 로 독립 판정하므로, 이 값이 틀려도 발행을 풀어줄 수는 없다(안전 방향으로만 작동)",
+    "constraints.subtitles": "provided(제공 자막 있음) | none(없음 → --no-subtitles 로 생성). 제공 자막이 없으면 whisper 전사로 자막을 만드는데 정확도가 낮아 오자막이 박힌다(CLAUDE.md §5). 기본값을 두지 않는다 — 빠뜨리면 오자막이 조용히 박히므로 검증에서 차단한다",
+    "rights_lookup": "laeebly(기본) | none. none 은 laeebly 미등재 작품 — _note 에 권리 근거를 반드시 적고, 검증에서 상시 경고된다",
+    "identification_code": "laeebly identification_code 사본(사람 확인용). 발행 해시태그는 publish_youtube 가 DB 에서 직접 읽으므로 이 값을 쓰지 않는다",
+    "_guide": "근거가 된 권리사 가이드 원문 인용(필수). 없으면 검증이 차단한다 — '코드가 추측하지 않는다'의 기계화",
+    "_note": "값을 그렇게 정한 실측 근거"
+  },
+  "works": {
+    "언니네 산지직송 in 칼라페": {
+      "identification_code": "Rf2Bi",
+      "source": {
+        "type": "youtube_channel",
+        "url": "https://www.youtube.com/@tvNJoy_official/videos",
+        "episode_regex": "#언니네산지직송in칼라페\\s*EP[.\\s]?(\\d{1,3})\\b",
+        "start_episode": 1,
+        "min_source_duration_sec": 500
+      },
+      "constraints": { "geoblock_required": false, "subtitles": "none" },
+      "_guide": "laeebly guide 1. 사용 가능 소스 — \"CJ ENM 공식 유튜브 채널인 [tvN Joy]에 업로드된 영상은 모두 사용 가능\". 지오블락 요구 없음.",
+      "_note": "채널 전체가 소스라 제목 해시태그로 작품을 한정해야 한다(필수) — 안 그러면 같은 채널의 다른 작품 회차를 집는다. 길이 하한은 600이 아니라 500: EP1 최장 827s·EP3 814s 이고 선공개 227~415s·티저 20~66s 는 500에서 걸러진다(2026-07-26 실측)."
+    },
+    "도깨비 10주년 여행": {
+      "identification_code": "RZsv4",
+      "source": {
+        "type": "youtube_playlist",
+        "url": "https://www.youtube.com/playlist?list=PLgbB1gJhmG7CbBf0iq8vzN8QPzZ47xq5C",
+        "episode_regex": "\\bEP[.\\s]?(\\d{1,3})\\b",
+        "start_episode": 1,
+        "min_source_duration_sec": 600
+      },
+      "constraints": { "geoblock_required": false, "subtitles": "none" },
+      "_guide": "laeebly guide 1) \"해당 링크 플레이리스트에 있는 영상들만 사용 가능\" (채널 전체 불가) 2) 유인나 배우 외모에 대한 부정적 언급 유의 3) 로고 제공(화이트). 지오블락 요구 없음.",
+      "_note": "플레이리스트 45건이라 EP 표기만으로 작품 한정이 된다. 하한 600 유지 — 2026-07-28 에 EP3 가 사라진 적이 있지만 원인은 하한이 아니라 유튜브가 영어 제목을 돌려줘 EP 표기가 잘린 것이었다(45건 중 20건). lang=ko 고정 + alt_titles 누적으로 해결됐고, 그 뒤 EP3 최장은 1187s 라 600을 넉넉히 넘는다."
+    },
+    "스트릿 레스토랑 파이터": {
+      "identification_code": "lt0JP",
+      "source": {
+        "type": "youtube_channel",
+        "url": "https://www.youtube.com/@tvNJoy_official/videos",
+        "episode_regex": "#스트릿레스토랑파이터\\s*EP[.\\s]?(\\d{1,3})\\b",
+        "start_episode": 1,
+        "min_source_duration_sec": 500
+      },
+      "constraints": { "geoblock_required": false, "subtitles": "none" },
+      "_guide": "laeebly guide 1) \"[tvN Joy]를 포함해 CJ ENM 공식 유튜브 채널에 업로드된 영상은 모두 사용하여 즉시 업로드 가능\" 2) 구글 드라이브 내 로고 제공. 지오블락 요구 없음.",
+      "_note": "칼라페와 같은 채널을 소스로 쓰므로 해시태그 한정이 필수다. url 문자열을 칼라페와 똑같이 맞춰 인덱스 캐시를 공유한다(results/youtube_index 해시 키가 url 이라 한 글자만 달라도 8만 건을 두 번 받는다). 하한 500: EP1 최장 546s·EP4 최장 595s 라 600이면 그 회차가 통째로 빠진다(2026-07-26 실측)."
+    }
+  }
+}
