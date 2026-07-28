@@ -34,12 +34,21 @@ def test_discover_requires_runlog():
         assert al.discover_new(t, set()) == []
 
 
-def test_channel_for_maps_work():
-    with tempfile.TemporaryDirectory() as t:
-        d1 = _mkrun(t, "jobD", "D_1", "로맨스의 절댓값")
-        d2 = _mkrun(t, "jobE", "E_1", "유미의 세포들 시즌3")
-        assert al._channel_for(str(d1)) == "이불 속 극장"
-        assert al._channel_for(str(d2)) == "재미쇼츠"
+def test_channel_for_maps_work(monkeypatch=None):
+    # ⚠️ 실제 config/channels.json 을 읽으면 배정이 바뀔 때마다 이 테스트가 깨진다
+    #    (2026-07-28 재배정에서 '로맨스의 절댓값'→'이불 속 극장' 매핑이 사라져 실제로 깨졌다).
+    #    매핑 데이터가 아니라 **매핑 로직**을 검증해야 하므로 픽스처를 주입한다.
+    fixture = [(("로맨스의 절댓값"), "이불 속 극장"), ("유미의 세포들 시즌3", "재미쇼츠")]
+    orig = al.registry.targets
+    al.registry.targets = lambda *a, **k: fixture
+    try:
+        with tempfile.TemporaryDirectory() as t:
+            d1 = _mkrun(t, "jobD", "D_1", "로맨스의 절댓값")
+            d2 = _mkrun(t, "jobE", "E_1", "유미의 세포들 시즌3")
+            assert al._channel_for(str(d1)) == "이불 속 극장"
+            assert al._channel_for(str(d2)) == "재미쇼츠"
+    finally:
+        al.registry.targets = orig
 
 
 def test_channel_for_unknown():

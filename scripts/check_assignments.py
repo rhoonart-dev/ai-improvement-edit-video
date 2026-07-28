@@ -146,7 +146,13 @@ class Report:
 
 # ─────────────────────────── 오프라인 검사 ───────────────────────────
 
-def check_offline(rep, *, records, works, assignments, notice, index_dir=None, sources_root=None):
+def check_offline(rep, *, records, works, assignments, notice, index_dir=None, sources_root=None,
+                  scope_machine=None):
+    """배정 정본 검증. scope_machine 을 주면 **카드 상세 검사는 그 머신 담당분만** 본다.
+
+    범위를 나누는 이유(2026-07-28 실측): 전 머신을 깊게 보면 '아직 이관하지 않은 머신의 카드가
+    없다' 는 ⛔ 가 이 머신의 러너 게이트를 막는다. 남의 사정으로 내 생성이 멈추면 안 된다.
+    구조 검사(중복 배정·alias 충돌·채널 존재)는 본질적으로 전역이라 범위와 무관하게 항상 본다."""
     machines = (assignments or {}).get("machines") or {}
     if not machines:
         rep.block("config/assignments.json 에 machines 가 없습니다 — 배정 정본이 비어 있습니다")
@@ -187,11 +193,16 @@ def check_offline(rep, *, records, works, assignments, notice, index_dir=None, s
             wks = reg.works_of(ch, records)
             if not wks:
                 rep.warn(f"채널 '{ch}'({mid}) 에 배정된 작품이 없습니다 — 그 채널은 아무것도 만들지 않습니다")
+            in_scope = scope_machine is None or mid == scope_machine
             for work in wks:
                 assigned_works.add(work)
                 # 5. 카드 존재
                 card = reg.work_card(work, works)
                 if card is None:
+                    if not in_scope:
+                        rep.info(f"작품 '{work}'(채널 {ch} · {mid}) 카드 없음 — 그 머신은 아직 "
+                                 f"예전 방식으로 돈다(이관 시 추가 필요)")
+                        continue
                     cands = reg.work_card_candidates(work, works)
                     rep.block(f"작품 '{work}'(채널 {ch}) 카드가 config/works.json 에 없습니다"
                               + (f" — 후보: {cands}" if cands else ""))
@@ -363,6 +374,10 @@ def main():
     ap = argparse.ArgumentParser(description="루프 운영 정본 검증(배정·작품 카드·정책)")
     ap.add_argument("--laeebly", action="store_true", help="권리 DB 대조까지 수행(LAEEBLY_DB_URL 필요)")
     ap.add_argument("--strict", action="store_true", help="⚠️ 도 실패로 취급(러너·CI용)")
+    ap.add_argument("--all", action="store_true",
+                    help="전 머신의 작품 카드까지 깊게 본다(기본은 이 머신 담당분만 — 남의 미이관 상태가 "
+                         "이 머신의 러너 게이트를 막지 않도록)")
+    ap.add_argument("--machine", help="검사 범위로 삼을 머신 id(기본: 자동 감지)")
     a = ap.parse_args()
 
     records = reg.load_channels()
@@ -375,18 +390,31 @@ def main():
     except (OSError, json.JSONDecodeError):
         pass
 
+    scope = None
+    if not a.all:
+        try:
+            scope = a.machine or reg.detect_machine_id(assignments, explicit=a.machine,
+                                                       env=os.environ.get("SCENE_LOOP_MACHINE"),
+                                                       local=local.get("machine"))
+        except LookupError:
+            scope = None          # 이 머신이 아직 배정 정본에 없으면 전역으로 본다
+
     rep = Report()
     check_offline(rep, records=records, works=works, assignments=assignments, notice=notice,
                   index_dir=REPO_ROOT / "results" / "youtube_index",
-                  sources_root=local.get("sources_root") or reg.default_sources_root())
+                  sources_root=local.get("sources_root") or reg.default_sources_root(),
+                  scope_machine=scope)
     if a.laeebly:
         assigned = set()
-        for rec in (assignments.get("machines") or {}).values():
+        for mid, rec in (assignments.get("machines") or {}).items():
+            if scope and mid != scope:
+                continue
             for ch in (rec.get("channels") or []):
                 assigned.update(reg.works_of(ch, records))
         check_laeebly(rep, works=works, assigned_only=assigned or None)
 
-    print("=== 루프 운영 정본 검증 ===")
+    print("=== 루프 운영 정본 검증 ==="
+          + (f" (범위: {scope})" if scope else " (전 머신)"))
     if not rep.rows:
         print("  이상 없음")
         print(f"\n{BLOCK} 0건 · {WARN} 0건")
