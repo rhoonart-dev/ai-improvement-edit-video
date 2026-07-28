@@ -6,7 +6,7 @@
 > 게이트*(환각/깨짐)와 *빠른 루프 프록시*로만. **리워드/승격/최종 판정 = 벤치마크 백분위(같은 작품
 > 시장 대비)+ +14일 실측 + paired A-B**(`m3_aivideo_benchmark`·`decide_experiment --metric benchmark`·
 > `loop_controller`·`m4_ab_analysis`). 아래 본문에서 "judge=리워드"로 읽히는 부분은 이 배너로 대체한다.
-> 경위: [PROJECTS_COMPARISON.md](PROJECTS_COMPARISON.md).
+> 경위: 형제 repo 합병 계획서(PROJECTS_COMPARISON.md)에 있었으나 계획이 전 단계 완료돼 2026-07-28 삭제.
 
 > **작성 2026-06-16.** 이 문서는 사용자가 확정한 "리워드/평가 레이어 = moat" 기획을
 > **신규 격리 Supabase 프로젝트(`fdidiqdhcyctdbogxkdu`)** 위에 구현하는 실행 설계다.

@@ -163,7 +163,7 @@
 | `extract/feature_extractor.py` | 영상→피처 추출(결정론+Gemini의미+관찰+OCR) | 순수로직 `feature_aggregates.py` 11/11 ✅ |
 | `scripts/run_feature_extraction.py` | 표본 클립 다운로드→추출→clip_features 배치(재개 가능) | (글루) |
 | `scripts/train_reward_model.py` | baseline B + 리워드 R + 귀인 + 디렉티브 | (글루) |
-| `scripts/m1_moat_gate.py` | moat 검증(편집 피처가 컨텍스트 너머 성과 설명?) | (분석) |
+| ~~`scripts/m1_moat_gate.py`~~ | moat 검증 — 결론이 §7 불변 제약으로 굳어 2026-07-28 삭제 | (분석·종료) |
 
 예) 리워드 학습: `PIPELINE_DB_URL=... .venv/bin/python scripts/train_reward_model.py --stage reward --feature-version det+gemini-v1`
 

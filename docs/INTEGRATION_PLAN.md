@@ -47,7 +47,7 @@
 | 시점 | 일어나는 일 | 주체 |
 |---|---|---|
 | **D0** | loop_controller가 라운드 config 제안 → 코호트(여러 작품×여러 편) 생성. 주입 ON이면 뱅크에서 예시 카드 인출(스냅샷을 provenance에 고정) → 자동 private 업로드 → **사람: 공개 클릭** | 기계+사람① |
-| **D1~10** | laeebly 일별 성과 축적(적재 ~4d 지연). autoloop가 신규 run 자동 평가(안전게이트: 환각·깨짐) | 기계 |
+| **D1~10** | laeebly 일별 성과 축적(적재 ~4d 지연). ~~autoloop가~~ 신규 run 자동 평가(안전게이트: 환각·깨짐) | 기계 |
 | **D+11** | **커버리지 게이트**(`max(upload_at) ≥ publish+7d`) 통과 시, 같은 날: (a) factory가 코호트를 eb에 적재·채점 (b) 판정 — 코호트 각 편의 +7d apv를 같은 작품 시장 대비 백분위화 → 평균이 baseline+0.03 초과면 채택 → **사람: 승격 승인** | 기계+사람② |
 | **D+18** | **+14d 감사**: 같은 판정을 +14d 창으로 자동 재계산. 역전 시 경보+롤백 제안. 초기 3~4라운드 일치율 실측 후 감사를 샘플링으로 축소 | 기계 |
 
@@ -134,7 +134,7 @@ DB/앱 레벨로 강제. before/after가 몰래 쌍으로 등록되는 것을 �
 
 ## 5. 예시 주입 v0 (빠른 루프의 신규 단계)
 
-배포는 검증된 [APPLY.md](../integration/ai_video/APPLY.md) 패턴 재사용: `integration/ai_video/injection.py`
+배포는 검증된 APPLY.md 패턴 재사용(`integration/ai_video/` 는 적용 완료·ai-video 사본과 바이트 동일이라 2026-07-28 삭제): `integration/ai_video/injection.py`
 1파일 + ai-video pipeline.py에 가산적 2줄. 인출·조립 로직은 [make_report.py](../factory/make_report.py) 목업 이식.
 
 - **v0 구성 = 4조각 중 2조각**: ① 참조 카드 3장(시장 클립 · `score_basis='full'` 우선 · `[:70]`/`[:30]` 잘림 전부 제거) + ③ 탐색 슬롯 1장(**클러스터 밖**에서 — 목업의 클러스터 내 선택은 발산 목적과 불일치, [make_report.py:86](../factory/make_report.py)). ② 대조쌍은 클러스터에 good·bad full 라벨 각 2+ 있을 때만. ④ dossier는 **섹션째 생략**(placeholder 텍스트 주입 금지)
@@ -152,7 +152,7 @@ DB/앱 레벨로 강제. before/after가 몰래 쌍으로 등록되는 것을 �
 | 잡 | 주기 | 트리거 |
 |---|---|---|
 | factory 적재 (`run_factory --limit N`) | 일 1회 | laeebly ETL 완료 추정 시각 후. 멱등 |
-| autoloop 평가 (플래그 없이) | 3~6h | run 발견→인제스트→피처→안전게이트. 멱등 |
+| ~~autoloop~~ 평가 (플래그 없이 · 2026-07-28 삭제, 지금은 수동) | 3~6h | run 발견→인제스트→피처→안전게이트. 멱등 |
 | 측정·판정 폴러 | 일 1회 | **커버리지 게이트**: published 라운드의 코호트 전체가 +7d 통과 시 measure→decide→알림. 승격 시 +14d 감사 잡 자동 예약 |
 | ETL 신선도 감시 | 일 1회 | `max(created_at)` 지연 5일 초과 시 경보 — 없으면 전체 체인이 "조용한 0건"으로 퇴화 |
 
@@ -163,7 +163,7 @@ DB/앱 레벨로 강제. before/after가 몰래 쌍으로 등록되는 것을 �
 
 ## 7. 대시보드
 
-씨앗: [status_report.py](../scripts/status_report.py)의 `q()/one()`을 dict 반환으로 분리 → JSON 모드.
+씨앗: status_report.py 의 `q()/one()`을 dict 반환으로 분리(2026-07-28 삭제 — 필요하면 git 이력에서 복원) → JSON 모드.
 1단계는 cron 재생성 정적 HTML(레포 기조와 일치), 필요 시 Streamlit 승격. 통합 뷰
 `v_loop_trace`(clip_metadata → clips.video_external_id → eb_shorts_features.shorts_id soft join) 신설.
 

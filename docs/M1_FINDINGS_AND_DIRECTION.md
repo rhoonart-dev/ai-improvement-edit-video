@@ -177,4 +177,4 @@ ai-video 클립 vs 같은 작품 휴먼 apv 승자 강제비교(양방향). **�
 **한 줄:** ②에서 버린 건 "관측만으로 성과 예측" 접근 **하나뿐**, 데이터·방법론·인사이트·교훈은 전부 계승되어 현 벤치마크·A/B를 떠받침. (그래서 빨강 아님, 주황=전환점.)
 
 ---
-*근거 스크립트: `scripts/m1_moat_gate.py`(절대회귀 게이트), `scripts/m1_within_work_pairs.py`(작품내 차분+길이통제), `scripts/m2_pairwise_judge.py`·`m2_analyze.py`(VLM pairwise), `scripts/m3_aivideo_benchmark.py`(ai-video vs 시장 벤치마크). 메모리: `m1-deterministic-no-uplift.md`, `aivideo-retention-gap.md`.*
+*근거 스크립트(2026-07-28 삭제 — 결론이 CLAUDE.md §7 불변 제약으로 굳어 재실행 계획 없음): `scripts/m1_moat_gate.py`(절대회귀 게이트), `scripts/m1_within_work_pairs.py`(작품내 차분+길이통제), `scripts/m2_pairwise_judge.py`·`m2_analyze.py`(VLM pairwise), `scripts/m3_aivideo_benchmark.py`(ai-video vs 시장 벤치마크). 메모리: `m1-deterministic-no-uplift.md`, `aivideo-retention-gap.md`.*
