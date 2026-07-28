@@ -19,9 +19,15 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import socket
+import unicodedata
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG_PATH = REPO_ROOT / "config" / "channels.json"
+DEFAULT_WORKS_PATH = REPO_ROOT / "config" / "works.json"
+DEFAULT_ASSIGNMENTS_PATH = REPO_ROOT / "config" / "assignments.json"
+DEFAULT_POLICY_PATH = REPO_ROOT / "config" / "loop_policy.json"
+DEFAULT_MACHINE_LOCAL_PATH = REPO_ROOT / "config" / "scene_loop.local.json"
 DEFAULT_PROJECT = "DEFAULT"
 
 
@@ -47,6 +53,29 @@ def _norm_name(s):
 def _norm_handle(s):
     """핸들 비교용: 앞의 @ 제거 + 소문자."""
     return (s or "").lstrip("@").strip().lower()
+
+
+def norm_work_title(s, *, fold=False):
+    """작품명 비교용 — NFC 정규화 + 공백 제거. ★시즌 표기·기호를 지우지 않는다.
+
+    _norm_name(채널명용)과 별개로 두는 이유:
+      ① factory/cluster._norm_title 은 '시즌\\d+' 를 지운다 → 'SNL 코리아 리부트 시즌7'(엔딩순삭)과
+         '…시즌8'(킥킥극장·몰입도둑)이 같은 작품이 된다. 어느 라이선스 행을 쓸지 가르는 구분이라
+         권리 경로엔 절대 부적합하다.
+      ② macOS 는 한글을 NFD 로 주는 경우가 있어 눈으로 같은 문자열이 바이트로 다르다 — dict 조회와
+         SQL 완전일치가 조용히 실패한다. NFC 로 접는다.
+      ③ 이 함수는 **근접 오류 감지·후보 제시 전용**이다. 권리 레코드 선택은 끝까지 완전일치만
+         (publish_youtube.fetch_licensed_row). 여기서 느슨하게 맞추면 엉뚱한 작품의 가이드를 적용한다.
+    fold=True 는 검증 스크립트의 후보 제시에서만 쓴다(대소문자까지 접음).
+    """
+    t = unicodedata.normalize("NFC", s or "")
+    t = "".join(t.split())
+    return t.casefold() if fold else t
+
+
+def same_work_title(a, b):
+    """두 작품명이 '사실상 같은가'(공백·정규화 차이만) — 경고·후보 제시용. 순수."""
+    return bool(a) and bool(b) and norm_work_title(a, fold=True) == norm_work_title(b, fold=True)
 
 
 # ─────────────────────────── 로드 / 해석 ───────────────────────────
@@ -102,6 +131,211 @@ def channel_names(records=None):
     """등록된 채널 표시명 튜플 — reconcile TARGET_CHANNELS 대체."""
     recs = records if records is not None else load_channels()
     return tuple(r.get("name") for r in recs if r.get("name"))
+
+
+# ─────────────────── 루프 운영 정본 (배정·작품 카드·정책) ───────────────────
+#
+# 왜 여기인가: channels.json 의 소유자가 이미 이 모듈이고, 조회 함수마다 records= 주입 seam 이 있어
+# 파일 없이 테스트된다. 새 로더를 따로 만들면 '같은 정보를 읽는 로더'가 또 늘어난다.
+#
+# 정본 구분:
+#   config/channels.json     채널 자격·능력 + 채널→작품 배정      (공유)
+#   config/works.json        작품 카드 — 소스·회차 규칙 + 제약     (공유)
+#   config/assignments.json  머신 → 담당 채널                      (공유)
+#   config/loop_policy.json  전역 실행 정책                        (공유)
+#   config/scene_loop.local.json  이 머신 값(machine·sources_root) (머신 전용)
+
+def _load_json_config(path, env_key, default_path, *, missing_ok=True):
+    p = pathlib.Path(path) if path else pathlib.Path(os.environ.get(env_key) or default_path)
+    if not p.exists():
+        if missing_ok:
+            return {}
+        raise FileNotFoundError(p)
+    return json.loads(p.read_text(encoding="utf-8")) or {}
+
+
+def load_works(path=None):
+    """config/works.json → {정본제목: 카드}. 파일 없으면 {}."""
+    return (_load_json_config(path, "WORKS_CONFIG", DEFAULT_WORKS_PATH).get("works") or {})
+
+
+def load_assignments(path=None):
+    """config/assignments.json → 전체 dict(machines 포함). 파일 없으면 {}."""
+    return _load_json_config(path, "ASSIGNMENTS_CONFIG", DEFAULT_ASSIGNMENTS_PATH)
+
+
+def load_loop_policy(path=None):
+    """config/loop_policy.json → 전역 실행 정책 dict. 파일 없으면 {}."""
+    return _load_json_config(path, "LOOP_POLICY_CONFIG", DEFAULT_POLICY_PATH)
+
+
+def load_machine_local(path=None):
+    """config/scene_loop.local.json → 이 머신 값. 없어도 되므로 {} 폴백."""
+    return _load_json_config(path, "SCENE_LOOP_LOCAL_CONFIG", DEFAULT_MACHINE_LOCAL_PATH)
+
+
+# ── 머신 식별 ──
+
+def detect_machine_id(assignments=None, *, explicit=None, env=None, local=None,
+                      hostname=None, user=None):
+    """이 컴퓨터가 배정 정본의 어느 항목인지 결정. 실패하면 LookupError — 절대 추측하지 않는다.
+
+    우선순위: explicit(--machine) > env(SCENE_LOOP_MACHINE) > local(scene_loop.local.json)
+              > aliases 자동 감지(hostname 부분일치 · user 정확일치, **단일 매칭만 인정**)
+
+    🛑 미해결·다중매칭에서 '전 채널'로 폴백하지 않는다. 모르는 채로 돌면 남의 채널까지 생성한다.
+    """
+    a = assignments if assignments is not None else load_assignments()
+    machines = a.get("machines") or {}
+
+    for src, val in (("--machine", explicit), ("SCENE_LOOP_MACHINE", env),
+                     ("scene_loop.local.json", local)):
+        if val:
+            if val not in machines:
+                raise LookupError(
+                    f"머신 '{val}'({src})가 배정 정본에 없습니다. "
+                    f"config/assignments.json 의 machines 키: {sorted(machines) or '(비어 있음)'}")
+            return val
+
+    host = (hostname if hostname is not None else socket.gethostname()).lower()
+    who = user if user is not None else (os.environ.get("USER") or "")
+    hits = []
+    for mid, rec in machines.items():
+        al = rec.get("aliases") or {}
+        by_host = any(h and h.lower() in host for h in (al.get("hostname") or []))
+        by_user = any(u and u == who for u in (al.get("user") or []))
+        if by_host or by_user:
+            hits.append(mid)
+    if len(hits) == 1:
+        return hits[0]
+    if len(hits) > 1:
+        raise LookupError(
+            f"이 컴퓨터가 머신 {sorted(hits)} 여러 항목에 매칭됩니다 — aliases 를 좁히거나 "
+            f".env 에 SCENE_LOOP_MACHINE 을 지정하세요")
+    raise LookupError(
+        f"이 컴퓨터를 배정 정본에서 찾지 못했습니다 (hostname={host!r}, user={who!r}). "
+        f"config/assignments.json 에 항목을 추가하거나 .env 에 SCENE_LOOP_MACHINE 을 지정하세요")
+
+
+def machine_record(machine_id, assignments=None):
+    a = assignments if assignments is not None else load_assignments()
+    return (a.get("machines") or {}).get(machine_id)
+
+
+def machine_channels(machine_id, assignments=None):
+    """이 머신이 담당하는 채널 표시명 리스트. 항목이 없으면 LookupError."""
+    rec = machine_record(machine_id, assignments)
+    if rec is None:
+        raise LookupError(f"머신 '{machine_id}' 가 배정 정본에 없습니다")
+    return list(rec.get("channels") or [])
+
+
+# ── 채널 ↔ 작품 (targets() 와 달리 레코드를 잃지 않는다) ──
+
+def works_of(channel, records=None):
+    """채널 표시명 → 그 채널이 맡은 작품 리스트. 채널을 못 찾으면 []."""
+    rec = resolve(channel, records)
+    return list((rec or {}).get("works") or [])
+
+
+def channels_of_work(work, records=None):
+    """작품 → 그 작품을 쓰는 채널 표시명 리스트(한 작품을 여러 채널이 쓸 수 있다)."""
+    recs = records if records is not None else load_channels()
+    return [r.get("name") for r in recs
+            if r.get("name") and any(same_work_title(w, work) for w in (r.get("works") or []))]
+
+
+def work_card(work, works=None):
+    """작품 카드 조회 — **완전일치만**. 근접 오류는 None 을 돌려 work_card_candidates 로 알린다."""
+    w = works if works is not None else load_works()
+    return w.get(work)
+
+
+def work_card_candidates(work, works=None):
+    """완전일치 실패 시 제시할 후보 — 정규화(NFC·공백·대소문자)하면 같아지는 키들. 순수."""
+    w = works if works is not None else load_works()
+    return sorted(k for k in w if same_work_title(k, work))
+
+
+# ── 유효 설정 (★ scene_loop 가 실제로 쓰는 채널 dict 를 만든다) ──
+
+def _card_to_channel_config(channel, work, card, policy, sources_root):
+    """작품 카드 + 정책 → scene_loop 가 아는 **예전 채널 dict 모양**.
+
+    레거시 모양으로 내는 이유: channel_plan·discover_episodes_for·index_episodes·rendered_scenes·
+    build_cmd 를 한 줄도 고치지 않고, 신규·레거시 두 모드가 하류 코드 경로를 공유하게 하려는 것이다
+    (경로가 갈리면 동작도 갈린다).
+    """
+    src = card.get("source") or {}
+    kind = src.get("type")
+    con = card.get("constraints") or {}
+
+    flags = list(policy.get("gen_flags_base") or [])
+    if con.get("subtitles") == "none":
+        flags.append("--no-subtitles")
+
+    out = {
+        "channel": channel,
+        "work_title": work,
+        "start_episode": src.get("start_episode", 1),
+        "gen_flags": flags,
+        "_source_kind": kind,
+        "_geoblock_required": bool(con.get("geoblock_required")),
+        "_subtitles": con.get("subtitles"),
+        "_origin": f"assignments → channels.json:{channel} → works.json:{work}",
+    }
+    if kind in ("youtube_playlist", "youtube_channel"):
+        out["source_type"] = "youtube"
+        out["source_url"] = src.get("url")
+        out["title_episode_regex"] = src.get("episode_regex")
+        out["min_source_duration_sec"] = src.get("min_source_duration_sec", 0)
+    elif kind == "local":
+        out["source_type"] = "local"
+        out["source_dir"] = str(pathlib.Path(sources_root) / (src.get("dir_slug") or ""))
+        out["video_glob"] = src.get("file_glob")
+        out["episode_regex"] = src.get("episode_regex")
+    else:
+        raise ValueError(f"작품 '{work}': 알 수 없는 source.type={kind!r} "
+                         f"(youtube_playlist | youtube_channel | local)")
+    return out
+
+
+def default_sources_root():
+    """로컬 소스 기본 위치. ~/Downloads 는 macOS TCC 가 막아 ffmpeg 가 실패하므로 쓰지 않는다."""
+    return str(REPO_ROOT.parent / "sources")
+
+
+def effective_channel_configs(machine_id=None, *, records=None, works=None,
+                              assignments=None, policy=None, sources_root=None,
+                              machine_local=None):
+    """머신 → 담당 채널 → 채널의 작품 → 작품 카드 → scene_loop 채널 dict 리스트.
+
+    카드가 없는 작품은 ValueError 로 즉시 알린다 — 그 채널만 조용히 빠지면 '어제는 돌았는데
+    오늘은 안 도는' 상태가 되고 원인을 찾기 어렵다.
+    """
+    recs = records if records is not None else load_channels()
+    wks = works if works is not None else load_works()
+    asg = assignments if assignments is not None else load_assignments()
+    pol = policy if policy is not None else load_loop_policy()
+    loc = machine_local if machine_local is not None else load_machine_local()
+    root = sources_root or loc.get("sources_root") or default_sources_root()
+
+    mid = machine_id or detect_machine_id(asg, env=os.environ.get("SCENE_LOOP_MACHINE"),
+                                          local=loc.get("machine"))
+    out = []
+    for ch in machine_channels(mid, asg):
+        rec = resolve(ch, recs)
+        if rec is None:
+            raise ValueError(f"배정된 채널 '{ch}' 가 config/channels.json 에 없습니다")
+        for work in (rec.get("works") or []):
+            card = work_card(work, wks)
+            if card is None:
+                cands = work_card_candidates(work, wks)
+                raise ValueError(
+                    f"작품 '{work}'(채널 {ch}) 카드가 config/works.json 에 없습니다"
+                    + (f" — 후보: {cands}" if cands else ""))
+            out.append(_card_to_channel_config(ch, work, card, pol, root))
+    return out
 
 
 def backfill_channel_id(token_slug, channel_id, path=None):
