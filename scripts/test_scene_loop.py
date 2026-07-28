@@ -3,6 +3,7 @@
 """
 from __future__ import annotations
 
+import json
 import tempfile
 from pathlib import Path
 
@@ -128,6 +129,58 @@ def test_build_cmd_uses_youtube_url_for_urls():
 def test_build_cmd_uses_video_for_local_paths():
     c = sl.build_cmd("py", "작품", "/tmp/EP1.mp4", "/out", [])
     assert "--video" in c and "--youtube-url" not in c
+
+
+def test_build_cmd_enables_research_and_scopes_episode():
+    # 리서치를 켜야 인물명이 맞는다. --episode 는 리서치를 1~N회로 한정해 스포일러를 막는다.
+    c = sl.build_cmd("py", "작품", "/tmp/EP1.mp4", "/out", [], 7)
+    assert "--no-research" not in c
+    assert c[c.index("--episode") + 1] == "7"
+
+
+def test_build_cmd_omits_episode_when_unknown():
+    c = sl.build_cmd("py", "작품", "/tmp/EP1.mp4", "/out", [])
+    assert "--episode" not in c
+
+
+# ── 중복 판정은 채널 단위로 닫혀 있어야 한다 ──
+
+def _write_plan(root, channel, ep_num, job, span, video_path):
+    """outputs/scene_loop/<채널>/ep<NN>/try1/<job>/edit_plan.json 을 만든다."""
+    d = Path(root, "scene_loop", channel, sl.episode_dir_name(ep_num), "try1", job)
+    d.mkdir(parents=True, exist_ok=True)
+    Path(d, "edit_plan.json").write_text(json.dumps({
+        "input": {"video_path": video_path},
+        "timeline": [{"clip_start_sec": span[0], "clip_end_sec": span[1]}],
+    }, ensure_ascii=False), encoding="utf-8")
+
+
+def test_rendered_scenes_ignores_other_channel_same_local_source():
+    """한 작품을 두 채널이 쓸 때(같은 머신·같은 로컬 파일) 서로의 장면을 보지 않아야 한다.
+
+    예전엔 로컬 소스를 video_path 로만 매칭해서 채널B가 채널A 장면을 자기 것으로 셌다."""
+    with tempfile.TemporaryDirectory() as root:
+        src = "/srv/sources/가나다/EP1.mp4"
+        _write_plan(root, "채널1", 1, "가나다_a1", [100.0, 150.0], src)
+        _write_plan(root, "채널2", 1, "가나다_b2", [300.0, 350.0], src)
+
+        one = sl.rendered_scenes({}, "채널1", 1, src, [root], 0.5, 15)
+        two = sl.rendered_scenes({}, "채널2", 1, src, [root], 0.5, 15)
+
+        assert [s["span"] for s in one] == [[100.0, 150.0]]
+        assert [s["span"] for s in two] == [[300.0, 350.0]]
+
+
+def test_rendered_scenes_merges_state_and_own_outputs():
+    """자기 채널 안에서는 상태 + 산출물이 합쳐져 중복 회피가 계속 동작한다."""
+    with tempfile.TemporaryDirectory() as root:
+        src = "/srv/sources/가나다/EP1.mp4"
+        _write_plan(root, "채널1", 1, "가나다_a1", [100.0, 150.0], src)
+        state = {"channels": {"채널1": {"episodes": {"1": {"scenes": [
+            {"span": [500.0, 560.0], "run_id": "가나다_seed"}]}}}}}
+
+        got = sorted(s["span"] for s in sl.rendered_scenes(state, "채널1", 1, src, [root], 0.5, 15))
+        assert got == [[100.0, 150.0], [500.0, 560.0]]
 
 
 def test_episode_dir_name_matches_outdir_convention():

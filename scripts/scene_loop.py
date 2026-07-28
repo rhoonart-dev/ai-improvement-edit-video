@@ -324,7 +324,10 @@ def _run_id_of(job_dir):
 
 
 def existing_output_scenes(scan_roots, video_path):
-    """outputs* 에서 input.video_path==video_path 인 edit_plan → [{'span','run_id'}]."""
+    """outputs* 에서 input.video_path==video_path 인 edit_plan → [{'span','run_id'}].
+
+    ⚠️ 중복 판정에는 더 이상 쓰지 않는다(2026-07-28) — 채널 구분이 없어 한 작품을 여러 채널이 쓸 때
+    다른 채널 산출물을 자기 것으로 오인했다. `rendered_scenes` 참조. 소스 경로로 산출물을 되짚을 때만 쓴다."""
     target = str(Path(video_path).resolve())
     scenes = []
     for root in scan_roots:
@@ -365,14 +368,22 @@ def episode_output_scenes(scan_roots, channel, ep_num):
     return scenes
 
 
-def rendered_scenes(state, channel, ep_num, video_path, scan_roots, iou_th, center_tol,
-                    youtube=False):
-    """이 (채널,회차)의 '서로 다른 렌더 장면' 목록 [{'span','run_ids'}] — 상태 + 기존 산출물 병합."""
+def rendered_scenes(state, channel, ep_num, video_path, scan_roots, iou_th, center_tol):
+    """이 (채널,회차)의 '서로 다른 렌더 장면' 목록 [{'span','run_ids'}] — 상태 + 기존 산출물 병합.
+
+    ★ 중복 판정은 **채널 단위로 닫혀 있다.** 한 작품을 여러 채널이 쓸 수 있고(같은 머신이어도),
+    그때 채널끼리는 서로 어떤 장면을 만들었는지 볼 필요가 없다 — 각자 자기 채널 안에서만 안 겹치면 된다.
+    상태는 원래 channel 로 키가 잡혀 있었지만, 로컬 소스는 `existing_output_scenes` 가 outputs 전체를
+    video_path 로만 훑어 **다른 채널 산출물까지 자기 것으로 오인**했다(2026-07-28 수정). 그러면 채널B가
+    채널A 장면을 피해 다니고, pending 만 부풀어 max_pending_unpublished 에 조기 도달해 멈춘다.
+    이제 소스 종류와 무관하게 `outputs*/scene_loop/<채널>/ep<NN>/` 만 스캔한다.
+
+    ※ 이 경로 밖의 산출물(수동 생성분·과거 outputs_ab)은 스캔되지 않는다 —
+      SCHEDULER_CLAUDE_TASK.md §3-1 대로 상태 파일에 심어서 반영한다."""
     st = (((state.get("channels") or {}).get(channel) or {}).get("episodes") or {}) \
         .get(str(ep_num), {}).get("scenes", [])
     raw = [{"span": s["span"], "run_id": s.get("run_id")} for s in st if s.get("span")]
-    raw += (episode_output_scenes(scan_roots, channel, ep_num) if youtube
-            else existing_output_scenes(scan_roots, video_path))
+    raw += episode_output_scenes(scan_roots, channel, ep_num)
     return merge_scenes(raw, iou_th, center_tol)
 
 
@@ -436,12 +447,17 @@ def count_public_scenes(scenes, conn, channel, api_key):
 
 # ─────────────────────────── 생성 (ai-video 그대로 호출) ───────────────────────────
 
-def build_cmd(gen_py, work_title, video_path, outdir, gen_flags):
-    """소스가 URL 이면 --youtube-url(ai-video 가 직접 받아 씀), 아니면 --video. 순수."""
+def build_cmd(gen_py, work_title, video_path, outdir, gen_flags, ep_num=None):
+    """소스가 URL 이면 --youtube-url(ai-video 가 직접 받아 씀), 아니면 --video. 순수.
+
+    작품 리서치는 **켠 상태**로 돌린다 — 인물명·관계를 모르면 장면 분석이 등장인물을 틀린다
+    (2026-07-26 실측: 너굴안방 재생성 사유). ai-video 는 `--episode N` 을 주면 리서치를 1~N회로
+    한정해 이후 회차 스포일러를 막으므로, 루프가 아는 회차 번호를 반드시 같이 넘긴다."""
     src = ["--youtube-url", video_path] if is_url(video_path) else ["--video", video_path]
+    ep = ["--episode", str(ep_num)] if ep_num is not None else []
     return [gen_py, "-m", "app.cli", "create_shorts",
-            "--title", work_title, *src,
-            "--max-shorts", "1", "--no-research", "--outdir", outdir, *gen_flags]
+            "--title", work_title, *src, *ep,
+            "--max-shorts", "1", "--outdir", outdir, *gen_flags]
 
 
 def run_generation(cmd, worktree, ai_video_root, timeout):
@@ -462,13 +478,11 @@ def channel_plan(cfg, ch, state, conn, api_key, scan_roots, gen_py=None, log=lam
     quota = cfg["quota_per_episode"]
     max_pending = cfg.get("max_pending_unpublished", quota)
     iou_th, ctol = cfg["dup_iou_threshold"], cfg["dup_center_tolerance_sec"]
-    is_yt = channel_source_type(ch) == "youtube"
     eps = discover_episodes_for(ch, gen_py, cfg.get("youtube_index_cache_hours", 24), log)
     if not eps:
         return ("no_source", None, None, {"eps": []})
     for ep_num, vp in eps:
-        scenes = rendered_scenes(state, ch["channel"], ep_num, vp, scan_roots, iou_th, ctol,
-                                 youtube=is_yt)
+        scenes = rendered_scenes(state, ch["channel"], ep_num, vp, scan_roots, iou_th, ctol)
         pub = count_public_scenes(scenes, conn, ch["channel"], api_key)
         info = {"eps": eps, "rendered": len(scenes), "public": pub,
                 "pending": len(scenes) - pub, "scenes": scenes}
@@ -522,7 +536,7 @@ def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_ro
         outdir = str(Path(ai_video_root) / "outputs" / "scene_loop" / ch["channel"] /
                      episode_dir_name(ep_num) / f"try{attempt}_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
         Path(outdir).mkdir(parents=True, exist_ok=True)
-        cmd = build_cmd(gen_py, ch["work_title"], vp, outdir, cfg["gen_flags"])
+        cmd = build_cmd(gen_py, ch["work_title"], vp, outdir, cfg["gen_flags"], ep_num)
         log(f"{tag}   시도 {attempt}/{attempts}: {' '.join(cmd[:6])} … → {outdir}")
         try:
             r = run_generation(cmd, worktree, ai_video_root, cfg["gen_timeout_sec"])
@@ -562,12 +576,10 @@ def cmd_status(cfg, state, conn, api_key, ai_video_root, log, gen_py=None):
     quota = cfg["quota_per_episode"]
     iou_th, ctol = cfg["dup_iou_threshold"], cfg["dup_center_tolerance_sec"]
     for ch in cfg["channels"]:
-        is_yt = channel_source_type(ch) == "youtube"
         eps = discover_episodes_for(ch, gen_py, cfg.get("youtube_index_cache_hours", 24), log)
         log(f"[{ch['channel']} · {ch['work_title']}]  회차: {[e for e,_ in eps] or '없음'}")
         for ep_num, vp in eps:
-            scenes = rendered_scenes(state, ch["channel"], ep_num, vp, scan_roots, iou_th, ctol,
-                                     youtube=is_yt)
+            scenes = rendered_scenes(state, ch["channel"], ep_num, vp, scan_roots, iou_th, ctol)
             try:
                 pub = count_public_scenes(scenes, conn, ch["channel"], api_key)
                 pubs = str(pub)
