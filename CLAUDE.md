@@ -35,7 +35,8 @@ ai-video(롱폼→쇼츠 추출 솔루션)를 **증거 기반으로 자기개선
      `PIPELINE_SERVICE_KEY`(fdidiqd service_role), `LAEEBLY_DB_URL`, `PIPELINE_DB_URL`
    - **값 얻는 곳**: Supabase 대시보드 → 프로젝트 → Settings→API Keys(service_role) / Connect→Session pooler(DSN).
      YouTube 토큰은 채널별 OAuth 발급분(`scripts/get_youtube_token.py`). **시크릿은 채팅에 붙여넣지 말 것.**
-4. 채널 매핑은 `config/channels.json`(10채널, token_slug·gcp_project·works). 채널 추가 = JSON 한 줄.
+4. 채널 매핑은 `config/channels.json`(**18채널**, token_slug·gcp_project·works·geoblock_capable) — 채널 수·매핑의 정본은 항상 이 파일이고 문서 수치는 낡을 수 있다. 채널 추가 = JSON 한 항목.
+5. **루프 운영 정본 3종**(2026-07-28 신설): `config/assignments.json`(머신→담당 채널) · `config/works.json`(작품 카드 — 소스 범위·회차 규칙·자막 정책·제약) · `config/loop_policy.json`(전역 실행 정책). 담당 채널이 바뀌거나 새 작품·새 컴퓨터를 붙일 때는 **`SCENE_LOOP_OPERATIONS.md` 가 정본 절차**다. 검증은 `scripts/check_assignments.py`.
 
 ## 2. 현재 상태 (2026-07-15) — 어디까지 왔나
 
@@ -79,7 +80,11 @@ judge 사유: *"제목에서 강조한 '알몸 뒤태로 걸어가는' 핵심 �
   ⚠ 쌍 A/B 는 **최소 5쌍** 필요(부호검정) — 발행 가능분이 현재 2편뿐이라 **쌍 수 확보(추가 생성)를 사용자와 먼저 합의할 것**.
 - 위 발행분 2편은 **base**(A/B arm 아님) — 자사 채널 클립이라 시장 비교군에서 자동 제외(§3-2), 벤치마크 측정 대상.
 
-## 3. 채널 → 작품 → 소스 매핑 (이번 운영분)
+## 3. 채널 → 작품 → 소스 매핑
+
+> ⚠️ **이 표는 2026-07-15 시점 4채널 스냅샷이라 낡았다(현재 18채널).** 정본은
+> `config/channels.json`(채널→작품)과 `config/works.json`(작품→소스 범위·회차 규칙)이다.
+> 새 작품·새 채널을 붙이는 절차는 `SCENE_LOOP_OPERATIONS.md §2`.
 
 | 채널 | 작품 | licensed_video 코드 | 소스 |
 |---|---|---|---|
@@ -107,9 +112,12 @@ judge 사유: *"제목에서 강조한 '알몸 뒤태로 걸어가는' 핵심 �
   - ✅ `흥행수집` ← 언더커버셰프 gen_queue pending 건 **삭제 완료**(2026-07-27, id e99edc4a) — 지오블락 관련 중지 대상 전부 해소
 - 지오블락은 **업로드 설정**이라 발행 스크립트가 대신 해주지 못한다(유튜브 PC 업로드에서만 가능).
   따라서 "가능한 채널에만 배정"이 유일한 방어선이다.
-- **기계 게이트 있음**: 채널 가능 여부는 `config/channels.json` 의 `geoblock_capable`(현재 재미쇼츠만
-  true), 작품 필요 여부는 laeebly `guide` 문구로 판정해 `publish_youtube.py` 가 **발행을 차단**한다.
-  미등록·미표기 채널은 안전측으로 불가 처리. 그래도 배정 단계에서 거르는 게 먼저다(생성 비용 낭비 방지).
+- **기계 게이트 2곳**(2026-07-28 기준):
+  1. **배정 단계** — `scripts/check_assignments.py` 가 `config/works.json` 의
+     `constraints.geoblock_required` 와 `channels.json` 의 `geoblock_capable` 을 대조해 ⛔.
+     러너가 **생성 전에** 자동으로 돌리므로 생성 비용을 쓰기 전에 막힌다.
+  2. **발행 단계** — `publish_youtube.geoblock_ok` 가 laeebly `guide` 로 **독립 판정**해 차단.
+     작품 카드가 틀려도 발행을 풀어줄 수는 없다(안전 방향으로만 작동). 미등록·미표기 채널은 불가 처리.
 - ⚠️ 작품명은 **laeebly `licensed_video.title` 과 정확히 일치**해야 가이드·식별코드·지오블락 조회가
   된다. 한 글자만 달라도 조회가 통째로 실패하고, 경고만 뜬 채 발행이 진행된다.
   - 2026-07-26 에 `channels.json` 3건을 정본으로 교정: `언더커버 셰프`→`언더커버셰프`,
@@ -127,7 +135,8 @@ PY=~/ves/ai-video/.venv/bin/python
 export PIPELINE_DB_URL="$(grep '^PIPELINE_DB_URL=' $BRAIN/factory/.env | cut -d= -f2-)"
 
 # 테스트 (전 계층)
-cd $BRAIN && $PY -m pytest scripts/ extract/ factory/ -q          # 217 passed 기대
+cd $BRAIN && $PY -m pytest scripts/ extract/ -q                   # 272 passed 기대(2026-07-28)
+# ⚠️ factory/ 는 제외한다 — 이 레포 venv(py3.9)에서 `X | None` 문법 때문에 collect 3건 실패(알려진 이슈)
 
 # 뱅크 채점 (신규 적재 후) — LAEEBLY_DB_URL 필요
 $PY factory/run_factory.py --score-only --score-mode mutual
@@ -174,6 +183,9 @@ $PY scripts/m4_ab_analysis.py --experiment loudness_v1 --window-days 7
 
 ## 6. 문서 지도
 
+- **`SCENE_LOOP_OPERATIONS.md`** — 루프 운영 정본(배정·작품 카드·새 머신 온보딩·스케줄러·트러블슈팅).
+  담당 채널/작품을 바꾸거나 새 컴퓨터를 붙일 때 **먼저 읽기.**
+- `docs/LOOP_OPERATIONS_DESIGN.md` — 그 체계를 왜 그렇게 만들었는지(폐기한 대안 포함).
 - `docs/INTEGRATION_PLAN.md` — 이중 루프·Phase 0(§3)·A/B 판정(§4). **먼저 읽기.**
 - `docs/KNOB_EXPANSION_PLAN.md` — 노브 확장(K1~K8)·N0~N4·제안기·loudness 후보.
 - `docs/SELF_IMPROVEMENT_SPEC.md`·`docs/OVERVIEW.md`·`docs/M1_FINDINGS_AND_DIRECTION.md` — 근거·M1 천장 결론.
