@@ -60,6 +60,43 @@ config/loop_policy.json   공통 생성 플래그 · quota · 중복 임계
 `works.title` → 발행 시 laeebly `licensed_video.title` 완전일치 조회. 한 글자만 달라도
 식별코드·가이드·지오블락 조회가 통째로 실패하고 **경고만 뜬 채 발행된다.**
 
+### 1-4. 소스 영상은 어디에 있나
+
+★ **작품명만 알면 찾을 수 있다. 문서에서 읽지 말고 조회한다.**
+
+```bash
+.venv/bin/python scripts/find_work_source.py "<작품명>" --rclone
+.venv/bin/python scripts/find_work_source.py            # 배정된 작품 전부
+```
+
+소스 위치를 문서나 작품 카드에 손으로 적지 않는 이유: 권리사가 드라이브 폴더를 바꾸면 문서만 틀린
+채 남고, 그걸 보고 받은 사람은 옛 회차를 가져온다. **정본은 laeebly `licensed_video.download_link`**
+이고 위 명령이 그걸 조회한다.
+
+소스는 두 갈래다 (2026-07-28 실측, 배정 18작품 기준):
+
+| 유형 | 판별 | 어디에 있나 | 사람이 할 일 |
+|---|---|---|---|
+| 📁 **드라이브 제공분** | `download_link` 에 드라이브 폴더 링크 | 권리사 구글 드라이브 → 받아서 `<sources_root>/<dir_slug>/` 에 둔다 | rclone 으로 미리 받아둔다 |
+| ▶️ **유튜브** | `download_link` 비어 있고 `guide` 가 채널·플레이리스트 지정 | 실행할 때마다 job 안에 새로 받는다 — `outputs/scene_loop/<채널>/ep<NN>/try*/<작품>/_source/source.mp4` | **없음** (ai-video 가 `--youtube-url` 로 직접 받는다) |
+
+⚠️ **유튜브 소스는 회차마다·실행마다 새로 받는다.** 같은 회차를 두 번 돌리면 80~130MB 짜리가 두 벌
+쌓인다(실측). 디스크 관리는 §6-4.
+
+⚠️ **로컬 소스 위치는 `config/scene_loop.local.json` 의 `sources_root` 가 정본**이고, 실경로는
+`<sources_root>/<dir_slug>` 로 합성된다. 🛑 `~/Downloads` 밖에 둘 것 — macOS TCC 가 읽기를 막으면
+ffmpeg 가 `Operation not permitted` 로 실패한다(2026-07-26 실측). 폴더가 없거나 비었으면
+`check_assignments.py` 가 ⚠️ 로 알려준다.
+
+### 1-5. 레포 밖에 있는 것
+
+| 무엇 | 어디 |
+|---|---|
+| 생성 산출물 | **ai-video 레포** `~/ves/ai-video/outputs/scene_loop/<채널>/ep<NN>/` (편당 150~310MB) |
+| 폐기한 산출물 | `~/ves/ai-video/rejected/` — 루프 스캔 경로 밖으로 옮긴 것(§6-3) |
+| 로컬 소스 | `<sources_root>/<dir_slug>/` (§1-4) |
+| 예약 작업 정의 | `~/.claude/scheduled-tasks/scene-loop-daily/SKILL.md` — 스케줄만 담고 절차는 레포의 스킬을 부른다 |
+
 ---
 
 ## 2. 새 작품 붙이기
@@ -249,7 +286,21 @@ tail -f results/scene_loop.log                                   # 로그
 
 ⚠️ 인제스트·발행까지 끝난 산출물만 심는다. 폐기한 take 를 심으면 그 구간이 영영 막힌다.
 
-### 6-3. 산출물을 폐기할 때
+### 6-3. 디스크 관리
+
+유튜브 소스는 **회차마다·실행마다 새로 받는다.** 재생성을 여러 번 하면 같은 소스가 여러 벌 쌓인다.
+
+```bash
+du -sh ~/ves/ai-video/outputs/scene_loop            # 전체
+du -sh ~/ves/ai-video/outputs/scene_loop/*/ep*/*    # 실행별
+find ~/ves/ai-video/outputs/scene_loop -name source.mp4 -size +50M | head   # 소스만
+```
+
+공개까지 끝난 회차의 `_source/source.mp4` 는 지워도 된다 — 중복 판정은 `edit_plan.json` 의 구간만
+보므로 소스 파일이 없어도 동작한다. ⚠️ 단 `edit_plan.json`·`run_log.json` 은 남겨야 한다(발행·인제스트
+근거).
+
+### 6-4. 산출물을 폐기할 때
 
 루프의 스캔 경로(`outputs/scene_loop/<채널>/ep<NN>/`) **밖으로** 옮긴다. 상태 파일에서도 뺀다.
 DB·유튜브에 이미 올라갔으면 `DB_CLEANUP_LEDGER.md` 에 등재한다(삭제는 사람이 수동으로).
