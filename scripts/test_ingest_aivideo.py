@@ -9,6 +9,7 @@ from ingest_aivideo_run import (
     build_rows,
     canonical_json,
     extract_provenance,
+    resolve_machine_id,
     sha256_hex,
     timeline_span,
 )
@@ -61,6 +62,43 @@ def test_extract_provenance_complete_with_config():
     assert prov["git_sha"] == "deadbeef"
     assert prov["config_hash"] == sha256_hex(canonical_json(cfg))    # 결정적 해시
     assert prov["prompt_versions"] == {"story": "v3"}
+
+
+def test_extract_provenance_host():
+    """host는 그대로 실려오고, 구 런(host 없음)은 None."""
+    rl = dict(SAMPLE_RUN_LOG, provenance={"git_sha": "deadbeef", "host": "3-Mac-mini.local"})
+    assert extract_provenance(rl, NOWHERE, NO_GIT)["host"] == "3-Mac-mini.local"
+    assert extract_provenance(SAMPLE_RUN_LOG, NOWHERE, NO_GIT)["host"] is None
+
+
+def test_host_does_not_affect_config_hash():
+    """★계약: 머신이 달라도 config가 같으면 config_hash가 같아야 한다.
+    (아니면 두 맥에서 만든 클립이 A/B 쌍으로 대조되지 않는다)"""
+    cfg = {"app": {"target_duration_sec": 50}, "design": {"aspect_ratio": "1:1"}}
+    mac3 = extract_provenance(
+        dict(SAMPLE_RUN_LOG, provenance={"config": cfg, "host": "3-Mac-mini.local"}), NOWHERE, NO_GIT)
+    mac4 = extract_provenance(
+        dict(SAMPLE_RUN_LOG, provenance={"config": cfg, "host": "4-Mac-mini.local"}), NOWHERE, NO_GIT)
+    assert mac3["host"] != mac4["host"]
+    assert mac3["config_hash"] == mac4["config_hash"]
+
+
+def test_resolve_machine_id_prefers_stamp():
+    """SCENE_LOOP_MACHINE 으로 직접 찍힌 id가 최우선(hostname 역산보다 먼저)."""
+    assert resolve_machine_id("macmini-luna2", "3-Mac-mini.local") == "macmini-luna2"
+
+
+def test_resolve_machine_id_from_hostname():
+    """스탬프가 없으면 배정 정본 aliases 로 역산 — 이 맥은 3-mac-mini → macmini-luna3."""
+    assert resolve_machine_id(None, "3-Mac-mini.local") == "macmini-luna3"
+    assert resolve_machine_id(None, "lunaleuteumaeg2ui-Macmini.local") == "macmini-luna2"
+
+
+def test_resolve_machine_id_unknown_is_none():
+    """모르는 머신은 추측하지 않는다 — 틀린 id 보다 빈 값이 낫다."""
+    assert resolve_machine_id(None, "someone-elses-laptop.local") is None
+    assert resolve_machine_id(None, None) is None
+    assert resolve_machine_id(None, "") is None
 
 
 def test_build_rows_maps_auto_edit_clip():

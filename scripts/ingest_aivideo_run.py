@@ -15,6 +15,8 @@ T0-1 인제스트 — ai-video run 출력 → 격리 파이프라인 DB
 Provenance 계약  ── T0-2가 ai-video run_log["provenance"](또는 run-dir/provenance.json)에 채워야 할 것:
   {
     "git_sha":          "<ai-video HEAD sha at run time>",
+    "host":             "<socket.gethostname() — 생성 머신 raw hostname>",
+    "machine":          "<배정 정본 머신 id|null — SCENE_LOOP_MACHINE 걸린 머신만. 없으면 host로 역산>",
     "models":           {"pro": "gemini-3.1-pro-preview", "flash": "gemini-3-flash-preview"},
     "config":           {"app": <asdict(AppConfig)>, "design": <asdict(DesignConfig)>},
     "prompt_set_hash":  "<sha256 of prompt templates>",
@@ -97,6 +99,28 @@ def git_head_sha(root: str):
         return None
 
 
+def resolve_machine_id(stamped_machine, host):
+    """생성 머신의 배정 정본 id(예: 'macmini-luna3'). 모르면 None — 추측하지 않는다.
+
+    운영 정본은 hostname 이 아니라 config/assignments.json 의 kebab-case id 다. ai-video 는 그
+    파일을 읽지 않으므로 SCENE_LOOP_MACHINE 이 걸린 머신만 id 를 직접 스탬프한다. 나머지는 여기서
+    stamped host 를 aliases 로 역산한다.
+
+    ⚠️ user 매칭은 끄고(user="") hostname 만 쓴다 — 인제스트를 돌리는 머신과 생성 머신이 다를 수
+    있어 os.environ["USER"] 를 섞으면 엉뚱한 머신으로 붙는다. 맥3·맥4 는 계정명이 같아서 애초에
+    user 로는 갈리지도 않는다.
+    """
+    if stamped_machine:
+        return stamped_machine
+    if not host:
+        return None
+    try:
+        import channel_registry as reg
+        return reg.detect_machine_id(hostname=host, user="")
+    except Exception:
+        return None          # 배정 정본에 없거나 다중매칭 — 빈 값이 틀린 값보다 낫다
+
+
 def extract_provenance(run_log, run_dir: Path, ai_video_root: str) -> dict:
     """run_log['provenance'] 또는 run-dir/provenance.json 에서 provenance 추출(+git_sha 폴백)."""
     prov = {}
@@ -109,6 +133,8 @@ def extract_provenance(run_log, run_dir: Path, ai_video_root: str) -> dict:
     config_snap = prov.get("config")
     return {
         "git_sha": prov.get("git_sha") or git_head_sha(ai_video_root),
+        "host": prov.get("host"),        # 생성 머신 raw hostname. 구 런은 None
+        "machine_id": resolve_machine_id(prov.get("machine"), prov.get("host")),
         "config": config_snap,
         "config_hash": sha256_hex(canonical_json(config_snap)) if config_snap else None,
         "prompt_versions": prov.get("prompt_versions"),
@@ -293,7 +319,9 @@ def main():
         for big in ("edit_plan", "run_log", "checkpoint_story"):
             preview[big] = f"<{type(metadata[big]).__name__ if metadata[big] is not None else 'None'}>"
         print(json.dumps(
-            {"clip": clip, "metadata": preview, "provenance_complete": prov["complete"]},
+            # 생성 머신. DB에는 run_log jsonb 안에 실려 간다(0006 컬럼은 보류 상태)
+            {"clip": clip, "metadata": preview, "provenance_complete": prov["complete"],
+             "host": prov["host"], "machine_id": prov["machine_id"]},
             ensure_ascii=False, indent=2,
         ))
         return
