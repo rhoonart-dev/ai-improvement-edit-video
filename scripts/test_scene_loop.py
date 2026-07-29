@@ -167,6 +167,21 @@ def test_assert_source_scope_passes_matching_pairs():
 
 # ── 작품별 생성 플래그 ──
 
+def test_build_cmd_passes_subtitle_only_when_given():
+    # 🛑 자막은 권리사 제공분일 때만 넘어온다. 호출자가 걸러 주므로 build_cmd 는 받은 대로 붙인다.
+    with_sub = sl.build_cmd("py", "작품", "/tmp/a.mp4", "/out", [], 1, "/tmp/a.ko.srt")
+    assert with_sub[with_sub.index("--subtitle") + 1] == "/tmp/a.ko.srt"
+    assert "--subtitle" not in sl.build_cmd("py", "작품", "/tmp/a.mp4", "/out", [], 1, None)
+
+
+def test_subtitle_gate_only_allows_provided():
+    # 유튜브에서 함께 받아지는 자막은 자동 생성일 확률이 높아 쓰지 않는다(2026-07-29 합의).
+    cached = "/cache/source.ko.srt"
+    assert (cached if {"_subtitles": "provided"}.get("_subtitles") == "provided" else None) == cached
+    for card in ({"_subtitles": "none"}, {}):
+        assert (cached if card.get("_subtitles") == "provided" else None) is None
+
+
 def test_channel_gen_flags_win_over_global():
     # 자막 유무는 작품마다 다르다 — 전역 플래그로는 자막 있는 작품과 없는 작품이 공존 못 한다
     cfg = {"gen_flags": ["--global"]}

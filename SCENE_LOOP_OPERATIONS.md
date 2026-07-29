@@ -107,6 +107,12 @@ python scripts/fetch_sources.py --dry-run                # 무엇을 받을지�
 발행된 사고가 있었다(2026-07-26 '여배우 은진'). 캐시의 `video_id` 가 루프가 고른 영상과 다르면
 **생성하지 않고 멈춘다.** 그 회차 폴더를 지우고 다시 받으면 된다.
 
+🛑 **캐시에 받아진 자막(`source.ko.srt`)은 쓰지 않는다.** 유튜브에서 함께 내려오는 자막은 자동
+생성일 확률이 높고, 오자막이 장면 분석과 화면에 그대로 들어간다. 자막을 쓰는 것은 **권리사가
+드라이브로 자막 파일까지 준 작품**(`constraints.subtitles: "provided"`)뿐이다. 그 외는 전부
+`none` 이고 `--no-subtitles` 로 돌린다(2026-07-29 합의). 캐시의 srt 는 참고용으로 남을 뿐
+`--subtitle` 로 넘어가지 않는다 — 루프가 매 실행 로그에 그 사실을 남긴다.
+
 ⚠️ **소스는 자동으로 지워지지 않는다.** 정리는 사람이 한다(§6-3).
 
 ⚠️ `sources_root` 정본은 `config/scene_loop.local.json`. 🛑 `~/Downloads` 밖에 둘 것 — macOS TCC 가

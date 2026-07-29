@@ -564,9 +564,10 @@ def build_cmd(gen_py, work_title, video_path, outdir, gen_flags, ep_num=None, su
     (2026-07-26 실측: 너굴안방 재생성 사유). ai-video 는 `--episode N` 을 주면 리서치를 1~N회로
     한정해 이후 회차 스포일러를 막으므로, 루프가 아는 회차 번호를 반드시 같이 넘긴다.
 
-    ★ 소스 캐시를 쓰면 URL 이 아니라 받아둔 파일이 들어온다. 그때 **자막도 같이 넘겨야** 한다 —
-    --youtube-url 로 주면 ai-video 가 영상과 자막을 함께 받지만, --video 만 주면 자막이 없다고
-    보고 Gemini 전사로 폴백해 동작이 달라진다(source_cache 참조)."""
+    subtitle 은 **권리사 제공 자막(works.json constraints.subtitles=='provided')일 때만** 넘어온다.
+    유튜브에서 함께 받아지는 자막은 자동 생성일 확률이 높아 오자막이 분석·화면에 그대로 들어가므로
+    쓰지 않는다 — 그런 작품은 자막 없이 돌리고 --no-subtitles 가 gen_flags 에 붙는다(2026-07-29 합의).
+    호출자(process_channel)가 카드 값을 보고 걸러 넘긴다."""
     src = ["--youtube-url", video_path] if is_url(video_path) else ["--video", str(video_path)]
     ep = ["--episode", str(ep_num)] if ep_num is not None else []
     sub = ["--subtitle", str(subtitle)] if subtitle else []
@@ -656,12 +657,21 @@ def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_ro
     # 소스는 작품 폴더에 한 번만 받아 재사용한다. 회차당 3장면을 채우려면 3번 실행하는데,
     # 예전엔 매 실행이 같은 영상을 새로 받아 100MB 대 파일이 3벌씩 쌓였다(2026-07-28 실측).
     try:
-        vp, sub_path = source_cache.ensure_episode_source(
+        vp, cached_sub = source_cache.ensure_episode_source(
             ch, ep_num, vp, gen_py=gen_py, ai_video_root=ai_video_root,
             sources_root=sources_root, log=lambda m: log(f"{tag}{m}"))
     except (ValueError, RuntimeError, FileNotFoundError, subprocess.TimeoutExpired) as e:
         log(f"{tag}   ✗ 소스 준비 실패 → 이 채널 오늘 종료: {e}")
         return
+
+    # 🛑 자막은 **권리사 제공분(subtitles='provided')만** 쓴다. 유튜브에서 함께 받아지는 자막은
+    # 자동 생성일 확률이 높아 오자막이 그대로 분석·화면에 들어간다 — 제공 자막이 없는 작품은
+    # 자막을 아예 주지 않고 --no-subtitles 로 돌린다(2026-07-29 합의). 캐시에 srt 가 있어도
+    # 참고용으로만 남기고 넘기지 않는다.
+    sub_path = cached_sub if ch.get("_subtitles") == "provided" else None
+    if cached_sub and sub_path is None:
+        log(f"{tag}   [자막] 캐시에 자막이 있으나 제공 자막이 아니라 쓰지 않습니다"
+            f"(카드 subtitles={ch.get('_subtitles')!r})")
 
     for attempt in range(1, attempts + 1):
         outdir = str(Path(ai_video_root) / "outputs" / "scene_loop" / ch["channel"] /

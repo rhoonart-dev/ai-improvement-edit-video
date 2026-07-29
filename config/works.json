@@ -9,7 +9,7 @@
     "source.start_episode": "시작 회차(정수, 기본 1). 장기 방영작은 올린다",
     "source.min_source_duration_sec": "이 길이 미만 후보 제외. youtube_* 필수 — 같은 회차에 예고·선공개·하이라이트가 섞여 올라오므로 하한이 없으면 45초 예고편이 소스가 된다",
     "constraints.geoblock_required": "지오블락(대한민국 한정 노출) 필수 여부. 정본은 laeebly guide 이고 이 값은 '배정 단계에서 미리 막기' 위한 사본이다 — 발행 차단은 publish_youtube.geoblock_ok 가 guide 로 독립 판정하므로, 이 값이 틀려도 발행을 풀어줄 수는 없다(안전 방향으로만 작동)",
-    "constraints.subtitles": "provided(제공 자막 있음) | none(없음 → --no-subtitles 로 생성). 제공 자막이 없으면 whisper 전사로 자막을 만드는데 정확도가 낮아 오자막이 박힌다(CLAUDE.md §5). 기본값을 두지 않는다 — 빠뜨리면 오자막이 조용히 박히므로 검증에서 차단한다",
+    "constraints.subtitles": "★'제공'의 뜻이 좁다. provided = **권리사가 드라이브로 자막 파일까지 준 경우만**. 그 외는 전부 none 이고, none 이면 --no-subtitles 로 돌리며 **유튜브에서 함께 받아지는 자막도 쓰지 않는다** — 자동 생성일 확률이 높아 오자막이 분석과 화면에 그대로 들어간다(2026-07-29 합의). 제공 자막이 없는데 자막을 만들면 whisper 전사 정확도가 낮아 오자막이 박힌다(CLAUDE.md §5). 기본값을 두지 않는다 — 빠뜨리면 오자막이 조용히 박히므로 검증에서 차단한다",
     "rights_lookup": "laeebly(기본) | none. none 은 laeebly 미등재 작품 — _note 에 권리 근거를 반드시 적고, 검증에서 상시 경고된다",
     "identification_code": "laeebly identification_code 사본(사람 확인용). 발행 해시태그는 publish_youtube 가 DB 에서 직접 읽으므로 이 값을 쓰지 않는다",
     "_guide": "근거가 된 권리사 가이드 원문 인용(필수). 없으면 검증이 차단한다 — '코드가 추측하지 않는다'의 기계화",
