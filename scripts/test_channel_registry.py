@@ -8,6 +8,8 @@ import json
 import tempfile
 from pathlib import Path
 
+import pytest
+
 import channel_registry as reg
 
 # 픽스처 레코드(실제 config에 의존하지 않음)
@@ -257,3 +259,65 @@ def _run():
 
 if __name__ == "__main__":
     _run()
+
+
+# ── 로고(branding) 배선 ──
+
+BRAND_WORKS = {
+    "도깨비 10주년 여행": {
+        "source": {"type": "youtube_playlist", "url": "https://www.youtube.com/playlist?list=PLx",
+                   "episode_regex": r"\bEP[.\s]?(\d{1,3})\b", "start_episode": 1,
+                   "min_source_duration_sec": 500},
+        "constraints": {"geoblock_required": False, "subtitles": "none"},
+        "branding": {"logo": "RZsv4.png"}},
+    "로고없는작품": {
+        "source": {"type": "local", "dir_slug": "x", "file_glob": "EP*.mp4",
+                   "episode_regex": r"EP(\d+)", "start_episode": 1},
+        "constraints": {"geoblock_required": False, "subtitles": "none"}},
+    "예외크기작품": {
+        "source": {"type": "local", "dir_slug": "y", "file_glob": "EP*.mp4",
+                   "episode_regex": r"EP(\d+)", "start_episode": 1},
+        "constraints": {"geoblock_required": False, "subtitles": "none"},
+        "branding": {"logo": "WIDE.png", "box": "500x80", "align": "top"}},
+    "박스오류작품": {
+        "source": {"type": "local", "dir_slug": "z", "file_glob": "EP*.mp4",
+                   "episode_regex": r"EP(\d+)", "start_episode": 1},
+        "constraints": {"geoblock_required": False, "subtitles": "none"},
+        "branding": {"logo": "BAD.png", "box": "395-280"}},
+}
+BRAND_POLICY = {"gen_flags_base": [], "logo_box": "395x280", "logo_align": "center"}
+
+
+def _brand_flags(work, channel="ch", policy=BRAND_POLICY):
+    recs = [{"name": channel, "works": [work]}]
+    asg = {"machines": {"m": {"channels": [channel]}}}
+    return reg.effective_channel_configs("m", records=recs, works=BRAND_WORKS, assignments=asg,
+                                         policy=policy, sources_root="/tmp/src",
+                                         machine_local={})[0]["gen_flags"]
+
+
+def test_branding_emits_logo_flags_with_policy_defaults():
+    f = _brand_flags("도깨비 10주년 여행")
+    # 경로가 아니라 파일명만 넘긴다 — 머신마다 레포 위치가 달라도 되게 하는 규약
+    assert f[f.index("--design-work-image") + 1] == "RZsv4.png"
+    assert f[f.index("--design-work-image-width") + 1] == "395"
+    assert f[f.index("--design-work-image-height") + 1] == "280"
+    assert f[f.index("--design-work-align") + 1] == "center"
+
+
+def test_no_branding_means_no_logo_flags():
+    # branding 이 없으면 종전대로 작품명 텍스트가 렌더돼야 한다
+    assert "--design-work-image" not in _brand_flags("로고없는작품")
+
+
+def test_work_card_overrides_policy_box_and_align():
+    f = _brand_flags("예외크기작품")
+    assert f[f.index("--design-work-image-width") + 1] == "500"
+    assert f[f.index("--design-work-image-height") + 1] == "80"
+    assert f[f.index("--design-work-align") + 1] == "top"
+
+
+def test_bad_box_format_raises_instead_of_silently_defaulting():
+    # 조용히 기본값으로 나가면 밤중 생성에서 아무도 모른다
+    with pytest.raises(ValueError, match="로고 박스"):
+        _brand_flags("박스오류작품")
