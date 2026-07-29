@@ -160,3 +160,46 @@ def _run():
 
 if __name__ == "__main__":
     _run()
+
+
+# ── branding(로고) 카드 검증 ──
+# 로고 배선(2026-07-29)을 넣을 때 CARD_KEYS 갱신을 빠뜨려 이 검증기가 ⛔ 를 냈고,
+# scene_loop_run.sh 가 종료코드로 생성을 중단시켜 밤 루프가 통째로 막혔다. 회귀 방지.
+
+def _brand_card(branding):
+    card = dict(PLAYLIST_CARD)
+    card["branding"] = branding
+    return card
+
+
+def _brand_blocks(branding):
+    rep = _run_offline(works={"도깨비 10주년 여행": _brand_card(branding)})
+    return [m for lv, m in rep.rows if "branding" in m]
+
+
+def test_valid_branding_passes():
+    assert _brand_blocks({"logo": "RZsv4.png"}) == []
+    assert _brand_blocks({"logo": "RZsv4.png", "box": "395x280", "align": "center"}) == []
+
+
+def test_unknown_branding_key_blocks():
+    # 오타로 box→bx 가 되면 그 작품만 전역 기본 크기로 조용히 나간다
+    assert _brand_blocks({"logo": "a.png", "bx": "395x280"})
+
+
+def test_branding_without_logo_blocks():
+    # 해석 계층이 logo 유무로만 판단하므로 logo 없는 branding 은 아무 효과가 없다
+    assert _brand_blocks({"box": "395x280"})
+
+
+def test_non_png_logo_blocks():
+    assert _brand_blocks({"logo": "RZsv4"})
+
+
+def test_bad_box_format_blocks():
+    assert _brand_blocks({"logo": "a.png", "box": "395-280"})
+    assert _brand_blocks({"logo": "a.png", "box": "395x"})
+
+
+def test_bad_align_blocks():
+    assert _brand_blocks({"logo": "a.png", "align": "middle"})

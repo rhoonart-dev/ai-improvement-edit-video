@@ -34,10 +34,13 @@ NOTICE_PATH = REPO_ROOT / "config" / "work_publish_notice.json"
 BLOCK, WARN, INFO = "⛔", "⚠️", "※"
 
 SOURCE_TYPES = ("youtube_playlist", "youtube_channel", "local")
-CARD_KEYS = {"source", "constraints", "rights_lookup", "identification_code", "_guide", "_note"}
+CARD_KEYS = {"source", "constraints", "rights_lookup", "identification_code",
+             "branding", "_guide", "_note"}
 SOURCE_KEYS = {"type", "url", "dir_slug", "file_glob", "episode_regex",
                "start_episode", "min_source_duration_sec"}
 CONSTRAINT_KEYS = {"geoblock_required", "subtitles"}
+BRANDING_KEYS = {"logo", "box", "align", "_note"}
+ALIGN_VALUES = ("top", "center")
 SUBTITLE_VALUES = ("provided", "none")
 
 
@@ -253,6 +256,19 @@ def _check_card(rep, work, channel, card, *, index_dir=None, sources_root=None, 
     con = card.get("constraints") or {}
     for bad in unknown_keys(con, CONSTRAINT_KEYS):
         rep.block(f"{where}: 알 수 없는 constraints 키 '{bad}'")
+    brand = card.get("branding") or {}
+    for bad in unknown_keys(brand, BRANDING_KEYS):
+        rep.block(f"{where}: 알 수 없는 branding 키 '{bad}'")
+    if brand:
+        # 로고 파일명이 빠지면 branding 블록 전체가 무의미하다(해석 계층이 logo 로만 판단한다)
+        if not brand.get("logo"):
+            rep.block(f"{where}: branding 에 logo 가 없습니다 — 로고가 없는 작품은 branding 블록을 두지 마세요")
+        elif not str(brand["logo"]).lower().endswith(".png"):
+            rep.block(f"{where}: branding.logo '{brand['logo']}' — .png 파일명이어야 합니다")
+        if brand.get("box") and not re.fullmatch(r"\d+x\d+", str(brand["box"])):
+            rep.block(f"{where}: branding.box '{brand['box']}' — 'WxH' 형식이어야 합니다(예: 395x280)")
+        if brand.get("align") and brand["align"] not in ALIGN_VALUES:
+            rep.block(f"{where}: branding.align '{brand['align']}' — {ALIGN_VALUES} 중 하나여야 합니다")
 
     # 6. 카드 정합
     if not card.get("_guide"):
