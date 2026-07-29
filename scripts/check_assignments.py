@@ -207,7 +207,8 @@ def check_offline(rep, *, records, works, assignments, notice, index_dir=None, s
                     rep.block(f"작품 '{work}'(채널 {ch}) 카드가 config/works.json 에 없습니다"
                               + (f" — 후보: {cands}" if cands else ""))
                     continue
-                _check_card(rep, work, ch, card, index_dir=index_dir, sources_root=sources_root)
+                _check_card(rep, work, ch, card, index_dir=index_dir,
+                            sources_root=sources_root, local_checks=in_scope)
 
     # 11. notice 키 드리프트 — 카드가 아예 없는 작품의 표기 설정은 정상이다(그 작품은 아직
     #     카드가 없을 뿐). 문제는 '카드와 거의 같은데 글자가 다른' 경우다 — publish_youtube 는
@@ -229,7 +230,13 @@ def check_offline(rep, *, records, works, assignments, notice, index_dir=None, s
         rep.warn(f"작품 카드 '{w}' 를 쓰는 배정 채널이 없습니다(죽은 카드)")
 
 
-def _check_card(rep, work, channel, card, *, index_dir=None, sources_root=None):
+def _check_card(rep, work, channel, card, *, index_dir=None, sources_root=None, local_checks=True):
+    """작품 카드 검사. local_checks=False 면 **이 머신 디스크에 의존하는 검사를 건너뛴다.**
+
+    카드 자체의 정합성(스키마·정규식·권리 범위·NFC)은 누구 담당이든 틀리면 틀린 것이라 항상 본다.
+    반면 '소스 폴더가 있나'·'인덱스 캐시로 본 회차 수'는 그 작품을 맡은 머신에서만 의미가 있다 —
+    남의 담당분까지 보면 매 실행 무해한 ⚠️ 가 쌓여 사람이 경고를 안 읽게 된다(2026-07-29 실측:
+    맥1이 카드 3건을 추가하자 이 맥에서 ⚠️ 4건이 떴다)."""
     where = f"'{work}'(채널 {channel})"
 
     # 13. NFC
@@ -279,8 +286,8 @@ def _check_card(rep, work, channel, card, *, index_dir=None, sources_root=None):
         rep.block(f"{where}: constraints.subtitles 가 {SUBTITLE_VALUES} 중 하나여야 합니다 "
                   f"(현재 {con.get('subtitles')!r}) — 빠뜨리면 오자막이 조용히 박힙니다")
 
-    # 9. 캐시 인덱스 스모크
-    if kind.startswith("youtube") and index_dir:
+    # 9. 캐시 인덱스 스모크 (이 머신 디스크 의존 — 담당분만)
+    if kind.startswith("youtube") and index_dir and local_checks:
         entries = _load_cached_index(index_dir, src.get("url"))
         if entries is None:
             rep.info(f"{where}: 인덱스 캐시가 없어 정규식 스모크를 건너뜁니다")
@@ -298,8 +305,8 @@ def _check_card(rep, work, channel, card, *, index_dir=None, sources_root=None):
             else:
                 rep.info(f"{where}: 사용 가능 회차 {n_keep}개")
 
-    # 10. 로컬 소스 폴더
-    if kind == "local" and sources_root:
+    # 10. 로컬 소스 폴더 (이 머신 디스크 의존 — 담당분만)
+    if kind == "local" and sources_root and local_checks:
         d = pathlib.Path(sources_root) / (src.get("dir_slug") or "")
         if not d.exists():
             rep.warn(f"{where}: 소스 폴더가 없습니다 {d} — 그 채널은 '회차 없음'으로 대기합니다")
