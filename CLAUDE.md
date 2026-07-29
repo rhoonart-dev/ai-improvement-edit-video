@@ -29,7 +29,8 @@ ai-video(롱폼→쇼츠 추출 솔루션)를 **증거 기반으로 자기개선
 2. venv: ai-video에 venv 만들고 `pip install -r ai-video/requirements.txt` + brain `requirements.txt`(psycopg2-binary 추가 필요).
 3. **`.env` 2개 생성**(둘 다 gitignore — 값은 커밋 안 됨):
    - **brain 레포 루트 `.env`** (envload가 읽음 — publish/loop 스크립트용):
-     `GEMINI_API_KEY`, `YT_CLIENT_ID`/`YT_CLIENT_SECRET`, `YT_CLIENT_ID_P2`/`YT_CLIENT_SECRET_P2`,
+     `GEMINI_API_KEY`, `YT_CLIENT_ID_<PROJECT>`/`YT_CLIENT_SECRET_<PROJECT>`(그 머신이 담당하는
+     `gcp_project` 것만 — 2026-07-29 기준 `VES01`·`CJENM`·`VES03`·`VES04`·`SEAN` 중 하나),
      `YT_REFRESH_TOKEN_{JAEMISHOTS,KIKKIK,TETOCHIP,CINEMAINBED,…}`, `PIPELINE_DB_URL`(fdidiqd), `LAEEBLY_DB_URL`
    - **`factory/.env`** (factory 스크립트용): `PIPELINE_URL`(=`https://fdidiqdhcyctdbogxkdu.supabase.co`),
      `PIPELINE_SERVICE_KEY`(fdidiqd service_role), `LAEEBLY_DB_URL`, `PIPELINE_DB_URL`
@@ -88,7 +89,7 @@ judge 사유: *"제목에서 강조한 '알몸 뒤태로 걸어가는' 핵심 �
 
 | 채널 | 작품 | licensed_video 코드 | 소스 |
 |---|---|---|---|
-| 킥킥극장 (P2) | SNL 코리아 리부트 시즌8 | NIvxu | Drive 폴더(에피소드별 마스터). `~/Downloads/SNL_801_2997_FHD_MASTER_SCREENER_V3.mp4`(1화) |
+| 킥킥극장 | SNL 코리아 리부트 시즌8 | NIvxu | Drive 폴더(에피소드별 마스터). `~/Downloads/SNL_801_2997_FHD_MASTER_SCREENER_V3.mp4`(1화) |
 | 재미쇼츠 | 유미의 세포들 시즌3 | ZSByI | Drive 폴더(화별 마스터+자막). `~/Downloads/유미의세포들3_1화_클립마스터.mp4` |
 | 숏테토칩 | 도깨비 10주년 여행 | RZsv4 | ★Drive에 영상 없음 → **YouTube 플레이리스트** `PLgbB1gJhmG7CbBf0iq8vzN8QPzZ47xq5C`(45클립)를 `--youtube-url` 소스로 |
 | 이불 속 극장 | 로맨스의 절댓값 | — | Drive(스토리순삭에서 PR #6로 채널명 교체됨) |
@@ -175,7 +176,12 @@ $PY scripts/m4_ab_analysis.py --experiment loudness_v1 --window-days 7
 - **버퍼링 로그**: 백그라운드 생성은 `python -u`로 돌려야 진행 로그가 보임(아니면 완료 전까지 0바이트). checkpoint_*.json으로도 단계 추적.
 - **생성 시간**: 롱폼(90분 에피소드)=쇼츠 1편에 ~68분(12청크 × ~3분 Gemini 분석). 배치는 밤새 돌린다는 각오. 짧은 클립은 ~5분.
 - **자막 파일 미제공 작품은 `--no-subtitles` 로 생성한다.** 제공 자막(SRT/VTT 등)이 없으면 원래는 whisper 전사로 자막을 만들지만 **전사 정확도가 너무 낮아** 화면에 오자막이 박힌다(SNL·국대·피의 게임 X 등 마스터에 자막 없음 — laeebly `guide` ⑥ '자막 제공 X'). 정확도 개선 전까지는 이 경우 **자막 없이(`--no-subtitles`) 발행**하기로 합의(2026-07-27). ※TTS 내레이션 자막은 이와 별개(`--no-tts-subtitles`).
-- **발행 토큰**: 채널별 `YT_REFRESH_TOKEN_<slug>` 없으면 §3-5로 하드 실패(오채널 차단). P2 채널(킥킥극장 등)은 `YT_CLIENT_ID_P2`도 필요.
+- **발행 토큰**: 채널별 `YT_REFRESH_TOKEN_<slug>` 없으면 §3-5로 하드 실패(오채널 차단). OAuth 클라이언트도
+  채널의 `gcp_project` 에 맞는 짝(`YT_CLIENT_ID_<PROJECT>`/`_SECRET_<PROJECT>`)이 반드시 있어야 한다 —
+  **전역 `YT_CLIENT_ID`/`SECRET` 로 폴백하지 않는다**(2026-07-29). refresh token 은 발급한 클라이언트에만
+  묶여서 폴백으로는 어차피 갱신이 거부되는데, 폴백이 있으면 그 사실이 밤중 업로드 단계까지 숨는다.
+  실제로 이 폴백 때문에 `gcp_project` 가 폐기된 `P2`~`P6`/`DEFAULT` 를 가리키는 걸 아무도 못 보고 있었고,
+  18채널 전부가 `401 unauthorized_client` 로 발행 실패 직전이었다. 지금은 빠진 키 이름을 찍고 멈춘다.
 - **작품별 권리 규칙은 laeebly `licensed_video.guide`가 정본** — 소스 범위(채널 전체/플레이리스트 한정/Drive 제공분만)·지오블락(**§3-1**)·홀드백·설명란 필수 표기가 전부 여기 있다. 새 작품을 붙이기 전에 반드시 읽을 것. 설명란 필수 표기는 `config/work_publish_notice.json`에 사람이 옮겨 적으면 발행 시 자동 반영된다(미설정인데 가이드가 요구하면 경고).
 - **형제 DB 분단**: 과거 xxondf(형제 repo)와 fdidiqd로 갈렸으나 fdidiqd로 통일. 형제 repo(`ai-improve-edit-video`)는 아직 xxondf 가리킬 수 있음 — 쓸 거면 PIPELINE_DB_URL을 fdidiqd로.
 - **디스크**: 소스 마스터 ~2.9GB × N + 생성 중간파일. 여유 확인.

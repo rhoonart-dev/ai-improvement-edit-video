@@ -354,7 +354,9 @@ DB·유튜브에 이미 올라갔으면 `DB_CLEANUP_LEDGER.md` 에 등재한다(
 | 회차가 통째로 사라짐 (에러 없이 "소스 없음") | 유튜브가 영어 제목을 돌려줘 `EP.N` 표기가 잘림 | 해결됨 — `lang=ko` 고정 + 과거 제목 누적(2026-07-28). 재발하면 `results/youtube_index/` 를 지우고 다시 받는다 |
 | 채널이 `쓸 수 있는 회차 없음` | 정규식·길이 하한 불일치, 또는 소스 폴더 비어 있음 | `check_assignments.py` 의 스모크 결과 확인 |
 | `count_mode=public 인데 … 미설정` | `.env` 에 `REACT_APP_YOUTUBE_API_KEY` 없음 | `.env` 확인 |
-| 발행이 OAuth 로 실패 | `channels.json` 의 `gcp_project` 가 실제 토큰과 다름 | 각 클라이언트로 토큰 갱신을 시도해 맞는 프로젝트를 찾아 교정(2026-07-28 실측 사례: 너굴안방·숏테토칩이 DEFAULT 로 적혀 있었으나 실제는 P3) |
+| 발행이 `401 unauthorized_client` | 그 `gcp_project` 의 OAuth 클라이언트가 폐기됐거나 `.env` 값이 낡음 | 클라이언트 자체가 거부된 것이다(토큰 문제가 아니다 — 그건 `invalid_grant` 로 나온다). 살아있는 클라이언트를 찾아 `channels.json` 의 `gcp_project` 를 교정. 2026-07-29 실측 사례: `P2`~`P6`/`DEFAULT` 6쌍이 전부 폐기돼 18채널이 동시에 막혔고, 머신(계정) 단위 `VES01`·`CJENM`·`VES03`·`VES04`·`SEAN` 로 전면 교체 |
+| 발행이 `400 invalid_grant` | 클라이언트는 살아있고 refresh token 이 만료·폐기됨 | `get_youtube_token.py --client-secret <프로젝트 client_secret.json> --write-env` 로 그 채널만 재발급 |
+| 발행이 `YouTube OAuth 미설정 — .env 에 없음: …` | 메시지가 찍은 키가 이 머신 `.env` 에 없음 | 그 키를 채운다. 담당 머신의 `gcp_project` 짝 키가 필요하며 **전역 `YT_CLIENT_ID` 로 폴백하지 않는다**(2026-07-29) |
 | ffmpeg `Operation not permitted` | 소스가 `~/Downloads` 안이고 TCC 가 막음 | `~/ves/sources/` 로 옮긴다 |
 | yt-dlp `ffmpeg is not installed` | 예약 실행 환경에 brew 경로가 없음 | 해결됨 — 러너가 PATH 를 보정한다 |
 | 같은 장면이 또 생성됨 | 과거 산출물이 스캔에서 누락 | §6-2 로 상태를 심는다 |

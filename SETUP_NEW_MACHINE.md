@@ -10,7 +10,7 @@
 | 항목 | 내용 |
 |---|---|
 | GitHub 계정 | 두 레포에 협업자로 초대돼 있어야 함: `rhoonart-dev/ai-improvement-edit-video`(brain), `rht-22/ai-video`(생성). **소유 조직이 서로 다름** — 레포별 초대 필요 |
-| .env 값 | GEMINI_API_KEY, PIPELINE_DB_URL(fdidiqd), LAEEBLY_DB_URL, YT_CLIENT_ID/SECRET(+_P2), 채널별 YT_REFRESH_TOKEN_* — 기존 머신 .env 복사가 가장 빠름 |
+| .env 값 | GEMINI_API_KEY, PIPELINE_DB_URL(fdidiqd), LAEEBLY_DB_URL, YT_CLIENT_ID_&lt;PROJECT&gt;/SECRET_&lt;PROJECT&gt;(담당 머신의 `gcp_project` — VES01·CJENM·VES03·VES04·SEAN 중), 채널별 YT_REFRESH_TOKEN_* — 기존 머신 .env 복사가 가장 빠름 |
 | Google 계정 | **Drive 인증은 반드시 `cto@rhoonart.com` 계정 사용** (전 작품 소스가 있는 계정. 개인 계정은 일부 작품만 보여 쓰지 않는다) |
 | 채널·작품 | 머신/운영마다 다름 — `config/channels.json`이 채널↔작품 매핑의 단일 소스. 진행할 채널과 작품을 먼저 정하고 시작 |
 
