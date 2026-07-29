@@ -35,10 +35,12 @@ tail -60 ~/ves/ai-improvement-edit-video/results/scene_loop.log
 2) 오늘 계획 확인 (생성 없음). 배정·작품 카드 검증이 먼저 돈다
 
 ```bash
-cd ~/ves/ai-improvement-edit-video && set -a && . ./.env && set +a
-.venv/bin/python scripts/check_assignments.py
-.venv/bin/python scripts/scene_loop.py --dry-run
+cd ~/ves/ai-improvement-edit-video && .venv/bin/python scripts/check_assignments.py
+cd ~/ves/ai-improvement-edit-video && .venv/bin/python scripts/scene_loop.py --dry-run
 ```
+
+※ `.env` 를 손으로 불러올 필요 없다 — `scene_loop.py` 가 `load_env()` 로 스스로 읽는다.
+  명령이 단순해야 무인 실행용 권한 허용이 좁고 정확해진다(`.claude/settings.json`).
 
 ⛔ 가 하나라도 있으면 **생성하지 말고 그 내용만 보고하고 끝낸다.** 배정이 틀린 채로 생성하면
 남의 채널 것을 만들거나 권리 범위를 벗어난다.

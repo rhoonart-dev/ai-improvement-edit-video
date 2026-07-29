@@ -21,6 +21,7 @@ outputs/
 # ※ results/ 전체를 무시하면 추적 중인 리포트(results/knob_proposer_report.md 등)가 빠지므로
 #   개별 지정한다.
 config/scene_loop.json
+config/scene_loop.json.bak
 config/scene_loop.local.json
 results/scene_loop_state.json
 results/scene_loop.log

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "permissions": {
+    "allow": [
+      "Bash(cd:*)",
+      "Bash(tail:*)",
+      "Bash(.venv/bin/python scripts/check_assignments.py:*)",
+      "Bash(.venv/bin/python scripts/scene_loop.py:*)",
+      "Bash(.venv/bin/python scripts/fetch_sources.py:*)",
+      "Bash(.venv/bin/python scripts/find_work_source.py:*)",
+      "Bash(./scripts/scene_loop_run.sh:*)",
+      "Bash(nohup ./scripts/scene_loop_run.sh:*)",
+      "Bash(cd ~/ves/ai-improvement-edit-video && .venv/bin/python scripts/check_assignments.py:*)",
+      "Bash(cd ~/ves/ai-improvement-edit-video && .venv/bin/python scripts/scene_loop.py:*)",
+      "Bash(cd ~/ves/ai-improvement-edit-video && nohup ./scripts/scene_loop_run.sh:*)"
+    ]
+  }
+}
