@@ -4,7 +4,7 @@
     "name": "재미쇼츠",
     "handle": null,
     "channel_id": "UC7eXwtR1TyUVe2ts6BUjXGA",
-    "gcp_project": "DEFAULT",
+    "gcp_project": "SEAN",
     "genre": "드라마",
     "works": [
       "유미의 세포들 시즌3",
@@ -29,7 +29,7 @@
     "name": "이불 속 극장",
     "handle": "@cinema-in-bed",
     "channel_id": "UC_Wwj7NRZ5ohbuHfJ5-4LOg",
-    "gcp_project": "DEFAULT",
+    "gcp_project": "VES04",
     "genre": "드라마",
     "works": [
       "모태솔로지만 연애는 하고 싶어 시즌2"
@@ -53,7 +53,7 @@
     "name": "다람쥐 숏토리",
     "handle": "@다람쥐숏토리",
     "channel_id": "UCDxftplNleQQRkw6CCjjSWA",
-    "gcp_project": "DEFAULT",
+    "gcp_project": "VES01",
     "genre": "예능",
     "works": [
       "원희는 스무살"
@@ -76,7 +76,7 @@
     "name": "너굴안방",
     "handle": "@너굴안방",
     "channel_id": "UC9AyTd-Z1qUd3-qQ3VUdNkQ",
-    "gcp_project": "P3",
+    "gcp_project": "CJENM",
     "genre": "드라마, 영화",
     "works": [
       "언니네 산지직송 in 칼라페"
@@ -99,7 +99,7 @@
     "name": "숏테토칩",
     "handle": "@숏테토칩",
     "channel_id": "UCiLSQd9OZMr7F5ZwpMUm0Lg",
-    "gcp_project": "P3",
+    "gcp_project": "CJENM",
     "genre": "예능",
     "works": [
       "도깨비 10주년 여행"
@@ -122,7 +122,7 @@
     "name": "킥킥극장",
     "handle": "@킥킥극장",
     "channel_id": "UClwzc75sBxl_nYCFQz-FZ4A",
-    "gcp_project": "P2",
+    "gcp_project": "VES01",
     "genre": "예능",
     "works": [
       "SNL 코리아 리부트 시즌8"
@@ -145,7 +145,7 @@
     "name": "흥행수집",
     "handle": "@흥행수집",
     "channel_id": "UCgho6A2Qom_tm5i_g3m8-Xg",
-    "gcp_project": "P2",
+    "gcp_project": "CJENM",
     "genre": "예능",
     "works": [
       "스트릿 레스토랑 파이터"
@@ -168,7 +168,7 @@
     "name": "숏나우저",
     "handle": "@숏나우저",
     "channel_id": "UCrMMrUGcN2gh4_HlWwkMcqQ",
-    "gcp_project": "P2",
+    "gcp_project": "CJENM",
     "genre": "예능",
     "works": [
       "놀라운 토요일"
@@ -191,7 +191,7 @@
     "name": "여운 보관소",
     "handle": "@여운보관소-n6y",
     "channel_id": "UCJekZr2s1wz4e51Z8dFiKNA",
-    "gcp_project": "P4",
+    "gcp_project": "VES03",
     "genre": "다큐",
     "works": [
       "샤먼: 미신전"
@@ -214,7 +214,7 @@
     "name": "ショトコン",
     "handle": "@shorts-cone",
     "channel_id": "UCY41EN1sP9CIJE_U-JonziA",
-    "gcp_project": "P5",
+    "gcp_project": "VES03",
     "genre": "일본 타깃 아이돌·예능",
     "works": [
       "혜미리예채파"
@@ -241,7 +241,7 @@
     "name": "몰입도둑",
     "handle": "@몰입도둑",
     "channel_id": "UC3M7-h4yAwL9D_Fs4rkld-A",
-    "gcp_project": "P3",
+    "gcp_project": "VES01",
     "genre": "예능",
     "works": [
       "SNL 코리아 리부트 시즌8"
@@ -264,7 +264,7 @@
     "name": "명장면 세탁소",
     "handle": "@명장면세탁소",
     "channel_id": "UC1uw6CqG61VtHTQ6lKxH8Tg",
-    "gcp_project": "P4",
+    "gcp_project": "VES03",
     "genre": "예능",
     "works": [
       "피의 게임 X"
@@ -287,7 +287,7 @@
     "name": "리와인드포차",
     "handle": "@리와인드포차",
     "channel_id": "UCukKseuxHZyB3g2hlkrkzgQ",
-    "gcp_project": "P4",
+    "gcp_project": "VES03",
     "genre": "예능",
     "works": [
       "약한영웅 Class 1"
@@ -310,7 +310,7 @@
     "name": "엔딩순삭",
     "handle": "@엔딩순삭",
     "channel_id": "UCfDNT0621f2SJuiAo3jEsBg",
-    "gcp_project": "P5",
+    "gcp_project": "VES04",
     "genre": "예능",
     "works": [
       "하트시그널 시즌5"
@@ -333,7 +333,7 @@
     "name": "쇼츠션샤인",
     "handle": "@쇼츠션샤인",
     "channel_id": "UCGTCfnuEupJkd57cvaFJAYA",
-    "gcp_project": "P5",
+    "gcp_project": "VES04",
     "genre": "드라마",
     "works": [
       "참교육"
@@ -356,7 +356,7 @@
     "name": "커리어데이 숏츠",
     "handle": "@careerday_shorts",
     "channel_id": "UCHlZ7D5yoVq8PuxJX6_AUxQ",
-    "gcp_project": "P6",
+    "gcp_project": "SEAN",
     "genre": "커리어·인터뷰",
     "works": [
       "커리어데이 유튜브 롱폼"
@@ -380,7 +380,7 @@
     "name": "이거보고자",
     "handle": "@이거보고자-g5u",
     "channel_id": "UCTF5QnpKrcghe31e1q0EQAQ",
-    "gcp_project": "P6",
+    "gcp_project": "VES04",
     "genre": "예능",
     "works": [
       "김부장"
@@ -403,7 +403,7 @@
     "name": "락커룸",
     "handle": "@lockerroom_kr",
     "channel_id": "UCik7rpfsa_MbvaHEdEOzzrQ",
-    "gcp_project": "P6",
+    "gcp_project": "VES01",
     "genre": "스포츠 다큐",
     "works": [
       "국대: 로드 투 노스 아메리카"

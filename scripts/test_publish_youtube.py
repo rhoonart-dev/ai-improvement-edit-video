@@ -225,27 +225,29 @@ def _clear_yt_env():
             del os.environ[k]
 
 
-def test_credentials_default_channel_uses_global_client():
-    # DEFAULT 프로젝트(재미쇼츠) → 전역 YT_CLIENT_ID/SECRET + 채널 토큰
+def test_credentials_scoped_client_per_project():
+    # 재미쇼츠(gcp_project=SEAN) → YT_CLIENT_ID_SEAN/SECRET_SEAN + 채널 토큰
     _clear_yt_env()
-    os.environ.update({"YT_CLIENT_ID": "gid", "YT_CLIENT_SECRET": "gsec",
+    os.environ.update({"YT_CLIENT_ID_SEAN": "sid", "YT_CLIENT_SECRET_SEAN": "ssec",
                        "YT_REFRESH_TOKEN_JAEMISHOTS": "jtok"})
     try:
         c = pub._credentials("재미쇼츠")
-        assert c is not None and c.client_id == "gid" and c.refresh_token == "jtok"
+        assert c is not None and c.client_id == "sid" and c.refresh_token == "jtok"
     finally:
         _clear_yt_env()
 
 
-def test_credentials_split_project_uses_scoped_client():
-    # P2 프로젝트(킥킥극장) → YT_CLIENT_ID_P2/SECRET_P2 + 채널 토큰. 전역 클라이언트는 안 씀.
+def test_credentials_does_not_fall_back_to_global_client():
+    """★2026-07-29: 짝 클라이언트가 없으면 전역 키로 넘어가지 않고 실패해야 한다.
+
+    폴백이 있던 동안 gcp_project 가 폐기된 P* 를 가리키는 걸 아무도 눈치채지 못했고, 18채널 전부가
+    밤중 업로드에서야 unauthorized_client 로 터질 상태였다. refresh token 은 발급 클라이언트에만
+    묶이므로 전역 키로 넘어가봐야 어차피 갱신이 거부된다 — 조용히 넘어가는 것이 유일한 해악이다."""
     _clear_yt_env()
-    os.environ.update({"YT_CLIENT_ID": "gid", "YT_CLIENT_SECRET": "gsec",
-                       "YT_CLIENT_ID_P2": "p2id", "YT_CLIENT_SECRET_P2": "p2sec",
+    os.environ.update({"YT_CLIENT_ID": "gid", "YT_CLIENT_SECRET": "gsec",  # 전역 키만 있음
                        "YT_REFRESH_TOKEN_KIKKIK": "ktok"})
     try:
-        c = pub._credentials("킥킥극장")
-        assert c is not None and c.client_id == "p2id" and c.refresh_token == "ktok"
+        assert pub._credentials("킥킥극장") is None   # 킥킥극장 = VES01 → 짝 키 없음
     finally:
         _clear_yt_env()
 

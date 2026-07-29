@@ -280,14 +280,17 @@ def fetch_episode(conn, clip_id):
 
 def _credentials(channel):
     """채널별 refresh token + (프로젝트 분리) 프로젝트별 OAuth 클라이언트로 Credentials 조립.
-    OAuth 클라이언트(앱)는 gcp_project 별(DEFAULT면 전역 YT_CLIENT_ID/SECRET) — 앱은 채널 정체성이
-    아니라 폴백 OK. 단 채널을 식별하는 **refresh token 은 채널별만**(generic 폴백 제거, §3-5) —
-    token_env_name 이 미등록 채널을 하드 실패시키므로 여기 도달하면 등록 채널이 보장됨."""
+    OAuth 클라이언트는 gcp_project 별이고 **전역 키로 폴백하지 않는다**(2026-07-29). refresh token 은
+    발급한 클라이언트에만 묶이므로, 짝이 아닌 클라이언트로는 어차피 갱신이 거부된다 — 폴백은 오타·
+    미설정을 여기서 조용히 삼킨 뒤 밤중 업로드 단계에서 unauthorized_client 로 터뜨릴 뿐이었다.
+    (실제로 gcp_project 가 폐기된 P* 를 가리키는 동안 폴백이 그 사실을 가리고 있었다.)
+    refresh token 도 채널별만(generic 폴백 없음, §3-5) — token_env_name 이 미등록 채널을 하드
+    실패시키므로 여기 도달하면 등록 채널이 보장됨."""
     from google.oauth2.credentials import Credentials
     rec = registry.resolve(channel)
     cid_key, cs_key = registry.client_env_names(rec.get("gcp_project") if rec else None)
-    cid = os.environ.get(cid_key) or os.environ.get("YT_CLIENT_ID")
-    cs = os.environ.get(cs_key) or os.environ.get("YT_CLIENT_SECRET")
+    cid = os.environ.get(cid_key)
+    cs = os.environ.get(cs_key)
     rt = os.environ.get(token_env_name(channel))   # §3-5: generic 폴백 없음(채널별 토큰만)
     if not (cid and cs and rt):
         return None
@@ -299,7 +302,11 @@ def upload(video_path, snippet, privacy, channel):
     """YouTube videos.insert → content_id. OAuth 미설정이면 RuntimeError."""
     creds = _credentials(channel)
     if creds is None:
-        raise RuntimeError("YouTube OAuth 미설정 — YT_CLIENT_ID/YT_CLIENT_SECRET/YT_REFRESH_TOKEN 필요")
+        # 폴백을 없앴으므로 어느 키가 비었는지 이름으로 찍는다 — 채널마다 키 이름이 다르다.
+        rec = registry.resolve(channel)
+        cid_key, cs_key = registry.client_env_names(rec.get("gcp_project") if rec else None)
+        missing = [k for k in (cid_key, cs_key, token_env_name(channel)) if not os.environ.get(k)]
+        raise RuntimeError(f"YouTube OAuth 미설정 — .env 에 없음: {', '.join(missing)}")
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaFileUpload
     yt = build("youtube", "v3", credentials=creds)
