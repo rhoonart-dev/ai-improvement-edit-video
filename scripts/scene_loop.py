@@ -65,6 +65,7 @@ except ImportError:
         return {}
 
 import channel_registry as registry
+import source_cache
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = REPO_ROOT / "config" / "scene_loop.json"
@@ -556,16 +557,21 @@ def count_public_scenes(scenes, conn, channel, api_key):
 
 # ─────────────────────────── 생성 (ai-video 그대로 호출) ───────────────────────────
 
-def build_cmd(gen_py, work_title, video_path, outdir, gen_flags, ep_num=None):
+def build_cmd(gen_py, work_title, video_path, outdir, gen_flags, ep_num=None, subtitle=None):
     """소스가 URL 이면 --youtube-url(ai-video 가 직접 받아 씀), 아니면 --video. 순수.
 
     작품 리서치는 **켠 상태**로 돌린다 — 인물명·관계를 모르면 장면 분석이 등장인물을 틀린다
     (2026-07-26 실측: 너굴안방 재생성 사유). ai-video 는 `--episode N` 을 주면 리서치를 1~N회로
-    한정해 이후 회차 스포일러를 막으므로, 루프가 아는 회차 번호를 반드시 같이 넘긴다."""
-    src = ["--youtube-url", video_path] if is_url(video_path) else ["--video", video_path]
+    한정해 이후 회차 스포일러를 막으므로, 루프가 아는 회차 번호를 반드시 같이 넘긴다.
+
+    ★ 소스 캐시를 쓰면 URL 이 아니라 받아둔 파일이 들어온다. 그때 **자막도 같이 넘겨야** 한다 —
+    --youtube-url 로 주면 ai-video 가 영상과 자막을 함께 받지만, --video 만 주면 자막이 없다고
+    보고 Gemini 전사로 폴백해 동작이 달라진다(source_cache 참조)."""
+    src = ["--youtube-url", video_path] if is_url(video_path) else ["--video", str(video_path)]
     ep = ["--episode", str(ep_num)] if ep_num is not None else []
+    sub = ["--subtitle", str(subtitle)] if subtitle else []
     return [gen_py, "-m", "app.cli", "create_shorts",
-            "--title", work_title, *src, *ep,
+            "--title", work_title, *src, *sub, *ep,
             "--max-shorts", "1", "--outdir", outdir, *gen_flags]
 
 
@@ -605,7 +611,9 @@ def channel_plan(cfg, ch, state, conn, api_key, scan_roots, gen_py=None, log=lam
 
 # ─────────────────────────── 채널 1회 처리 ───────────────────────────
 
-def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_root, dry_run, log):
+def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_root, dry_run, log,
+                    sources_root=None):
+    sources_root = sources_root or registry.default_sources_root()
     quota = cfg["quota_per_episode"]
     scan_roots = [str(Path(ai_video_root) / d) for d in cfg.get("outputs_scan_dirs", ["outputs"])]
     tag = f"[{ch['channel']} · {ch['work_title']}]"
@@ -645,11 +653,21 @@ def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_ro
     # 생성 플래그는 작품별이 우선 — 자막 유무가 작품마다 달라 전역 플래그로는 공존할 수 없다
     gen_flags = ch.get("gen_flags") or cfg.get("gen_flags") or cfg.get("gen_flags_base") or []
 
+    # 소스는 작품 폴더에 한 번만 받아 재사용한다. 회차당 3장면을 채우려면 3번 실행하는데,
+    # 예전엔 매 실행이 같은 영상을 새로 받아 100MB 대 파일이 3벌씩 쌓였다(2026-07-28 실측).
+    try:
+        vp, sub_path = source_cache.ensure_episode_source(
+            ch, ep_num, vp, gen_py=gen_py, ai_video_root=ai_video_root,
+            sources_root=sources_root, log=lambda m: log(f"{tag}{m}"))
+    except (ValueError, RuntimeError, FileNotFoundError, subprocess.TimeoutExpired) as e:
+        log(f"{tag}   ✗ 소스 준비 실패 → 이 채널 오늘 종료: {e}")
+        return
+
     for attempt in range(1, attempts + 1):
         outdir = str(Path(ai_video_root) / "outputs" / "scene_loop" / ch["channel"] /
                      episode_dir_name(ep_num) / f"try{attempt}_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
         Path(outdir).mkdir(parents=True, exist_ok=True)
-        cmd = build_cmd(gen_py, ch["work_title"], vp, outdir, gen_flags, ep_num)
+        cmd = build_cmd(gen_py, ch["work_title"], vp, outdir, gen_flags, ep_num, sub_path)
         log(f"{tag}   시도 {attempt}/{attempts}: {' '.join(cmd[:6])} … → {outdir}")
         try:
             r = run_generation(cmd, worktree, ai_video_root, cfg["gen_timeout_sec"])
@@ -738,6 +756,9 @@ def main():
     cfg = dict(cfg)
     cfg["channels"] = channels
 
+    # 소스 캐시 위치 — scene_loop.local.json 의 sources_root 가 정본, 없으면 <레포>/../sources
+    sources_root = registry.load_machine_local().get("sources_root") or registry.default_sources_root()
+
     ai_video_root = os.environ.get("AI_VIDEO_ROOT") or str(Path.home() / "ves" / "ai-video")
     worktree = os.environ.get("AI_VIDEO_WORKTREE", ai_video_root)
     gen_py = os.environ.get("AI_VIDEO_GEN_PY", str(Path(ai_video_root) / ".venv" / "bin" / "python"))
@@ -762,7 +783,7 @@ def main():
         for ch in channels:
             try:
                 process_channel(cfg, ch, state, conn, api_key, gen_py, worktree,
-                                 ai_video_root, a.dry_run, log)
+                                 ai_video_root, a.dry_run, log, sources_root=sources_root)
             except Exception as e:  # noqa: BLE001 — 한 채널 실패가 다른 채널을 막지 않게
                 log(f"[{ch['channel']}] 처리 중 예외: {type(e).__name__}: {e}")
         log("=== scene_loop 종료 ===")

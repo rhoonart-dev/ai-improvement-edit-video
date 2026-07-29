@@ -75,18 +75,42 @@ config/loop_policy.json   공통 생성 플래그 · quota · 중복 임계
 
 소스는 두 갈래다 (2026-07-28 실측, 배정 18작품 기준):
 
-| 유형 | 판별 | 어디에 있나 | 사람이 할 일 |
-|---|---|---|---|
-| 📁 **드라이브 제공분** | `download_link` 에 드라이브 폴더 링크 | 권리사 구글 드라이브 → 받아서 `<sources_root>/<dir_slug>/` 에 둔다 | rclone 으로 미리 받아둔다 |
-| ▶️ **유튜브** | `download_link` 비어 있고 `guide` 가 채널·플레이리스트 지정 | 실행할 때마다 job 안에 새로 받는다 — `outputs/scene_loop/<채널>/ep<NN>/try*/<작품>/_source/source.mp4` | **없음** (ai-video 가 `--youtube-url` 로 직접 받는다) |
+| 유형 | 판별 | 받는 방법 |
+|---|---|---|
+| 📁 **드라이브 제공분** | `download_link` 에 드라이브 폴더 링크 | `find_work_source.py --rclone` 이 알려주는 명령으로 받는다 |
+| ▶️ **유튜브** | `download_link` 비어 있고 `guide` 가 채널·플레이리스트 지정 | `fetch_sources.py` 로 미리 받거나, 루프가 처음 만날 때 스스로 받는다 |
 
-⚠️ **유튜브 소스는 회차마다·실행마다 새로 받는다.** 같은 회차를 두 번 돌리면 80~130MB 짜리가 두 벌
-쌓인다(실측). 디스크 관리는 §6-4.
+### 소스 캐시 — 작품 폴더에 한 번만 받는다
 
-⚠️ **로컬 소스 위치는 `config/scene_loop.local.json` 의 `sources_root` 가 정본**이고, 실경로는
-`<sources_root>/<dir_slug>` 로 합성된다. 🛑 `~/Downloads` 밖에 둘 것 — macOS TCC 가 읽기를 막으면
-ffmpeg 가 `Operation not permitted` 로 실패한다(2026-07-26 실측). 폴더가 없거나 비었으면
-`check_assignments.py` 가 ⚠️ 로 알려준다.
+```
+<sources_root>/<작품슬러그>/ep<NNN>/
+    source.mp4
+    source.ko.srt      (자막이 있으면)
+    meta.json          어느 영상을 받았는지(video_id·제목·받은 시각)
+```
+
+```bash
+python scripts/fetch_sources.py                          # 이 머신 담당 전 작품(작품당 3회차)
+python scripts/fetch_sources.py "놀라운 토요일" --episodes 426-428
+python scripts/fetch_sources.py --dry-run                # 무엇을 받을지만
+```
+
+**왜 캐시하나**: 루프는 1회 실행에 채널당 1장면만 만든다. 회차당 3장면을 채우려면 3번 실행하는데,
+예전에는 매 실행이 같은 영상을 새로 받았다 — 흥행수집 EP1 은 83MB 짜리가 3벌, 너굴안방 EP1 은
+171MB 짜리가 2벌 쌓여 있었다(md5 동일, 2026-07-28 실측).
+
+미리 안 받아도 된다 — **루프가 캐시에 없으면 스스로 받아 채우고 진행한다.** 미리 받아두면 야간
+실행이 다운로드로 시간을 쓰지 않고, 네트워크 실패로 그날 채널이 통째로 빠지는 일이 줄어든다.
+
+🛑 **`meta.json` 의 `video_id` 대조가 안전장치다.** 로컬 파일을 소스로 쓰면 "이 파일이 정말 그
+회차인가"를 확인할 방법이 사라진다 — 사람이 받아둔 파일이 다른 시즌 영상이었는데 아무도 모른 채
+발행된 사고가 있었다(2026-07-26 '여배우 은진'). 캐시의 `video_id` 가 루프가 고른 영상과 다르면
+**생성하지 않고 멈춘다.** 그 회차 폴더를 지우고 다시 받으면 된다.
+
+⚠️ **소스는 자동으로 지워지지 않는다.** 정리는 사람이 한다(§6-3).
+
+⚠️ `sources_root` 정본은 `config/scene_loop.local.json`. 🛑 `~/Downloads` 밖에 둘 것 — macOS TCC 가
+읽기를 막으면 ffmpeg 가 `Operation not permitted` 로 실패한다(2026-07-26 실측).
 
 ### 1-5. 레포 밖에 있는 것
 
@@ -286,19 +310,27 @@ tail -f results/scene_loop.log                                   # 로그
 
 ⚠️ 인제스트·발행까지 끝난 산출물만 심는다. 폐기한 take 를 심으면 그 구간이 영영 막힌다.
 
-### 6-3. 디스크 관리
+### 6-3. 디스크 관리 — 소스는 사람이 지운다
 
-유튜브 소스는 **회차마다·실행마다 새로 받는다.** 재생성을 여러 번 하면 같은 소스가 여러 벌 쌓인다.
+🛑 **루프는 소스를 절대 지우지 않는다.** 회차당 100~220MB 이므로 쌓인다.
 
 ```bash
-du -sh ~/ves/ai-video/outputs/scene_loop            # 전체
-du -sh ~/ves/ai-video/outputs/scene_loop/*/ep*/*    # 실행별
-find ~/ves/ai-video/outputs/scene_loop -name source.mp4 -size +50M | head   # 소스만
+du -sh <sources_root>/*                                    # 작품별
+du -sh <sources_root>/*/ep*                                # 회차별
+du -sh ~/ves/ai-video/outputs/scene_loop                   # 생성 산출물(별개)
 ```
 
-공개까지 끝난 회차의 `_source/source.mp4` 는 지워도 된다 — 중복 판정은 `edit_plan.json` 의 구간만
-보므로 소스 파일이 없어도 동작한다. ⚠️ 단 `edit_plan.json`·`run_log.json` 은 남겨야 한다(발행·인제스트
-근거).
+**회차의 공개가 3개 다 찼으면** 그 회차 소스는 지워도 된다 — 그 회차를 더 쓸 일이 없다.
+
+```bash
+rm -rf <sources_root>/<작품슬러그>/ep<NNN>
+```
+
+⚠️ 아직 장면을 다 못 채운 회차를 지우면 다음 실행에서 **다시 받는다**(동작은 정상, 시간·트래픽만 낭비).
+`--status` 의 `공개 n/3` 을 보고 판단한다.
+
+생성 산출물 쪽(`outputs/scene_loop/…`)은 `edit_plan.json`·`run_log.json` 을 반드시 남긴다 —
+발행·인제스트 근거이고, 중복 판정도 `edit_plan.json` 의 구간을 읽는다.
 
 ### 6-4. 산출물을 폐기할 때
 
