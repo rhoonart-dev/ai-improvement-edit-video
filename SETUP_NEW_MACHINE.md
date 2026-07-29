@@ -210,6 +210,10 @@ $PY scripts/m4_ab_analysis.py --experiment loudness_v1 --window-days 7
 > ⚠️ **이 표는 2026-07-23 시점 10채널 스냅샷이라 현재(18채널)와 다르다.** 정본은
 > `config/channels.json`(채널→작품)·`config/works.json`(작품→소스 규칙)·`config/assignments.json`
 > (머신→담당 채널)이고, 대조는 `scripts/check_assignments.py` 가 한다. 아래는 이력으로만 둔다.
+>
+> ⛔ **OAuth 열의 `DEFAULT`·`P2` 는 폐기된 값이다**(2026-07-29). 그 클라이언트들은 더 이상
+> 존재하지 않아 refresh 가 `401 unauthorized_client` 로 거부된다. 현재 `gcp_project` 는 머신
+> (구글 계정) 단위 `VES01`·`CJENM`·`VES03`·`VES04`·`SEAN` 이다. 이 표를 보고 `.env` 를 채우지 말 것.
 
 > 단일 소스는 언제나 `config/channels.json`. 아래는 2026-07-23 사용자 지시로 갱신된 스냅샷
 > (변경: 언더커버 셰프 흥행수집→다람쥐 숏토리, 언니네 산지직송 숏테토칩→너굴안방,
