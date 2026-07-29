@@ -25,7 +25,10 @@
         "start_episode": 1,
         "min_source_duration_sec": 500
       },
-      "constraints": { "geoblock_required": false, "subtitles": "none" },
+      "constraints": {
+        "geoblock_required": false,
+        "subtitles": "none"
+      },
       "_guide": "laeebly guide 1. 사용 가능 소스 — \"CJ ENM 공식 유튜브 채널인 [tvN Joy]에 업로드된 영상은 모두 사용 가능\". 지오블락 요구 없음.",
       "_note": "채널 전체가 소스라 제목 해시태그로 작품을 한정해야 한다(필수) — 안 그러면 같은 채널의 다른 작품 회차를 집는다. 길이 하한은 600이 아니라 500: EP1 최장 827s·EP3 814s 이고 선공개 227~415s·티저 20~66s 는 500에서 걸러진다(2026-07-26 실측)."
     },
@@ -38,7 +41,10 @@
         "start_episode": 1,
         "min_source_duration_sec": 600
       },
-      "constraints": { "geoblock_required": false, "subtitles": "none" },
+      "constraints": {
+        "geoblock_required": false,
+        "subtitles": "none"
+      },
       "_guide": "laeebly guide 1) \"해당 링크 플레이리스트에 있는 영상들만 사용 가능\" (채널 전체 불가) 2) 유인나 배우 외모에 대한 부정적 언급 유의 3) 로고 제공(화이트). 지오블락 요구 없음.",
       "_note": "플레이리스트 45건이라 EP 표기만으로 작품 한정이 된다. 하한 600 유지 — 2026-07-28 에 EP3 가 사라진 적이 있지만 원인은 하한이 아니라 유튜브가 영어 제목을 돌려줘 EP 표기가 잘린 것이었다(45건 중 20건). lang=ko 고정 + alt_titles 누적으로 해결됐고, 그 뒤 EP3 최장은 1187s 라 600을 넉넉히 넘는다."
     },
@@ -51,7 +57,10 @@
         "start_episode": 426,
         "min_source_duration_sec": 600
       },
-      "constraints": { "geoblock_required": false, "subtitles": "none" },
+      "constraints": {
+        "geoblock_required": false,
+        "subtitles": "none"
+      },
       "_guide": "laeebly guide 2. 영상 제작 가이드 — \"사용 가능 회차: 2026년~(399회~), 최신 회차 위주 작업 권장\" / 3. 관련 소스 — \"tvN joy 또는 놀라운 토요일 유튜브 채널 업로드 클립 다운 후 사용\". 지오블락 요구 없음.",
       "_note": "소스는 놀라운 토요일 **전용 채널**이라 다른 작품이 섞이지 않지만, 앵커 없는 정규식(\\bEP…)은 채널 전체 소스에서 위험한 습관이라 영문 작품명 'amazingsaturday' 로 한정했다 — 300건 표본에서 앵커 유무의 커버리지가 동일함을 확인(34회차 매칭·33개 통과, 395~428회, 2026-07-28 실측). ⚠️ start_episode 426 은 '최신 회차 위주' 가이드 + 다른 컴퓨터가 425까지 작업한 정황(DB 클립 2026-07-25~26)을 근거로 한 잠정값이다. 인수인계 시 그 머신의 실제 진행 회차를 확인해 조정할 것 — 회차 진행 상태는 머신별이라 DB 만으로는 복원되지 않는다."
     },
@@ -64,9 +73,60 @@
         "start_episode": 1,
         "min_source_duration_sec": 500
       },
-      "constraints": { "geoblock_required": false, "subtitles": "none" },
+      "constraints": {
+        "geoblock_required": false,
+        "subtitles": "none"
+      },
       "_guide": "laeebly guide 1) \"[tvN Joy]를 포함해 CJ ENM 공식 유튜브 채널에 업로드된 영상은 모두 사용하여 즉시 업로드 가능\" 2) 구글 드라이브 내 로고 제공. 지오블락 요구 없음.",
       "_note": "칼라페와 같은 채널을 소스로 쓰므로 해시태그 한정이 필수다. url 문자열을 칼라페와 똑같이 맞춰 인덱스 캐시를 공유한다(results/youtube_index 해시 키가 url 이라 한 글자만 달라도 8만 건을 두 번 받는다). 하한 500: EP1 최장 546s·EP4 최장 595s 라 600이면 그 회차가 통째로 빠진다(2026-07-26 실측)."
+    },
+    "원희는 스무살": {
+      "identification_code": "zxkrR",
+      "source": {
+        "type": "local",
+        "dir_slug": "wonhee20",
+        "file_glob": "HelloTwentyWonhee_*.mp4",
+        "episode_regex": "HelloTwentyWonhee_1(\\d{2})_",
+        "start_episode": 1
+      },
+      "constraints": {
+        "geoblock_required": false,
+        "subtitles": "none"
+      },
+      "_guide": "laeebly guide 1. 소재 전달일 — \"방영 직후 (사전에 쿠팡플레이 유튜브 채널에서 다운받아 진행 가능)\" / 6. 제공 소스 — \"작품 로고 제공 O, 자막 파일 제공 X\" / 4. 영상 포맷 가이드 — \"'쿠팡플레이에서 풀 버전 시청하세요' 카피가 필수 포함\", \"#원희는스무살 #쿠팡플레이 태그 필수\" / 3. 작품 관련 가이드 — 자극적 워딩보다 원희의 귀여운 리얼 반응 방향, 1화는 '이은지가 술을 강요하는 것처럼 보이지 않아야 함'. 지오블락 요구 없음.",
+      "_note": "소스는 권리사 Drive 폴더(1NcHXv4wzPhKmuCrsg34iVj8XgjtjvBBN) 의 마스터 파일. Drive 에는 '원희는스무살/N화/' 하위 폴더 구조지만 discover_episodes 의 glob 은 비재귀라 **파일을 dir_slug 폴더에 평평하게** 둔다. 회차는 파일명의 _1NN_ 에 인코딩(101~108 = 1~8화) — Drive 실파일 4건으로 정규식 검증(2026-07-29). 가이드가 쿠팡플레이 유튜브 채널 사용도 허용하지만, 제공 마스터가 정본이라 local 로 둔다."
+    },
+    "SNL 코리아 리부트 시즌8": {
+      "identification_code": "NIvxu",
+      "source": {
+        "type": "local",
+        "dir_slug": "snl_s8",
+        "file_glob": "SNL_8*.mp4",
+        "episode_regex": "SNL_8(\\d{2})_",
+        "start_episode": 1
+      },
+      "constraints": {
+        "geoblock_required": false,
+        "subtitles": "none"
+      },
+      "_guide": "laeebly guide 1. 업로드 가능일 — \"매주 토요일 오후 8시 방영 직후. 원본 소스는 일~월에 공유 예정이지만 크리에이터 스스로 소스를 구해서 제작해도 무관\" / 2. ★영상 내★ 삽입 문구 — \"쿠팡플레이 SNL 코리아 8\"('쿠팡플레이'는 붙여씀) / 3. 쇼핑태그 불가 / 4. 네이버 클립 가능·카카오톡 숏폼 불가 / ※ 필수: '3:1 업로드 비율' 및 프로모션 공지(노션 링크) 확인. 지오블락 요구 없음.",
+      "_note": "⚠️ **가이드가 '영상 내' 삽입 문구를 요구한다** — 현재 파이프라인은 설명란 표기만 가능하고 화면 안 문구 삽입 기능이 없다. 이 작품을 실제로 돌리기 전에 처리 방법을 정해야 한다(미해결). 소스는 권리사 Drive(1dp_eAX2WecPk3GXyrt8eMmwtWxNF_Kj-) 의 'SNL 코리아 시즌 8/N화/' 마스터. 회차는 파일명 _8NN_ (801~810 = 1~10화) — Drive 실파일 3건으로 정규식 검증(2026-07-29). ⚠️ Drive 폴더명에 ' 3화'(선행 공백) 오타가 있으나 파일명 기준이라 무관. 자막 제공 여부가 가이드에 없어 안전측으로 none."
+    },
+    "국대: 로드 투 노스 아메리카": {
+      "identification_code": "ykLKP",
+      "source": {
+        "type": "local",
+        "dir_slug": "gookdae_rtna",
+        "file_glob": "GOOKDAE-RTNA_*.mp4",
+        "episode_regex": "GOOKDAE-RTNA_1(\\d{2})_",
+        "start_episode": 1
+      },
+      "constraints": {
+        "geoblock_required": false,
+        "subtitles": "none"
+      },
+      "_guide": "laeebly guide ⑥ 제공 소스 — \"자막, 로고 제공 X\" / ④ 영상 포맷 가이드 — \"풀영상은 쿠팡플레이에서 시청 가능 하다는 멘트 필수\" / ③ 주요 포인트 — 락커룸·회의실 감독 연설/전술 설명 장면(5화 홍명보 '싸워', 1화 '선수들은 기다렸다가 골을 받아야 해'), 손흥민 단독 인터뷰, 홍명보 쓰리백 전술 인터뷰, 북중미 월드컵 활약 선수 중심 권장 / ⑤ 네이버 클립·카카오톡 숏폼 가능. 지오블락 요구 없음.",
+      "_note": "소스는 권리사 Drive(1REmD_LVl0YGKBVdVyfAJne3JDaAv6np8) 의 '국대2:로드투노스아메리카/N화/' 마스터 6화분. 회차는 파일명 _1NN_ (101~106 = 1~6화) — Drive 실파일 3건으로 정규식 검증(2026-07-29). ⚠️ Drive 폴더명은 '국대2' 지만 laeebly 정본 제목은 '국대: 로드 투 노스 아메리카' — 카드 키는 laeebly 를 따른다. 자막 제공 X 라 subtitles=none."
     }
   }
 }
