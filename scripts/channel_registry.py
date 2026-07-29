@@ -259,6 +259,20 @@ def work_card_candidates(work, works=None):
 
 # ── 유효 설정 (★ scene_loop 가 실제로 쓰는 채널 dict 를 만든다) ──
 
+def _parse_box(box, work):
+    """'395x280' → (395, 280). 순수.
+
+    형식이 틀리면 즉시 멈춘다 — 조용히 무시하면 로고가 기본 크기로 나가고, 밤중 생성에서는
+    아무도 그 사실을 모른 채 발행된다."""
+    try:
+        w, h = (int(v) for v in str(box).lower().split("x"))
+        if w <= 0 or h <= 0:
+            raise ValueError
+    except (ValueError, AttributeError):
+        raise ValueError(f"작품 '{work}': 잘못된 로고 박스 형식 {box!r} — 'WxH' 여야 합니다(예: 395x280)")
+    return w, h
+
+
 def _card_to_channel_config(channel, work, card, policy, sources_root):
     """작품 카드 + 정책 → scene_loop 가 아는 **예전 채널 dict 모양**.
 
@@ -273,6 +287,20 @@ def _card_to_channel_config(channel, work, card, policy, sources_root):
     flags = list(policy.get("gen_flags_base") or [])
     if con.get("subtitles") == "none":
         flags.append("--no-subtitles")
+
+    # 로고 — 작품 카드에 branding.logo 가 있을 때만 붙인다(없으면 종전대로 작품명 텍스트).
+    # 크기·정렬은 정책 전역값이 기본이고 작품이 예외를 덮는다: 로고 비율이 작품마다 달라 전역값이
+    # 안 맞는 경우가 실제로 있다(10:1 초광폭은 박스에 넣으면 얇은 띠가 된다).
+    brand = card.get("branding") or {}
+    if brand.get("logo"):
+        box = brand.get("box") or policy.get("logo_box")
+        align = brand.get("align") or policy.get("logo_align")
+        flags += ["--design-work-image", brand["logo"]]
+        if box:
+            w, h = _parse_box(box, work)
+            flags += ["--design-work-image-width", str(w), "--design-work-image-height", str(h)]
+        if align:
+            flags += ["--design-work-align", align]
 
     out = {
         "channel": channel,

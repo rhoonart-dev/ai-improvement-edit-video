@@ -11,6 +11,8 @@
     "outputs_scan_dirs": "기존 산출물을 훑을 디렉토리(ai-video 레포 기준)",
     "youtube_index_cache_hours": "유튜브 소스 인덱스 캐시 수명. 채널 전체는 8만~10만 건이라 매번 훑으면 느리다",
     "gen_flags_base": "전 작품 공통 노브(현행 챔피언). ★자막 플래그는 여기 두지 않는다 — 작품마다 제공 자막 유무가 달라 works.json constraints.subtitles 를 보고 해석 계층이 --no-subtitles 를 붙인다",
+    "logo_box": "로고 크기 상한 WxH. 로고는 이 박스 안에 비율 유지로 맞춰진다(contain). ★두 축을 동시에 제한하는 것이 핵심 — 로고 비율이 작품마다 달라(세로 캘리그래피 0.5:1 ~ 가로 워드마크 10:1) 한 축만 고정하면 반대 모양에서 반드시 깨진다. 값은 도깨비·유미 실물로 사람이 고른 크기에서 역산했다(2026-07-29). ★극단 비율(10:1 등)에서는 얇은 띠가 되므로 그런 작품은 works.json branding.box 로 예외 지정",
+    "logo_align": "로고 세로 정렬. center=영상 하단~캔버스 하단 밴드의 중앙(로고 높이가 달라져도 균형 유지 → 작품별로 y 를 다시 찾지 않아도 된다) · top=영상 하단에 붙임(구 동작)",
     "_removed": "per_run_scenes_per_channel 은 넣지 않는다. 예전 설정에 있었지만 아무도 읽지 않는 죽은 노브였고(채널당 1회 실행 1장면은 코드 고정), 실제로 구현하면 하룻밤 생성비가 채널당 68분×N 로 늘어 위험을 새로 만든다"
   },
   "quota_per_episode": 3,
@@ -27,5 +29,7 @@
     "--silence-profile", "aggressive",
     "--length-profile", "tight",
     "--loudness-lufs", "-14"
-  ]
+  ],
+  "logo_box": "395x280",
+  "logo_align": "center"
 }
