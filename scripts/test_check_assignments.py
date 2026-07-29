@@ -53,6 +53,20 @@ def test_unknown_keys():
     assert ck.unknown_keys({"type": "local"}, ck.SOURCE_KEYS) == []
 
 
+def test_branding_problem():
+    # 정상 — 로고만 있어도 되고(전역 기본 박스), 예외값을 줄 수도 있다
+    assert ck.branding_problem({"logo": "RZsv4.png"}) is None
+    assert ck.branding_problem({"logo": "lt0JP.png", "box": "262x280", "align": "center",
+                                "_note": "트림본"}) is None
+    # 🛑 오타 키는 로고 설정을 통째로 조용히 무시하게 만든다
+    assert ck.branding_problem({"logo": "a.png", "size": "262x280"})
+    # 🛑 box 형식 오류는 생성 subprocess 에서 예외로 죽는다(_parse_box) → 그날 채널이 빠진다
+    assert ck.branding_problem({"logo": "a.png", "box": "262*280"})
+    assert ck.branding_problem({"logo": "a.png", "align": "bottom"})
+    assert ck.branding_problem({"box": "262x280"})          # logo 없이 크기만
+    assert ck.branding_problem("RZsv4.png")                 # 객체가 아님
+
+
 def test_is_nfc():
     import unicodedata
     assert ck.is_nfc("도깨비 10주년 여행")

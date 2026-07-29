@@ -34,10 +34,15 @@ NOTICE_PATH = REPO_ROOT / "config" / "work_publish_notice.json"
 BLOCK, WARN, INFO = "⛔", "⚠️", "※"
 
 SOURCE_TYPES = ("youtube_playlist", "youtube_channel", "local")
-CARD_KEYS = {"source", "constraints", "rights_lookup", "identification_code", "_guide", "_note"}
+CARD_KEYS = {"source", "constraints", "branding", "rights_lookup", "identification_code",
+             "_guide", "_note"}
 SOURCE_KEYS = {"type", "url", "dir_slug", "file_glob", "episode_regex",
                "start_episode", "min_source_duration_sec"}
 CONSTRAINT_KEYS = {"geoblock_required", "subtitles"}
+# 로고 배선(channel_registry._card_to_channel_config). box 는 'WxH' — 형식이 틀리면 생성이
+# 예외로 죽으므로 여기서 미리 잡는다(밤중에 죽으면 그날 채널이 통째로 빠진다).
+BRANDING_KEYS = {"logo", "box", "align", "_note"}
+BRANDING_ALIGNS = ("center", "top")
 SUBTITLE_VALUES = ("provided", "none")
 
 
@@ -72,6 +77,27 @@ def regex_problem(pattern):
         return f"컴파일 실패: {e}"
     if c.groups < 1:
         return "캡처그룹이 없음(그룹1이 회차번호여야 한다)"
+    return None
+
+
+def branding_problem(brand):
+    """작품 카드의 branding → 문제 사유 문자열 또는 None. 순수.
+
+    로고 배선은 값이 틀려도 조용히 넘어가지 않고 생성 subprocess 단계에서 예외로 죽는다
+    (channel_registry._parse_box). 밤중 실행에서 그 채널이 통째로 빠지므로 **생성 전에** 본다."""
+    if not isinstance(brand, dict):
+        return f"branding 은 객체여야 합니다(현재 {type(brand).__name__})"
+    bad = unknown_keys(brand, BRANDING_KEYS)
+    if bad:
+        return f"알 수 없는 branding 키 {bad} — 오타면 로고가 조용히 빠집니다"
+    if not str(brand.get("logo") or "").strip():
+        return "branding.logo 가 비어 있습니다 — 로고를 안 쓸 거면 branding 자체를 빼세요"
+    box = brand.get("box")
+    if box is not None and not re.fullmatch(r"\d+x\d+", str(box).strip().lower()):
+        return f"branding.box={box!r} — 'WxH' 여야 합니다(예: 395x280)"
+    align = brand.get("align")
+    if align is not None and align not in BRANDING_ALIGNS:
+        return f"branding.align={align!r} — {BRANDING_ALIGNS} 중 하나여야 합니다"
     return None
 
 
@@ -253,6 +279,10 @@ def _check_card(rep, work, channel, card, *, index_dir=None, sources_root=None, 
     con = card.get("constraints") or {}
     for bad in unknown_keys(con, CONSTRAINT_KEYS):
         rep.block(f"{where}: 알 수 없는 constraints 키 '{bad}'")
+    if "branding" in card:
+        prob = branding_problem(card.get("branding"))
+        if prob:
+            rep.block(f"{where}: {prob}")
 
     # 6. 카드 정합
     if not card.get("_guide"):
