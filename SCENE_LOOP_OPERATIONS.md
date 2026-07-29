@@ -358,6 +358,7 @@ DB·유튜브에 이미 올라갔으면 `DB_CLEANUP_LEDGER.md` 에 등재한다(
 | 발행이 `400 invalid_grant` | 클라이언트는 살아있고 refresh token 이 만료·폐기됨 | `get_youtube_token.py --client-secret <프로젝트 client_secret.json> --write-env` 로 그 채널만 재발급 |
 | 발행이 `YouTube OAuth 미설정 — .env 에 없음: …` | 메시지가 찍은 키가 이 머신 `.env` 에 없음 | 그 키를 채운다. 담당 머신의 `gcp_project` 짝 키가 필요하며 **전역 `YT_CLIENT_ID` 로 폴백하지 않는다**(2026-07-29) |
 | ffmpeg `Operation not permitted` | 소스가 `~/Downloads` 안이고 TCC 가 막음 | `~/ves/sources/` 로 옮긴다 |
+| rclone 이 `directory not found` (목록에는 분명히 보이는 파일인데) | ①`rclone copy` 는 소스를 **디렉토리**로 본다 ②드라이브의 한글 파일명이 **NFD(자모 분해)** 로 저장된 것이 섞여 있어 NFC 로 타이핑한 이름과 바이트가 다르다(2026-07-29 실측 — 피의 게임 X·샤먼 2화는 NFD, 샤먼 1회는 NFC) | 파일 하나는 `rclone copyto`. 이름은 손으로 적지 말고 `rclone lsf … -R --files-only` 결과를 **NFC 정규화해서 매칭**한 뒤 원격 원본 이름으로 받고, 로컬에는 NFC 이름으로 저장한다(회차 정규식이 로컬 파일명을 본다) |
 | yt-dlp `ffmpeg is not installed` | 예약 실행 환경에 brew 경로가 없음 | 해결됨 — 러너가 PATH 를 보정한다 |
 | 같은 장면이 또 생성됨 | 과거 산출물이 스캔에서 누락 | §6-2 로 상태를 심는다 |
 | 두 채널이 같은 작품인데 서로 장면을 피해 다님 | 예전 버그 | 해결됨 — 중복 판정이 채널 단위로 닫혔다(2026-07-28) |
