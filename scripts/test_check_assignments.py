@@ -203,3 +203,29 @@ def test_bad_box_format_blocks():
 
 def test_bad_align_blocks():
     assert _brand_blocks({"logo": "a.png", "align": "middle"})
+
+
+# ── 미등록 채널의 차단 범위 ──
+# 새 머신은 배정을 먼저 적고 channels.json 을 나중에 채우는 순서로 붙는다(맥6·2026-07-29).
+# 그동안 무관한 머신까지 멈추면 온보딩이 불가능해지므로, 남의 미등록 채널은 참고로만 낸다.
+
+def _missing_channel(scope):
+    rep = ck.Report()
+    ck.check_offline(rep, records=CH, works={"도깨비 10주년 여행": PLAYLIST_CARD},
+                     assignments={"machines": {
+                         "me": {"channels": ["숏테토칩"]},
+                         "other": {"channels": ["아직없는채널"]}}},
+                     notice={}, scope_machine=scope)
+    return rep
+
+
+def test_other_machine_missing_channel_does_not_block():
+    rep = _missing_channel("me")
+    assert rep.counts()[0] == 0                                   # ⛔ 0 → 이 머신은 돈다
+    assert any("아직 돌 수 없다" in m for _, m in rep.rows)
+
+
+def test_own_missing_channel_still_blocks():
+    rep = _missing_channel("other")
+    assert rep.counts()[0] >= 1
+    assert any("channels.json 에 없습니다" in m for _, m in rep.rows)

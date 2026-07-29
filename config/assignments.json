@@ -57,6 +57,15 @@
       "gemini_key": "API3",
       "schedule": { "kind": "claude_task", "at": "00:00" },
       "_note": "⏳ 'B급 순삭'(B급 스튜디오 유튜브 롱폼)이 배정에 있으나 config/channels.json 에 채널이 없어 아직 넣지 못했다 — token_slug·channel_id·handle·gcp_project·geoblock_capable 이 필요하다. 재미쇼츠는 지오블락 가능 채널이라 유미의 세포들 시즌3·언더커버셰프(둘 다 지오블락 필수)를 맡는다."
+    },
+    "macmini-luna6": {
+      "label": "루나르트맥6 · 일본 채널",
+      "account": "jmlp.japan@gmail.com",
+      "aliases": { "hostname": ["lunaleuteumaeg6ui-macmini"] },
+      "channels": ["まいにちじゃんまんるぴー"],
+      "gemini_key": "API3",
+      "schedule": { "kind": "claude_task", "at": "04:00" },
+      "_note": "⏳ 담당 채널 'まいにちじゃんまんるぴー' 가 config/channels.json 에 아직 없어 이 머신은 돌 수 없다 — token_slug·channel_id·handle·gcp_project·geoblock_capable·works 가 필요하다(맥5 의 'B급 순삭' 과 같은 상태). 배정만 먼저 적어두는 이유는 API3 키를 맥5 와 공유하므로 시각 제약(맥5 00:00 / 맥6 04:00)을 정본에 남겨야 하기 때문이다. hostname 은 `hostname` 명령이 'lunaleuteumaeg6ui-Macmini.local' 을 돌려주므로 소문자 조각으로 매칭한다."
     }
   }
 }
