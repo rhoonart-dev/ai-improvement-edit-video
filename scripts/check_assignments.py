@@ -178,7 +178,15 @@ def check_offline(rep, *, records, works, assignments, notice, index_dir=None, s
 
     범위를 나누는 이유(2026-07-28 실측): 전 머신을 깊게 보면 '아직 이관하지 않은 머신의 카드가
     없다' 는 ⛔ 가 이 머신의 러너 게이트를 막는다. 남의 사정으로 내 생성이 멈추면 안 된다.
-    구조 검사(중복 배정·alias 충돌·채널 존재)는 본질적으로 전역이라 범위와 무관하게 항상 본다."""
+
+    구조 검사 중 **중복 배정·alias 충돌은 전역**으로 본다 — 한 채널이 두 머신에 걸리면 양쪽이
+    같은 쇼츠를 올리고, alias 가 겹치면 머신 식별 자체가 실패한다. 둘 다 다른 머신의 실수가
+    이 머신의 산출물을 망치는 경우라 범위와 무관하다.
+
+    반면 **채널 존재는 범위를 따른다**(2026-07-29 변경). 남의 채널이 channels.json 에 없는 것은
+    그 머신만 못 도는 상태이지 이 머신 생성에는 영향이 없다. 전역 ⛔ 로 두면 새 머신을 붙이는
+    순간(배정을 먼저 적고 channels.json 을 나중에 채우는 순서 — 맥5 'B급 순삭'·맥6 이 그 상태)
+    무관한 머신이 전부 멈춰 온보딩이 불가능해진다."""
     machines = (assignments or {}).get("machines") or {}
     if not machines:
         rep.block("config/assignments.json 에 machines 가 없습니다 — 배정 정본이 비어 있습니다")
@@ -208,18 +216,27 @@ def check_offline(rep, *, records, works, assignments, notice, index_dir=None, s
     assigned_works = set()
 
     for mid, rec in machines.items():
+        in_scope = scope_machine is None or mid == scope_machine
         for ch in (rec.get("channels") or []):
             # 4. 배정 채널이 channels.json 에 있는가
             if ch not in ch_names:
                 cands = [n for n in ch_names if reg.norm_work_title(n, fold=True) ==
                          reg.norm_work_title(ch, fold=True)]
-                rep.block(f"채널 '{ch}'({mid}) 가 config/channels.json 에 없습니다"
-                          + (f" — 후보: {cands}" if cands else ""))
+                hint = f" — 후보: {cands}" if cands else ""
+                if not in_scope:
+                    # 다른 머신의 미등록 채널로 이 머신 생성을 막지 않는다. 새 머신·새 채널은
+                    # 배정을 먼저 적고 channels.json 을 나중에 채우는 순서로 붙는 일이 있는데,
+                    # 그동안 무관한 머신들이 통째로 멈추면 온보딩이 사실상 불가능해진다.
+                    # 작품 카드 누락(아래 5번)이 이미 같은 방식으로 처리되고 있다.
+                    rep.info(f"채널 '{ch}'({mid}) 가 config/channels.json 에 없음 — 그 머신은 "
+                             f"아직 돌 수 없다(등록 시 token_slug·channel_id·handle·"
+                             f"gcp_project·geoblock_capable 필요){hint}")
+                    continue
+                rep.block(f"채널 '{ch}'({mid}) 가 config/channels.json 에 없습니다{hint}")
                 continue
             wks = reg.works_of(ch, records)
             if not wks:
                 rep.warn(f"채널 '{ch}'({mid}) 에 배정된 작품이 없습니다 — 그 채널은 아무것도 만들지 않습니다")
-            in_scope = scope_machine is None or mid == scope_machine
             for work in wks:
                 assigned_works.add(work)
                 # 5. 카드 존재
