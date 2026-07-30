@@ -76,6 +76,47 @@ def test_missing_file_returns_empty():
     assert envload.load_env("/no/such/.env-xyz") == {}
 
 
+def test_strips_inline_comment_after_value():
+    # 실제 사고 재현: 경로 뒤 주석이 값에 붙어 python 실행 경로가 존재하지 않게 됐다(2026-07-30)
+    p = _write("ROOT_X=/Users/x/ves/ai-video   # 머신마다 다름\nTAB_X=/tmp/a\t# 탭도 공백\n")
+    for k in ["ROOT_X", "TAB_X"]:
+        os.environ.pop(k, None)
+    loaded = envload.load_env(p)
+    assert loaded["ROOT_X"] == "/Users/x/ves/ai-video"
+    assert loaded["TAB_X"] == "/tmp/a"
+    os.unlink(p)
+
+
+def test_keeps_hash_inside_value():
+    # 시크릿에 '#'이 들어갈 수 있다 — 공백이 앞에 없으면 주석이 아니다
+    p = _write("DSN_X=postgres://u:pa#ss@host:5432/db\nFRAG_X=https://h/p#frag\n")
+    for k in ["DSN_X", "FRAG_X"]:
+        os.environ.pop(k, None)
+    loaded = envload.load_env(p)
+    assert loaded["DSN_X"] == "postgres://u:pa#ss@host:5432/db"
+    assert loaded["FRAG_X"] == "https://h/p#frag"
+    os.unlink(p)
+
+
+def test_quoted_value_keeps_spaced_hash_and_drops_trailing_comment():
+    # 값에 ' # '를 꼭 넣어야 하면 따옴표가 탈출구다. 닫는 따옴표 뒤 주석은 버린다.
+    p = _write('PASS_X="ab # cd"   # 주석\nQP_X=\'/tmp/a b\'  # 경로에 공백\n')
+    for k in ["PASS_X", "QP_X"]:
+        os.environ.pop(k, None)
+    loaded = envload.load_env(p)
+    assert loaded["PASS_X"] == "ab # cd"
+    assert loaded["QP_X"] == "/tmp/a b"
+    os.unlink(p)
+
+
+def test_trailing_whitespace_only_is_stripped():
+    p = _write("SP_X=/Users/x/ves/ai-video   \n")
+    os.environ.pop("SP_X", None)
+    loaded = envload.load_env(p)
+    assert loaded["SP_X"] == "/Users/x/ves/ai-video"
+    os.unlink(p)
+
+
 def _run():
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for fn in fns:
