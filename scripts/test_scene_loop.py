@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import tempfile
+from datetime import datetime
 from pathlib import Path
 
 import scene_loop as sl
@@ -357,6 +358,38 @@ def test_scene_keeps_pending_when_one_video_is_still_unlisted():
         assert sl.classify_scenes(scenes, None, "채널1", "KEY") == [sl.SCENE_PENDING]
     finally:
         _restore(old)
+
+
+def test_scheduled_publish_is_pending_not_rejected():
+    """🛑 회귀 방지 — 예약 공개 대기분을 반려로 세면 안 된다.
+
+    예약 공개(publishAt)는 공개 시각 전까지 private 이라 공개 API 키 조회에 안 나온다. 조회 불가만
+    보고 반려로 판정하면, scene_publish_loop 의 **기본 동작이 예약 공개**라 브레이크가 통째로
+    무력해진다(2026-07-30 실측: 숏테토칩 EP1 이 예약 1건 때문에 상한이 잘못 풀렸다).
+    """
+    now = datetime.fromisoformat("2026-07-30T16:00:00+09:00")
+    scenes = [{"span": [0.0, 1.0], "run_ids": ["w_sched"]},   # 오늘 19:00 예약
+              {"span": [2.0, 3.0], "run_ids": ["w_recent"]},  # 방금 올림(예약 시각은 미기록)
+              {"span": [4.0, 5.0], "run_ids": ["w_old"]},     # 오래전 올렸는데 여태 안 보임
+              {"span": [6.0, 7.0], "run_ids": ["w_none"]}]    # 발행 기록 자체가 없음
+    recs = {
+        "w_sched": {"scheduled_publish_at": "2026-07-30T19:00:00+09:00"},
+        "w_recent": {"published_at": "2026-07-30T15:00:00"},          # naive = 로컬 tz
+        "w_old": {"published_at": "2026-07-01T12:00:00+09:00"},
+    }
+    old = _patch(
+        db_run_videos=lambda conn, ch, rids: {r: [f"vid_{r}"] for r in rids},
+        youtube_statuses=lambda vids, key: {},   # 전부 조회 불가
+    )
+    try:
+        kinds = sl.classify_scenes(scenes, None, "채널1", "KEY",
+                                   publish_records=recs, now=now, grace_days=7)
+    finally:
+        _restore(old)
+    assert kinds == [sl.SCENE_PENDING,    # 예약 대기 — 시각이 되면 스스로 공개된다
+                     sl.SCENE_PENDING,    # 방금 올림 — 유예 안
+                     sl.SCENE_REJECTED,   # 유예 지나도 안 보임 = 사람이 비공개로 돌렸다
+                     sl.SCENE_REJECTED]   # 발행 기록 없음 = 손으로 올렸다 내린 것
 
 
 def test_rejected_scenes_do_not_block_generation():

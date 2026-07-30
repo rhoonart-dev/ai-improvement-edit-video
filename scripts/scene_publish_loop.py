@@ -50,7 +50,7 @@ from envload import load_env  # noqa: E402
 
 BRAIN = Path(__file__).resolve().parent.parent
 GEN_STATE_PATH = BRAIN / "results" / "scene_loop_state.json"
-PUB_STATE_PATH = BRAIN / "results" / "scene_publish_state.json"
+PUB_STATE_PATH = sl.PUB_STATE_PATH   # 경로 정본은 생성측 — 어긋나면 생성이 예약분을 반려로 본다
 PY = str(BRAIN / ".venv" / "bin" / "python")
 
 # 채널 항목이 전역 기본을 덮을 수 있는 발행 설정 키
