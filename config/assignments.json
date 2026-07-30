@@ -8,7 +8,8 @@
     "aliases.user": "자동 감지용 계정명(정확일치). ⚠️ 두 머신이 같은 계정명을 쓰면 다중매칭으로 식별이 실패한다 — 그럴 땐 hostname 만 둔다",
     "channels": "이 머신이 담당하는 채널 표시명. config/channels.json 의 name 과 완전일치해야 한다. 채널의 작품은 channels.json 이 정본이라 여기에 다시 적지 않는다. 운영 기준 **머신당 2~4채널** — 채널당 하룻밤 1편이라 4채널이면 최대 4편(롱폼이 걸리면 편당 68분까지)",
     "schedule.kind": "claude_task | launchd — 🔀 택일. 둘 다 걸면 하루 두 번 돌아 중복 생성된다",
-    "schedule.at": "HH:MM 로컬시각. 선언용이며 자동 설치되지 않는다(사람이 건다). 여러 머신이 같은 시각이면 유튜브 조회 한도·공유 문서 충돌이 겹치므로 30분씩 벌린다",
+    "schedule.at": "HH:MM 로컬시각. 선언용이며 자동 설치되지 않는다(사람이 건다). ★같은 gemini_key 를 쓰는 머신끼리는 반드시 시각을 벌린다(2026-07-29 재발급·분배 이후 00:00 / 04:00 2교대) — 겹치면 Gemini 쿼터를 서로 잡아먹어 생성이 실패한다. ⚠️ 4시간 간격이 항상 충분하지는 않다: 롱폼 1편이 ~68분이고 채널 4개면 4~6시간이 걸릴 수 있어(gen_timeout_sec 5400 × 4) 00:00 머신이 04:00 을 넘겨 돌 수 있다. 실제로 겹치는지 관찰하고, 겹치면 채널 수를 줄이거나 간격을 더 벌린다. ※다른 키를 쓰는 머신끼리 같은 시각인 것은 Gemini 쿼터상 문제없다(구 규칙의 '30분씩 벌린다'는 유튜브 조회 한도·공유 문서 충돌 때문이었고, 그쪽은 여전히 관찰 대상)",
+    "gemini_key": "그 머신이 쓰는 Gemini API 키 그룹(API1|API2|API3). 키 자체는 각 머신 .env 의 GEMINI_API_KEY 이고 여기엔 어느 그룹인지만 적는다 — 시각을 바꿀 때 '왜 이 시각인지'를 알 수 있어야 하기 때문이다. 같은 그룹이 둘 이상 같은 시각이면 안 된다",
     "_note": "그 머신 특이사항"
   },
   "machines": {
@@ -17,7 +18,8 @@
       "account": "rhoonartves01@gmail.com",
       "aliases": { "hostname": ["lunaleuteumaeg1ui-macmini"], "user": ["lunaleuteumaeg1"] },
       "channels": ["다람쥐 숏토리", "킥킥극장", "몰입도둑", "락커룸"],
-      "schedule": { "kind": "claude_task", "at": "04:00" },
+      "gemini_key": "API1",
+      "schedule": { "kind": "claude_task", "at": "00:00" },
       "_note": "2026-07-28 재배정 — 이전에는 숏나우저·여운 보관소·이거보고자 였다. 숏나우저는 맥2 로 넘어갔다."
     },
     "macmini-luna2": {
@@ -25,6 +27,7 @@
       "account": "supersw4524@gmail.com",
       "aliases": { "hostname": ["lunaleuteumaeg2ui-macmini"], "user": ["lunaleuteumaeg2"] },
       "channels": ["너굴안방", "숏테토칩", "숏나우저", "흥행수집"],
+      "gemini_key": "API1",
       "schedule": { "kind": "claude_task", "at": "04:00" },
       "_note": "2026-07-28 최초 온보딩 머신(배정 정본·작품 카드 방식을 여기서 실기동 검증했다). 담당 4작품이 전부 CJ ENM 계열이라 소스가 tvN Joy 채널·지정 플레이리스트로 모인다."
     },
@@ -33,7 +36,8 @@
       "account": "rhoonartves03@gmail.com",
       "aliases": { "hostname": ["3-mac-mini"] },
       "channels": ["명장면 세탁소", "리와인드포차", "여운 보관소", "ショトコン"],
-      "schedule": { "kind": "claude_task", "at": "04:30" },
+      "gemini_key": "API2",
+      "schedule": { "kind": "claude_task", "at": "00:00" },
       "_note": "⚠️ 계정명이 맥4 와 같은 'lunaleuteumaeg4' 라 hostname 으로만 구분된다 — aliases.user 를 두면 다중매칭으로 식별이 실패한다(2026-07-28 실측). 채널 표기 주의: 로컬 설정이 '숏콘' 으로 남아 있으면 발행이 하드 실패한다(정본은 'ショトコン'). ★배열 순서가 곧 생성 순서다(machine_channels 가 파일 순서를 그대로 쓴다) — ショトコン 을 맨 뒤로 뒀다(2026-07-29 지시)."
     },
     "macmini-luna4": {
@@ -41,7 +45,8 @@
       "account": "rhoonartves04@gmail.com",
       "aliases": { "hostname": ["lunaleuteumaeg4ui-macmini"] },
       "channels": ["쇼츠션샤인", "엔딩순삭", "이거보고자", "이불 속 극장"],
-      "schedule": { "kind": "claude_task", "at": "05:00" },
+      "gemini_key": "API2",
+      "schedule": { "kind": "claude_task", "at": "04:00" },
       "_note": "⚠️ 계정명이 맥3 과 같아 hostname 으로만 구분된다. 이 머신은 SNL 야간 루틴(snl-nightly-upload, 마크다운 절차서 방식)도 함께 쓰고 있었다 — SNL 시즌8 이 맥1 로 재배정됐으므로 그 루틴의 거취를 정해야 한다. 담당 4작품이 전부 laeebly 미등재(외부 협력)라 작품 카드에 rights_lookup:'none' 이 필요하다."
     },
     "macmini-luna5": {
@@ -49,8 +54,18 @@
       "account": "rhoonart0sean@gmail.com",
       "aliases": { "hostname": ["lunaleuteumaeg5s-mac-mini"], "user": ["lunaleuteumaeg5"] },
       "channels": ["커리어데이 숏츠", "재미쇼츠"],
-      "schedule": { "kind": "claude_task", "at": "05:30" },
+      "gemini_key": "API3",
+      "schedule": { "kind": "claude_task", "at": "00:00" },
       "_note": "⏳ 'B급 순삭'(B급 스튜디오 유튜브 롱폼)이 배정에 있으나 config/channels.json 에 채널이 없어 아직 넣지 못했다 — token_slug·channel_id·handle·gcp_project·geoblock_capable 이 필요하다. 재미쇼츠는 지오블락 가능 채널이라 유미의 세포들 시즌3·언더커버셰프(둘 다 지오블락 필수)를 맡는다."
+    },
+    "macmini-luna6": {
+      "label": "루나르트맥6 · 일본 채널",
+      "account": "jmlp.japan@gmail.com",
+      "aliases": { "hostname": ["lunaleuteumaeg6ui-macmini"] },
+      "channels": ["まいにちじゃんまんるぴー"],
+      "gemini_key": "API3",
+      "schedule": { "kind": "claude_task", "at": "04:00" },
+      "_note": "⏳ 담당 채널 'まいにちじゃんまんるぴー' 가 config/channels.json 에 아직 없어 이 머신은 돌 수 없다 — token_slug·channel_id·handle·gcp_project·geoblock_capable·works 가 필요하다(맥5 의 'B급 순삭' 과 같은 상태). 배정만 먼저 적어두는 이유는 API3 키를 맥5 와 공유하므로 시각 제약(맥5 00:00 / 맥6 04:00)을 정본에 남겨야 하기 때문이다. hostname 은 `hostname` 명령이 'lunaleuteumaeg6ui-Macmini.local' 을 돌려주므로 소문자 조각으로 매칭한다."
     }
   }
 }

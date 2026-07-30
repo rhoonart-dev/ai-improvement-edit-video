@@ -164,6 +164,76 @@ def test_offline_detects_alias_collision():
     assert any("자동 감지가 어느 쪽인지" in m for _, m in rep.rows)
 
 
+# ── branding(로고) 카드 검증 ──
+# 로고 배선(2026-07-29)을 넣을 때 CARD_KEYS 갱신을 빠뜨려 이 검증기가 ⛔ 를 냈고,
+# scene_loop_run.sh 가 종료코드로 생성을 중단시켜 밤 루프가 통째로 막혔다. 회귀 방지.
+
+def _brand_card(branding):
+    card = dict(PLAYLIST_CARD)
+    card["branding"] = branding
+    return card
+
+
+def _brand_blocks(branding):
+    rep = _run_offline(works={"도깨비 10주년 여행": _brand_card(branding)})
+    return [m for lv, m in rep.rows if "branding" in m]
+
+
+def test_valid_branding_passes():
+    assert _brand_blocks({"logo": "RZsv4.png"}) == []
+    assert _brand_blocks({"logo": "RZsv4.png", "box": "395x280", "align": "center"}) == []
+
+
+def test_unknown_branding_key_blocks():
+    # 오타로 box→bx 가 되면 그 작품만 전역 기본 크기로 조용히 나간다
+    assert _brand_blocks({"logo": "a.png", "bx": "395x280"})
+
+
+def test_branding_without_logo_blocks():
+    # 해석 계층이 logo 유무로만 판단하므로 logo 없는 branding 은 아무 효과가 없다
+    assert _brand_blocks({"box": "395x280"})
+
+
+
+def test_bad_box_format_blocks():
+    assert _brand_blocks({"logo": "a.png", "box": "395-280"})
+    assert _brand_blocks({"logo": "a.png", "box": "395x"})
+
+
+def test_bad_align_blocks():
+    assert _brand_blocks({"logo": "a.png", "align": "middle"})
+
+
+# ── 미등록 채널의 차단 범위 ──
+# 새 머신은 배정을 먼저 적고 channels.json 을 나중에 채우는 순서로 붙는다(맥6·2026-07-29).
+# 그동안 무관한 머신까지 멈추면 온보딩이 불가능해지므로, 남의 미등록 채널은 참고로만 낸다.
+
+def _missing_channel(scope):
+    rep = ck.Report()
+    ck.check_offline(rep, records=CH, works={"도깨비 10주년 여행": PLAYLIST_CARD},
+                     assignments={"machines": {
+                         "me": {"channels": ["숏테토칩"]},
+                         "other": {"channels": ["아직없는채널"]}}},
+                     notice={}, scope_machine=scope)
+    return rep
+
+
+def test_other_machine_missing_channel_does_not_block():
+    rep = _missing_channel("me")
+    assert rep.counts()[0] == 0                                   # ⛔ 0 → 이 머신은 돈다
+    assert any("아직 돌 수 없다" in m for _, m in rep.rows)
+
+
+def test_own_missing_channel_still_blocks():
+    rep = _missing_channel("other")
+    assert rep.counts()[0] >= 1
+    assert any("channels.json 에 없습니다" in m for _, m in rep.rows)
+
+
+# ★ 스크립트 실행 진입점은 **파일 맨 끝**에 둔다 — _run() 이 globals() 를 훑어 테스트를 모으므로,
+# 이 블록 뒤에 정의된 테스트는 스크립트 모드에서 조용히 빠진다(머지로 뒤에 붙은 branding·범위
+# 테스트 8건이 실제로 그 상태였다. pytest 는 수집하므로 아무도 몰랐다).
+
 def _run():
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for fn in fns:
