@@ -207,6 +207,73 @@
       },
       "_guide": "laeebly guide ③ 작품 관련 가이드 — \"활용 분량: 구글 드라이브 내 제공된 소스에서만 활용 가능\", \"출연자를 향한 조롱·비방성 구성 지양\" / ④ 영상 포맷 가이드 — \"설명란에 '티빙 오리지널 <샤먼: 미신전>' 표기 필수\" / ② 업로드 가능일 — \"매주 화요일부터 전날 공개된 회차 업로드 가능\" / ⑥ 화이트리스트: 채널 단위, 검수 없음 / ⑤ 네이버 클립·카카오 숏폼 가능. 지오블락 요구 없음.",
       "_note": "가이드가 '제공된 소스에서만' 이라 type=local 이 곧 권리 범위다(유튜브 소스 금지). Drive(1Ec2_0r3ePkZz_o170eTHe71otzmpHzho) 에 1~8회 클립마스터가 평평하게 있다. ⚠️ 1회만 '1회_사용구간.mp4'(345MB, 사용 가능 구간만 잘라 준 것)이고 2화부터는 '샤먼미신전_클립마스터_N화.mp4'(1.6~3.0GB) 라 '회' 와 '화' 를 모두 받는다 — Drive 실파일 8건 검증(2026-07-29). 자막 제공 언급이 없어 none."
+    },
+    "유미의 세포들 시즌3": {
+      "identification_code": "ZSByI",
+      "source": {
+        "type": "local",
+        "dir_slug": "yumi3",
+        "file_glob": "*.mp4",
+        "episode_regex": "_(\\d{1,2})화",
+        "start_episode": 1
+      },
+      "constraints": {
+        "geoblock_required": true,
+        "subtitles": "none"
+      },
+      "_guide": "laeebly guide 2. 기본 가이드 — \"국내에만 노출되도록 지오블락 수행 / 슈퍼 채널은 지오블락 처리 가능 / 지오블락 불가한 채널은 참여 불가 / 유튜브 지오블락 처리는 PC 업로드\". 1. 업로드 가능일 — \"월요일 본방송 이후 매주 수요일 00시~ (화요일까지는 업로드 불가)\". 회차별 방영일: 1·2회 4/13, 3·4회 4/20, 5·6회 4/27, 7·8회 5/4.",
+      "_note": "소스는 권리사 Drive(1lqT--NA8ulXKHI1GOOVbJPt66E-NaeCp) — 회차별 '유미의세포들3_N화_클립마스터.mp4' 8편(2.82~2.95GB). 파일명을 그대로 두고 정규식이 '_N화' 를 읽는다(리네임 불필요). 🛑 지오블락 필수라 발행은 unlisted 까지만 하고 **사람이 Studio 에서 지오블락(대한민국)을 건 뒤 공개**한다 — 지오블락은 PC 업로드에서만 걸 수 있어 API 가 대신 못 하고, 발행 게이트는 '채널이 가능한가'만 보지 '실제로 걸렸는가'는 못 본다. ⚠️ 업로드 가능일 제약(수요일 00시~)이 있으므로 공개 시점은 사람이 지킨다. 자막: Drive '자막' 폴더가 1·2화만 전체 자막(KO_SDH vtt)이고 3~8화는 20분 발췌분(_20분자막.srt)이라 전체 회차에 물리면 타이밍이 어긋난다 → none(2026-07-30 합의)."
+    },
+    "커리어데이": {
+      "rights_lookup": "none",
+      "source": {
+        "type": "youtube_channel",
+        "url": "https://www.youtube.com/@careerday_official/videos",
+        "episode_order": "oldest_first",
+        "title_exclude_regex": "",
+        "start_episode": 1,
+        "min_source_duration_sec": 300
+      },
+      "constraints": {
+        "geoblock_required": false,
+        "subtitles": "none"
+      },
+      "_guide": "laeebly 미등재 — 레이블리 자사 채널(커리어데이) 롱폼이라 외부 권리사 가이드가 없다. 소스 범위는 운영자 지시(2026-07-30): 커리어데이 유튜브 채널 롱폼 전체.",
+      "_note": "제목에 회차 표기가 없어 episode_order='oldest_first'(업로드 오래된 순 서수)를 쓴다. 길이 하한 300초로 쇼츠·예고를 거른다(2026-07-30 실측 82건 중 80회차 통과). 자막: 제공 자막이 없고 유튜브 자동자막은 오자막이 박히므로 none. title_exclude_regex 는 \"\"(제외 없음)로 **명시**했다 — 자사 채널이고 롱폼 전체가 소스라 제외할 코너가 없다(빈 값이 아니라 미지정이면 '검토 안 함'과 구분되지 않는다)."
+    },
+    "B급 스튜디오": {
+      "identification_code": "NVSHx",
+      "source": {
+        "type": "youtube_channel",
+        "url": "https://www.youtube.com/@B급studio/videos",
+        "episode_order": "oldest_first",
+        "title_exclude_regex": "청문회|죄송합니다",
+        "start_episode": 35,
+        "min_source_duration_sec": 300
+      },
+      "constraints": {
+        "geoblock_required": false,
+        "subtitles": "none"
+      },
+      "_guide": "laeebly 등재(code NVSHx)이나 **guide 본문이 비어 있다** — 명시된 제약이 없다. download_link 는 Drive 폴더(1qXVffFGARo6kR7xORsSEC-uF45S1Ss0u)가 걸려 있으나, 소스 범위는 운영자 지시(2026-07-30) 로 **B급 스튜디오 유튜브 채널 롱폼(청문회 제외)** 을 쓴다. ⚠️ Drive 제공분과 유튜브 롱폼 중 어느 쪽이 정본인지는 권리사에 확인이 필요하다.",
+      "_note": "제목에 회차 표기가 없어 oldest_first 서수. title_exclude_regex 로 '청문회'(B급 청문회 시리즈) 제외 — 운영자 지시. '죄송합니다  -제작진 일동-'(613초) 도 제외했다: 길이 하한을 통과하는데 사과문이라 쇼츠 소재로 쓰면 안 된다. 2026-07-30 실측 263건 중 218건 제외 → 44건 → 길이 하한 후 43회차. start_episode 35 = '2년 전(2024-07-30) 이후' — EP34 가 2024-07-22, EP35 가 2024-08-28 'B급 리딩 EP.01' 로 5주 공백 뒤 프로그램 시작점과 일치한다(남는 회차 9개, 2024-08-28~2026-01-16). ⚠️ 서수는 목록 순서 기반이라 EP1~34 중 하나가 삭제되면 창이 밀린다 — 그때 재계산. 남는 회차는 입만살아서·입만살2·B급 리딩·B급 뉴스·꼬치꼬치·B급 오디션·B급 소개팅이 섞여 있어 서수는 특정 시리즈의 회차가 아니다."
+    },
+    "언더커버셰프": {
+      "identification_code": "a0sFx",
+      "paused": true,
+      "source": {
+        "type": "youtube_channel",
+        "url": "https://www.youtube.com/@tvNJoy_official/videos",
+        "episode_regex": "#언더커버셰프\\s*EP[.\\s]?(\\d{1,3})\\b",
+        "start_episode": 1,
+        "min_source_duration_sec": 600
+      },
+      "constraints": {
+        "geoblock_required": true,
+        "subtitles": "none"
+      },
+      "_guide": "laeebly guide 1. \"해당 영상은 지오블락 처리 필수 (대한민국만 허용) / 지오블락 처리는 PC 로만 가능\". 2. 사용 가능 소스 — \"[tvN Joy]를 포함해 CJ ENM 공식 유튜브 채널에 업로드된 영상은 모두 사용 가능\".",
+      "_note": "⏸ **착수 전(paused: true)** — 운영이 유미의 세포들 시즌3 → 언더커버셰프 **순차**이고, 지금 켜두면 매일 밤 소스 채널(tvN Joy)을 통째로 훑는다. 2026-07-30 실측 **113,577개** 영상이고 얻는 회차는 0개다(회차 규칙 미확정). paused 는 소스 조회 **전에** 걸러 그 비용을 없앤다. 채널↔작품 매핑(권리 관계)은 그대로 두므로 배정 정본은 흔들리지 않는다.\n착수할 때 할 일: ① tvN Joy 등 CJ ENM 공식 채널에서 이 작품 **공식 롱폼**의 실제 제목 표기를 확인해 episode_regex·start_episode·min_source_duration_sec 를 확정 ② paused 제거 ③ check_assignments 로 회차 수 확인. 현재 정규식은 해시태그 앵커를 건 **잠정값**이다.\n⚠️ 앵커('#언더커버셰프')는 반드시 유지 — CJ ENM 공식 채널에는 다른 작품이 함께 올라오므로 앵커 없는 EP 정규식은 남의 작품 회차를 집는다. 🛑 지오블락 필수라 발행은 unlisted 까지만 하고 사람이 Studio 에서 지오블락을 건 뒤 공개한다."
     }
   }
 }
