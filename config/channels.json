@@ -2,7 +2,7 @@
   {
     "token_slug": "JAEMISHOTS",
     "name": "재미쇼츠",
-    "handle": null,
+    "handle": "@재미쇼츠-e2c7u",
     "channel_id": "UC7eXwtR1TyUVe2ts6BUjXGA",
     "gcp_project": "SEAN",
     "genre": "드라마",
@@ -22,7 +22,8 @@
       "언더커버셰프",
       "하이라이트",
       "몰아보기"
-    ]
+    ],
+    "_works_note": "운영은 유미의 세포들 시즌3 → 언더커버셰프 **순차**다. 둘 다 지오블락 필수라 지오블락 가능 채널인 여기에 묶여 있다. 진행 상태는 작품별 슬롯으로 갈리므로 (channel_registry 의 slot) 두 작품의 EP1 이 섞이지 않는다."
   },
   {
     "token_slug": "CINEMAINBED",
@@ -357,7 +358,7 @@
     "gcp_project": "SEAN",
     "genre": "커리어·인터뷰",
     "works": [
-      "커리어데이 유튜브 롱폼"
+      "커리어데이"
     ],
     "geoblock_capable": false,
     "country": "KR",
@@ -371,6 +372,29 @@
       "취업",
       "이직",
       "커리어데이"
+    ]
+  },
+  {
+    "token_slug": "BGSUNSAK",
+    "name": "B급 순삭",
+    "handle": "@b급순삭",
+    "channel_id": "UCXEWaNqCRwA0rk-Ywg-B7Ow",
+    "gcp_project": "SEAN",
+    "genre": "예능",
+    "works": [
+      "B급 스튜디오"
+    ],
+    "geoblock_capable": false,
+    "country": "KR",
+    "description": "B급 스튜디오 롱폼에서 제일 웃긴 구간만 순삭으로. 자사 콘텐츠 기반 쇼츠 채널입니다.",
+    "keywords": [
+      "B급",
+      "예능",
+      "쇼츠",
+      "하이라이트",
+      "명장면",
+      "순삭",
+      "웃긴영상"
     ]
   },
   {

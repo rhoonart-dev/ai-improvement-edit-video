@@ -321,3 +321,27 @@ def test_bad_box_format_raises_instead_of_silently_defaulting():
     # 조용히 기본값으로 나가면 밤중 생성에서 아무도 모른다
     with pytest.raises(ValueError, match="로고 박스"):
         _brand_flags("박스오류작품")
+
+
+def test_card_to_channel_config_slot_splits_multi_work_channel():
+    """한 채널이 작품 둘이면 진행 슬롯이 갈려야 한다 — 안 그러면 두 작품의 EP1 이 섞인다."""
+    card = {"source": {"type": "local", "dir_slug": "d", "file_glob": "*.mp4",
+                       "episode_regex": r"(\d+)회"},
+            "constraints": {"subtitles": "none"}}
+    single = reg._card_to_channel_config("재미쇼츠", "작품A", card, {}, "/s")
+    m1 = reg._card_to_channel_config("재미쇼츠", "작품A", card, {}, "/s", multi_work=True)
+    m2 = reg._card_to_channel_config("재미쇼츠", "작품B", card, {}, "/s", multi_work=True)
+    assert single["slot"] == "재미쇼츠"          # 단일 작품이면 기존 경로·상태 유지
+    assert m1["slot"] != m2["slot"]
+    assert m1["channel"] == m2["channel"] == "재미쇼츠"   # 업로드 대상은 그대로
+
+
+def test_card_to_channel_config_passes_ordinal_and_exclude():
+    card = {"source": {"type": "youtube_channel", "url": "https://y/@c/videos",
+                       "episode_order": "oldest_first", "title_exclude_regex": "청문회",
+                       "min_source_duration_sec": 300},
+            "constraints": {"subtitles": "none"}}
+    out = reg._card_to_channel_config("B급 순삭", "B급 스튜디오", card, {}, "/s")
+    assert out["episode_order"] == "oldest_first"
+    assert out["title_exclude_regex"] == "청문회"
+    assert "--no-subtitles" in out["gen_flags"]

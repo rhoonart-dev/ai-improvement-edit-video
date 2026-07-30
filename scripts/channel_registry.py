@@ -273,7 +273,7 @@ def _parse_box(box, work):
     return w, h
 
 
-def _card_to_channel_config(channel, work, card, policy, sources_root):
+def _card_to_channel_config(channel, work, card, policy, sources_root, multi_work=False):
     """작품 카드 + 정책 → scene_loop 가 아는 **예전 채널 dict 모양**.
 
     레거시 모양으로 내는 이유: channel_plan·discover_episodes_for·index_episodes·rendered_scenes·
@@ -305,6 +305,15 @@ def _card_to_channel_config(channel, work, card, policy, sources_root):
     out = {
         "channel": channel,
         "work_title": work,
+        # 순차 운영 — 아직 착수하지 않은 작품. 채널↔작품 매핑(권리 관계)은 그대로 두고 진행만 멈춘다.
+        # 🛑 소스 조회 **전에** 걸러야 의미가 있다: 착수 전 작품이 채널 전체 소스면 매일 밤 그 채널을
+        #    통째로 훑는다(tvN Joy 113,577건, 2026-07-30 실측) — 회차 0개를 얻자고 치르는 비용이다.
+        "_paused": bool(card.get("paused")),
+        # 진행 슬롯 — 상태 파일과 산출물 디렉토리를 가르는 이름. 한 채널이 작품을 둘 이상 맡으면
+        # (재미쇼츠 = 유미의 세포들 시즌3 + 언더커버셰프) 둘 다 EP1 부터 시작하는데, 채널명만으로
+        # 키를 잡으면 앞 작품의 EP1 장면이 뒤 작품 EP1 의 진행분으로 섞인다 — 중복 판정도 quota
+        # 카운트도 어긋난다. 작품이 하나면 채널명 그대로라 기존 상태·산출물 경로가 유지된다.
+        "slot": f"{channel}·{work}" if multi_work else channel,
         "start_episode": src.get("start_episode", 1),
         "gen_flags": flags,
         "_source_kind": kind,
@@ -317,6 +326,10 @@ def _card_to_channel_config(channel, work, card, policy, sources_root):
         out["source_url"] = src.get("url")
         out["title_episode_regex"] = src.get("episode_regex")
         out["min_source_duration_sec"] = src.get("min_source_duration_sec", 0)
+        # 회차 표기가 없는 자사 롱폼 채널용(커리어데이·B급 스튜디오) — 업로드 순서를 회차로 삼는다.
+        out["episode_order"] = src.get("episode_order")
+        # 권리 범위가 '이 채널 중 특정 코너 제외' 인 작품용(B급: 청문회 제외).
+        out["title_exclude_regex"] = src.get("title_exclude_regex")
     elif kind == "local":
         out["source_type"] = "local"
         out["source_dir"] = str(pathlib.Path(sources_root) / (src.get("dir_slug") or ""))
@@ -355,14 +368,16 @@ def effective_channel_configs(machine_id=None, *, records=None, works=None,
         rec = resolve(ch, recs)
         if rec is None:
             raise ValueError(f"배정된 채널 '{ch}' 가 config/channels.json 에 없습니다")
-        for work in (rec.get("works") or []):
+        works_of_ch = rec.get("works") or []
+        for work in works_of_ch:
             card = work_card(work, wks)
             if card is None:
                 cands = work_card_candidates(work, wks)
                 raise ValueError(
                     f"작품 '{work}'(채널 {ch}) 카드가 config/works.json 에 없습니다"
                     + (f" — 후보: {cands}" if cands else ""))
-            out.append(_card_to_channel_config(ch, work, card, pol, root))
+            out.append(_card_to_channel_config(ch, work, card, pol, root,
+                                               multi_work=len(works_of_ch) > 1))
     return out
 
 

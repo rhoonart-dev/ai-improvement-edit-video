@@ -167,6 +167,16 @@ def discover_episodes(source_dir, video_glob, episode_regex, start_episode=1):
     return found
 
 
+def slot_key(ch):
+    """이 설정 항목의 **진행 슬롯 키** — 상태 파일과 산출물 디렉토리를 가르는 이름.
+
+    한 채널이 작품을 둘 이상 맡을 때 작품별로 진행을 분리한다(channel_registry 가 'slot' 을 채운다).
+    작품이 하나면 채널명 그대로라 기존 상태·경로가 그대로 유지된다.
+    🛑 슬롯은 진행 관리용 이름일 뿐 **업로드 대상 채널이 아니다** — 발행·공개조회에는 ch['channel'].
+    """
+    return ch.get("slot") or ch["channel"]
+
+
 def episode_dir_name(ep_num):
     """회차 → 산출물 디렉토리명. outdir 생성과 회차 스캔이 같은 규칙을 쓰도록 한 곳에 둔다."""
     return f"ep{ep_num:02d}"
@@ -253,6 +263,45 @@ def index_episodes(entries, title_regex, start_episode=1, min_duration_sec=0):
                 continue          # 하한이 있는데 확인 불가/미달 → 예고편 위험이라 제외
         out.setdefault(n, []).append(e)
     return out
+
+
+def exclude_entries(entries, exclude_regex):
+    """제목이 exclude_regex 에 걸리는 항목을 뺀다. 순수. 미지정이면 그대로 통과.
+
+    권리 범위가 '이 채널 롱폼 중 특정 코너 제외' 로 오는 작품용(B급 스튜디오: **청문회 제외**).
+
+    ⚠️ **alt_titles 도 검사한다** — 한 번이라도 제외 대상 제목으로 보인 영상은 뺀다. index_episodes
+    가 alt_titles 로 회차를 되살리므로, 제외를 title 만 보면 '지금은 영어 제목이라 안 걸리는데
+    회차는 옛 한글 제목으로 인식되는' 영상이 권리 범위 밖인 채로 소스가 된다.
+    ⚠️ 번호 부여 **전**에 걸러야 한다 — 제외분이 서수(ordinal_episodes)에 끼면 회차 번호가 밀린다."""
+    if not (exclude_regex or "").strip():
+        return list(entries)
+    pat = re.compile(exclude_regex)
+    out = []
+    for e in entries:
+        titles = [e.get("title")] + list(e.get("alt_titles") or [])
+        if any(pat.search(t or "") for t in titles):
+            continue
+        out.append(e)
+    return out
+
+
+def ordinal_episodes(entries, start_episode=1, min_duration_sec=0):
+    """제목에 회차 표기가 **없는** 채널용 — 업로드 오래된 순서를 서수 회차로 삼는다. 순수.
+
+    flat 목록은 최신순이라 뒤집는다. 회차 표기가 아예 없는 자사 롱폼 채널(커리어데이·B급 스튜디오)은
+    정규식으로 뽑을 번호 자체가 없어서 이 방식이 유일하다.
+
+    ⚠️ 서수는 목록 순서에 의존한다 — 채널에서 옛 영상이 삭제되면 번호가 밀린다(새 업로드는 뒤에
+    붙으므로 영향 없음). 길이 하한은 번호 부여 **전**에 적용해 번호를 안정시킨다."""
+    seq = []
+    for e in reversed(entries):
+        if min_duration_sec > 0:
+            d = e.get("duration")
+            if d is None or float(d) < min_duration_sec:
+                continue
+        seq.append(e)
+    return {n: [e] for n, e in enumerate(seq, 1) if n >= start_episode}
 
 
 def pick_episode_entry(cands):
@@ -358,13 +407,24 @@ def discover_episodes_youtube(gen_py, ch, cache_hours, log):
     if not url:
         raise ValueError(f"{ch.get('work_title')!r}: source_url 이 없습니다 "
                          f"(유튜브 소스는 채널 업로드 목록 또는 플레이리스트 URL 필수)")
+    order = (ch.get("episode_order") or "").strip().lower()
     regex = ch.get("title_episode_regex")
-    if not regex:
+    if not regex and order != "oldest_first":
         raise ValueError(f"{ch.get('work_title')!r}: title_episode_regex 가 없습니다 — 제목의 회차 "
-                         f"표기는 작품마다 달라 기본값을 두지 않습니다(권리사 가이드 확인 후 명시)")
+                         f"표기는 작품마다 달라 기본값을 두지 않습니다(권리사 가이드 확인 후 명시)."
+                         f" 회차 표기가 아예 없는 채널은 episode_order='oldest_first' 를 쓴다")
     entries = get_youtube_index(gen_py, url, cache_hours, log)
-    idx = index_episodes(entries, regex,
-                         ch.get("start_episode", 1), ch.get("min_source_duration_sec", 0))
+    before = len(entries)
+    entries = exclude_entries(entries, ch.get("title_exclude_regex"))
+    if len(entries) != before:
+        log(f"  [youtube] 제외 규칙으로 {before - len(entries)}건 제외 → {len(entries)}건 "
+            f"(title_exclude_regex={ch.get('title_exclude_regex')!r})")
+    if order == "oldest_first":
+        idx = ordinal_episodes(entries, ch.get("start_episode", 1),
+                               ch.get("min_source_duration_sec", 0))
+    else:
+        idx = index_episodes(entries, regex,
+                             ch.get("start_episode", 1), ch.get("min_source_duration_sec", 0))
     out = []
     for n in sorted(idx):
         e = pick_episode_entry(idx[n])
@@ -641,7 +701,8 @@ def channel_plan(cfg, ch, state, conn, api_key, scan_roots, gen_py=None, log=lam
     if not eps:
         return ("no_source", None, None, {"eps": []})
     for ep_num, vp in eps:
-        scenes = rendered_scenes(state, ch["channel"], ep_num, vp, scan_roots, iou_th, ctol)
+        # 진행 키는 slot_key(상태·산출물·중복판정), 공개 조회는 실제 채널명 — 섞으면 안 된다.
+        scenes = rendered_scenes(state, slot_key(ch), ep_num, vp, scan_roots, iou_th, ctol)
         kinds = classify_scenes(scenes, conn, ch["channel"], api_key)
         pub = kinds.count(SCENE_PUBLIC)
         # 브레이크는 pending 만 본다 — 반려(rejected)는 사람이 공개해 줄 수 없으므로 제외한다.
@@ -665,6 +726,9 @@ def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_ro
     quota = cfg["quota_per_episode"]
     scan_roots = [str(Path(ai_video_root) / d) for d in cfg.get("outputs_scan_dirs", ["outputs"])]
     tag = f"[{ch['channel']} · {ch['work_title']}]"
+    if ch.get("_paused"):
+        log(f"{tag} ⏸ 착수 전(works.json paused) → 건너뜀")
+        return False
     assert_source_scope(ch)          # 권리 범위 — 소스를 받기 전에 본다
     try:
         action, ep_num, vp, info = channel_plan(cfg, ch, state, conn, api_key, scan_roots,
@@ -723,7 +787,7 @@ def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_ro
             f"(카드 subtitles={ch.get('_subtitles')!r})")
 
     for attempt in range(1, attempts + 1):
-        outdir = str(Path(ai_video_root) / "outputs" / "scene_loop" / ch["channel"] /
+        outdir = str(Path(ai_video_root) / "outputs" / "scene_loop" / slot_key(ch) /
                      episode_dir_name(ep_num) / f"try{attempt}_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
         Path(outdir).mkdir(parents=True, exist_ok=True)
         cmd = build_cmd(gen_py, ch["work_title"], vp, outdir, gen_flags, ep_num, sub_path)
@@ -751,7 +815,7 @@ def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_ro
             log(f"{tag}   ↻ 중복 장면 {span} (기존과 겹침) → 재생성")
             continue
         run_id = _run_id_of(job_dir)
-        record_scene(state, ch["channel"], ch["work_title"], ep_num, vp, span, run_id, job_dir)
+        record_scene(state, slot_key(ch), ch["work_title"], ep_num, vp, span, run_id, job_dir)
         save_state(state)
         log(f"{tag}   ✓ 새 장면 확정(미공개) {span} (run={run_id}) — 공개 {info['public']}/{quota} 유지."
             f" 공개 처리하면 회차 카운트 반영")
@@ -766,10 +830,13 @@ def cmd_status(cfg, state, conn, api_key, ai_video_root, log, gen_py=None):
     quota = cfg["quota_per_episode"]
     iou_th, ctol = cfg["dup_iou_threshold"], cfg["dup_center_tolerance_sec"]
     for ch in cfg["channels"]:
+        if ch.get("_paused"):
+            log(f"[{ch['channel']} · {ch['work_title']}]  ⏸ 착수 전(works.json paused)")
+            continue
         eps = discover_episodes_for(ch, gen_py, cfg.get("youtube_index_cache_hours", 24), log)
         log(f"[{ch['channel']} · {ch['work_title']}]  회차: {[e for e,_ in eps] or '없음'}")
         for ep_num, vp in eps:
-            scenes = rendered_scenes(state, ch["channel"], ep_num, vp, scan_roots, iou_th, ctol)
+            scenes = rendered_scenes(state, slot_key(ch), ep_num, vp, scan_roots, iou_th, ctol)
             try:
                 kinds = classify_scenes(scenes, conn, ch["channel"], api_key)
                 pub, pubs = kinds.count(SCENE_PUBLIC), str(kinds.count(SCENE_PUBLIC))

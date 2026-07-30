@@ -28,6 +28,14 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 import channel_registry as reg  # noqa: E402
 
+
+def scene_loop_mod():
+    """scene_loop 를 늦게 import 한다 — 이 검증기는 생성 경로에 의존하지 않고 단독으로 돌아야
+    하는데(러너가 생성 전에 부른다), 서수 모드 스모크만 회차 산정 로직을 공유하면 된다.
+    같은 함수를 두 벌 두면 검증과 실제 동작이 갈린다."""
+    import scene_loop
+    return scene_loop
+
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 NOTICE_PATH = REPO_ROOT / "config" / "work_publish_notice.json"
 
@@ -35,9 +43,13 @@ BLOCK, WARN, INFO = "⛔", "⚠️", "※"
 
 SOURCE_TYPES = ("youtube_playlist", "youtube_channel", "local")
 CARD_KEYS = {"source", "constraints", "branding", "rights_lookup", "identification_code",
+             "paused",
              "_guide", "_note"}
 SOURCE_KEYS = {"type", "url", "dir_slug", "file_glob", "episode_regex",
-               "start_episode", "min_source_duration_sec"}
+               "start_episode", "min_source_duration_sec",
+               # 회차 표기가 없는 자사 롱폼 채널용(커리어데이·B급 스튜디오)
+               "episode_order", "title_exclude_regex"}
+EPISODE_ORDERS = ("oldest_first",)
 CONSTRAINT_KEYS = {"geoblock_required", "subtitles"}
 # 로고 배선(channel_registry._card_to_channel_config). box 는 'WxH' — 형식이 틀리면 생성이
 # 예외로 죽으므로 여기서 미리 잡는다(밤중에 죽으면 그날 채널이 통째로 빠진다).
@@ -77,6 +89,20 @@ def regex_problem(pattern):
         return f"컴파일 실패: {e}"
     if c.groups < 1:
         return "캡처그룹이 없음(그룹1이 회차번호여야 한다)"
+    return None
+
+
+def regex_problem_optional(pattern):
+    """선택 정규식(제외 규칙 등) → 문제 사유 또는 None. 순수.
+
+    비어 있는 것은 정상이고(제외 없음), 캡처그룹도 필요 없다 — 매칭 여부만 본다.
+    컴파일 실패는 막는다: 밤중 실행에서 그 채널이 예외로 통째로 빠진다."""
+    if not (pattern or "").strip():
+        return None
+    try:
+        re.compile(pattern)
+    except re.error as e:
+        return f"컴파일 실패: {e}"
     return None
 
 
@@ -321,12 +347,32 @@ def _check_card(rep, work, channel, card, *, index_dir=None, sources_root=None, 
             if not src.get(k):
                 rep.block(f"{where}: local 소스인데 source.{k} 가 없습니다")
 
-    prob = regex_problem(src.get("episode_regex"))
+    order = (src.get("episode_order") or "").strip().lower()
+    if order and order not in EPISODE_ORDERS:
+        rep.block(f"{where}: source.episode_order 는 {EPISODE_ORDERS} 중 하나여야 합니다 "
+                  f"(현재 {src.get('episode_order')!r})")
+    if order == "oldest_first":
+        # 서수 모드 — 회차 표기가 없는 채널이라 정규식이 없는 것이 정상이다.
+        if src.get("episode_regex"):
+            rep.warn(f"{where}: episode_order=oldest_first 인데 episode_regex 도 있습니다 — "
+                     f"서수 모드에서는 정규식을 읽지 않습니다(둘 중 하나만 두세요)")
+        # 🛑 앵커 대신 **제외 규칙**이 권리 범위를 정한다. 채널에 다른 코너가 섞여 있는데
+        #    제외가 없으면 범위 밖 영상이 소스가 된다 — 사람이 의도적으로 비웠는지 알 수 없으므로
+        #    '전부 사용' 이면 title_exclude_regex 를 빈 문자열로 명시하게 한다.
+        if kind == "youtube_channel" and src.get("title_exclude_regex") is None:
+            rep.warn(f"{where}: 채널 전체가 소스이고 회차 표기가 없는데 title_exclude_regex 가 "
+                     f"없습니다 — 그 채널의 다른 코너까지 전부 소스가 됩니다. 전부 쓰는 것이 "
+                     f"맞으면 \"\" 로 명시하세요")
+    else:
+        prob = regex_problem(src.get("episode_regex"))
+        if prob:
+            rep.block(f"{where}: episode_regex — {prob}")
+        elif kind == "youtube_channel" and not has_work_anchor(src.get("episode_regex")):
+            rep.block(f"{where}: 채널 전체가 소스인데 정규식에 작품 한정 앵커가 없습니다 — "
+                      f"같은 채널의 다른 작품 회차를 집습니다(해시태그로 한정하세요)")
+    prob = regex_problem_optional(src.get("title_exclude_regex"))
     if prob:
-        rep.block(f"{where}: episode_regex — {prob}")
-    elif kind == "youtube_channel" and not has_work_anchor(src.get("episode_regex")):
-        rep.block(f"{where}: 채널 전체가 소스인데 정규식에 작품 한정 앵커가 없습니다 — "
-                  f"같은 채널의 다른 작품 회차를 집습니다(해시태그로 한정하세요)")
+        rep.block(f"{where}: title_exclude_regex — {prob}")
 
     # subtitles 필수
     if con.get("subtitles") not in SUBTITLE_VALUES:
@@ -339,9 +385,19 @@ def _check_card(rep, work, channel, card, *, index_dir=None, sources_root=None, 
         if entries is None:
             rep.info(f"{where}: 인덱스 캐시가 없어 정규식 스모크를 건너뜁니다")
         else:
-            n_keep, holes = duration_smoke(entries, src["episode_regex"],
-                                           src.get("min_source_duration_sec"),
-                                           src.get("start_episode", 1))
+            if order == "oldest_first":
+                # 서수 모드는 정규식이 없다 — 제외·하한을 적용한 뒤 실제로 몇 회차가 남는지 본다.
+                # (정규식 스모크와 목적은 같다: '조용히 0회차' 를 생성 전에 잡는다)
+                kept = scene_loop_mod().exclude_entries(entries, src.get("title_exclude_regex"))
+                idx = scene_loop_mod().ordinal_episodes(
+                    kept, src.get("start_episode", 1), src.get("min_source_duration_sec") or 0)
+                n_keep, holes = len(idx), []
+                rep.info(f"{where}: 서수 모드 — 캐시 {len(entries)}건 → 제외 후 {len(kept)}건 → "
+                         f"회차 {n_keep}개(start_episode={src.get('start_episode', 1)})")
+            else:
+                n_keep, holes = duration_smoke(entries, src["episode_regex"],
+                                               src.get("min_source_duration_sec"),
+                                               src.get("start_episode", 1))
             if n_keep == 0:
                 rep.warn(f"{where}: 캐시 {len(entries)}건에서 쓸 수 있는 회차 0개 — "
                          f"회차가 조용히 사라지는 상태입니다(정규식·하한 확인)")

@@ -57,15 +57,7 @@ PY = str(BRAIN / ".venv" / "bin" / "python")
 PUBLISH_KEYS = ("publish_times", "publish_privacy", "require_work_in_title")
 
 
-def slot_key(ch):
-    """진행 슬롯 키 — scene_loop 상태(results/scene_loop_state.json)의 최상위 키.
-
-    ⚠ 현재 main 의 scene_loop.record_scene 은 상태를 **채널명으로** 키한다(슬롯 개념 없음).
-    한 채널이 작품을 순차로 둘 이상 소비하면 둘 다 EP1 부터라 앞 작품 장면이 뒤 작품 진행분으로
-    오인되는데, 그건 생성측에서 풀 문제다. 여기서는 생성측 키 규칙을 그대로 따라가기만 한다 —
-    생성이 슬롯을 도입하면 이 함수도 그 규칙으로 옮긴다.
-    """
-    return ch.get("slot") or ch["channel"]
+slot_key = sl.slot_key   # 진행 슬롯 규칙은 생성측이 정본(7fb0305 에서 도입)
 
 
 def publish_config(ch_cfg, policy, records):

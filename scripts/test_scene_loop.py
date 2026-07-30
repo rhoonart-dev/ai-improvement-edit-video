@@ -416,3 +416,53 @@ def _run():
 
 if __name__ == "__main__":
     _run()
+
+
+# ─────── 서수 회차 · 제외 규칙 · 슬롯 (2026-07-30) ───────
+
+def test_exclude_entries_filters_title_and_alt_titles():
+    """alt_titles 도 봐야 한다 — 회차는 옛 한글 제목으로 살아나는데 제외는 못 걸리면
+    권리 범위 밖 영상이 소스가 된다."""
+    E = [{"id": "a", "title": "웃긴거ㅣB급 청문회 EP.01"},
+         {"id": "b", "title": "B-Class Hearing EP.02", "alt_titles": ["B급 청문회 EP.02"]},
+         {"id": "c", "title": "입만살아서 ep.01"}]
+    assert [e["id"] for e in sl.exclude_entries(E, "청문회")] == ["c"]
+    assert sl.exclude_entries(E, None) == E and sl.exclude_entries(E, "  ") == E
+
+
+def test_ordinal_episodes_numbers_oldest_first():
+    E = [{"id": "new", "title": "3번째", "duration": 900},      # flat 목록은 최신순
+         {"id": "mid", "title": "2번째", "duration": 900},
+         {"id": "old", "title": "1번째", "duration": 900}]
+    assert {n: c[0]["id"] for n, c in sl.ordinal_episodes(E).items()} == {1: "old", 2: "mid", 3: "new"}
+
+
+def test_ordinal_episodes_applies_duration_before_numbering():
+    """하한 미달분을 번호 부여 뒤에 빼면 회차 번호에 구멍이 난다."""
+    E = [{"id": "new", "title": "x", "duration": 900},
+         {"id": "short", "title": "y", "duration": 60},
+         {"id": "old", "title": "z", "duration": 900}]
+    assert {n: c[0]["id"] for n, c in sl.ordinal_episodes(E, 1, 300).items()} == {1: "old", 2: "new"}
+
+
+def test_exclusion_applies_before_ordinal_numbering():
+    E = [{"id": "new", "title": "입만살아서 ep.02", "duration": 900},
+         {"id": "skip", "title": "B급 청문회 EP.99", "duration": 900},
+         {"id": "old", "title": "입만살아서 ep.01", "duration": 900}]
+    idx = sl.ordinal_episodes(sl.exclude_entries(E, "청문회"), 1, 300)
+    assert {n: c[0]["id"] for n, c in idx.items()} == {1: "old", 2: "new"}
+
+
+def test_ordinal_start_episode_trims_front():
+    E = [{"id": f"v{i}", "title": str(i), "duration": 900} for i in range(5, 0, -1)]
+    assert sorted(sl.ordinal_episodes(E, 3)) == [3, 4, 5]
+
+
+def test_slot_key_defaults_to_channel():
+    assert sl.slot_key({"channel": "B급 순삭"}) == "B급 순삭"
+
+
+def test_slot_key_separates_two_works_on_one_channel():
+    a = {"channel": "재미쇼츠", "slot": "재미쇼츠·유미의 세포들 시즌3"}
+    b = {"channel": "재미쇼츠", "slot": "재미쇼츠·언더커버셰프"}
+    assert sl.slot_key(a) != sl.slot_key(b)      # EP1 끼리 섞이지 않는다
