@@ -2,9 +2,9 @@
   {
     "token_slug": "JAEMISHOTS",
     "name": "재미쇼츠",
-    "handle": null,
+    "handle": "@재미쇼츠-e2c7u",
     "channel_id": "UC7eXwtR1TyUVe2ts6BUjXGA",
-    "gcp_project": "DEFAULT",
+    "gcp_project": "SEAN",
     "genre": "드라마",
     "works": [
       "유미의 세포들 시즌3",
@@ -356,10 +356,10 @@
     "name": "커리어데이 숏츠",
     "handle": "@careerday_shorts",
     "channel_id": "UCHlZ7D5yoVq8PuxJX6_AUxQ",
-    "gcp_project": "P6",
+    "gcp_project": "SEAN",
     "genre": "커리어·인터뷰",
     "works": [
-      "커리어데이 유튜브 롱폼"
+      "커리어데이"
     ],
     "geoblock_capable": false,
     "country": "KR",
@@ -373,6 +373,29 @@
       "취업",
       "이직",
       "커리어데이"
+    ]
+  },
+  {
+    "token_slug": "BGSUNSAK",
+    "name": "B급 순삭",
+    "handle": "@b급순삭",
+    "channel_id": "UCXEWaNqCRwA0rk-Ywg-B7Ow",
+    "gcp_project": "SEAN",
+    "genre": "예능",
+    "works": [
+      "B급 스튜디오"
+    ],
+    "geoblock_capable": false,
+    "country": "KR",
+    "description": "B급 스튜디오 롱폼에서 제일 웃긴 구간만 순삭으로. 자사 콘텐츠 기반 쇼츠 채널입니다.",
+    "keywords": [
+      "B급",
+      "예능",
+      "쇼츠",
+      "하이라이트",
+      "명장면",
+      "순삭",
+      "웃긴영상"
     ]
   },
   {
