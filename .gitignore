@@ -24,6 +24,7 @@ config/scene_loop.json
 config/scene_loop.json.bak
 config/scene_loop.local.json
 results/scene_loop_state.json
+results/scene_publish_state.json
 results/scene_loop.log
 results/scene_loop.launchd.*.log
 results/scene_loop.lock/
