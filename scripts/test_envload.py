@@ -53,6 +53,25 @@ def test_skips_comments_and_blanks():
     os.unlink(p)
 
 
+def test_strips_inline_comment_after_value():
+    """값 뒤 ' # 설명' 은 값에 섞이면 안 된다 — 경로 끝에 붙어 실행 자체가 깨진 적이 있다."""
+    p = _write("AI_VIDEO_ROOT_X=/Users/me/ves/ai-video   # 머신마다 다름\n")
+    os.environ.pop("AI_VIDEO_ROOT_X", None)
+    assert envload.load_env(p) == {"AI_VIDEO_ROOT_X": "/Users/me/ves/ai-video"}
+    os.unlink(p)
+
+
+def test_keeps_hash_inside_value():
+    """공백 없이 붙은 '#' 은 값의 일부 — DSN 비밀번호·토큰이 잘리면 조용히 인증이 실패한다."""
+    p = _write("DSN_X=postgresql://u:pa#ss@host:5432/db\nQUOTED_X=\"a # b\"\n")
+    for k in ("DSN_X", "QUOTED_X"):
+        os.environ.pop(k, None)
+    loaded = envload.load_env(p)
+    assert loaded["DSN_X"] == "postgresql://u:pa#ss@host:5432/db"
+    assert loaded["QUOTED_X"] == "a # b"
+    os.unlink(p)
+
+
 def test_missing_file_returns_empty():
     assert envload.load_env("/no/such/.env-xyz") == {}
 

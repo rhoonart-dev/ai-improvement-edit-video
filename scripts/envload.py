@@ -9,8 +9,13 @@ from __future__ import annotations
 
 import os
 import pathlib
+import re
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+# 값 뒤 인라인 주석(` # …`) 제거용. **공백이 앞선 # 만** 주석으로 본다 — DSN 비밀번호나 토큰에
+# 들어간 '#'(앞에 공백 없음)까지 잘라내면 조용히 틀린 자격증명이 된다.
+_INLINE_COMMENT = re.compile(r"\s+#.*$")
 
 
 def load_env(path=None, override=False):
@@ -25,6 +30,9 @@ def load_env(path=None, override=False):
             continue
         k, v = line.split("=", 1)
         k = k.strip()
+        v = v.strip()
+        if not (v.startswith(('"', "'")) and v.endswith(('"', "'")) and len(v) > 1):
+            v = _INLINE_COMMENT.sub("", v)   # 따옴표로 감싼 값은 그대로(주석 기호도 값의 일부)
         v = v.strip().strip('"').strip("'")
         if not k:
             continue
