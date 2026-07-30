@@ -15,3 +15,11 @@ venv/
 outputs/
 *.mp4
 *.mkv
+
+# scene_loop 런타임 산출물 — 머신마다 다른 진행 상태·로그·캐시라 공유하면 안 된다
+# (담당 채널이 머신별로 갈리므로 남의 진행분이 섞이면 중복/오채널 판정이 깨진다)
+results/scene_loop_state.json
+results/scene_publish_state.json
+results/scene_loop.log
+results/scene_loop.lock/
+results/youtube_index/

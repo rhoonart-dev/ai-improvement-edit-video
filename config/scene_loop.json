@@ -1,0 +1,83 @@
+{
+  "_doc": "scene_loop.py 설정 (이 머신 담당분 = 맥5 · 레이블리 내부 채널 · rhoonart0sean@gmail.com: 커리어데이 숏츠·재미쇼츠·B급 순삭). 채널별로 소스에서 회차를 순서대로 집어 회차당 quota개 '서로 다른' 장면을 만든다. 회차 완료 판정 count_mode='public'(유튜브 공개분만 카운트). 채널별 오버라이드: quota_per_episode·per_run_scenes_per_channel·max_pending_unpublished.",
+  "_machine_note": "OAuth 는 3채널 모두 SEAN 클라이언트(YT_CLIENT_ID_SEAN) — channels.json 의 gcp_project='SEAN' 이 가리킨다. 재미쇼츠는 작품 2개를 순차 소비하므로 slot 으로 진행 상태를 분리하고 대기 작품은 queued=true 로 둔다(전환은 사람이 플래그를 옮겨서 — 소스가 안 보이는 게 '작품 종료'라는 보장이 없다).",
+  "quota_per_episode": 3,
+  "max_retries": 2,
+  "per_run_scenes_per_channel": 1,
+  "count_mode": "public",
+  "youtube_api_key_env": "REACT_APP_YOUTUBE_API_KEY",
+  "max_pending_unpublished": 3,
+  "dup_iou_threshold": 0.5,
+  "dup_center_tolerance_sec": 15,
+  "gen_timeout_sec": 5400,
+  "_gen_flags_note": "--no-subtitles 는 전역이다(2026-07-30 합의) — 이 머신의 모든 작품을 자막 없이 생성한다. 제공 자막이 없으면 whisper 전사로 자막을 만드는데 전사 정확도가 낮아 화면에 틀린 자막이 박히고(CLAUDE.md §5), 제공분이 있어도 발췌 자막이면 타이밍이 어긋난다. ※TTS 내레이션 자막은 별개(--no-tts-subtitles).",
+  "gen_flags": [
+    "--silence-profile",
+    "aggressive",
+    "--length-profile",
+    "tight",
+    "--loudness-lufs",
+    "-14",
+    "--no-subtitles"
+  ],
+  "outputs_scan_dirs": [
+    "outputs",
+    "outputs_ab"
+  ],
+  "channels": [
+    {
+      "channel": "커리어데이 숏츠",
+      "work_title": "커리어데이",
+      "_work_title_note": "config/channels.json 의 works 와 같은 문자열로 통일(2026-07-30). DB 기존 발행분도 이 이름이다.",
+      "source_type": "youtube",
+      "source_url": "https://www.youtube.com/@careerday_official/videos",
+      "episode_order": "oldest_first",
+      "min_source_duration_sec": 300,
+      "start_episode": 1,
+      "quota_per_episode": 2,
+      "per_run_scenes_per_channel": 2,
+      "publish_times": ["12:00", "19:00"],
+      "_note": "제목에 회차 표기 없음 → 업로드 오래된 순 서수를 회차로 사용(처음 올라온 영상=1). 영상(회차)당 쇼츠 2개, 하루 2개 생성, 예약 공개 12시·19시. 자사 롱폼이라 지오블락·권리 제약 없음."
+    },
+    {
+      "channel": "재미쇼츠",
+      "slot": "재미쇼츠·유미의 세포들 시즌3",
+      "work_title": "유미의 세포들 시즌3",
+      "source_type": "local",
+      "source_dir": "/Users/lunaleuteumaeg5/ves/sources/유미의 세포들 시즌3",
+      "video_glob": "*회.mp4",
+      "episode_regex": "(\\d+)회",
+      "start_episode": 1,
+      "publish_privacy": "unlisted",
+      "_subtitles_note": "자막 없이 생성 — 전역 gen_flags 의 --no-subtitles 로 적용된다. 이 작품은 Drive '자막' 폴더가 1·2화만 전체 자막(KO_SDH_*.vtt)이고 3~8화는 20분 발췌분(_20분자막.srt)이라, 발췌 자막을 전체 회차에 물리면 타이밍이 어긋나 화면에 틀린 자막이 박힌다.",
+      "_note": "⚠ 지오블락 필수 작품(laeebly guide). 지오블락은 유튜브 PC 업로드에서만 수동으로 걸 수 있어 API 자동 공개가 불가하다 → 예약 공개(publishAt)를 쓰지 않고 publish_privacy=unlisted 로만 올린다. 사람이 Studio 에서 지오블락(대한민국 한정)을 건 뒤 공개할 것. 소스는 권리사 Drive 제공분을 N회.mp4 로 받아 배치."
+    },
+    {
+      "channel": "재미쇼츠",
+      "slot": "재미쇼츠·언더커버셰프",
+      "work_title": "언더커버셰프",
+      "queued": true,
+      "source_type": "local",
+      "source_dir": "/Users/lunaleuteumaeg5/ves/sources/언더커버셰프",
+      "video_glob": "*회.mp4",
+      "episode_regex": "(\\d+)회",
+      "start_episode": 1,
+      "publish_privacy": "unlisted",
+      "_note": "순차 2번째 — 유미의 세포들 시즌3 이 끝나면 위 항목에 queued=true 를 걸고 여기 queued 를 지운다. 지오블락 필수라 위와 같이 unlisted 까지만. 소스 경로는 Drive 수령 후 실제 폴더명에 맞출 것."
+    },
+    {
+      "channel": "B급 순삭",
+      "work_title": "B급 스튜디오",
+      "source_type": "youtube",
+      "source_url": "https://www.youtube.com/@B급studio/videos",
+      "episode_order": "oldest_first",
+      "title_exclude_regex": "청문회|죄송합니다",
+      "min_source_duration_sec": 300,
+      "start_episode": 35,
+      "publish_times": ["19:00"],
+      "_start_episode_note": "'2년 전 것부터'(2026-07-30 기준 = 2024-07-30 이후) → 서수 35번부터. EP34=2024-07-22, EP35=2024-08-28 'B급 리딩 EP.01' 로 5주 공백 뒤 프로그램 시작점과 정확히 맞아떨어진다. 남는 회차 9개(2024-08-28~2026-01-16). 더 옛것까지 원하면 이 값을 내린다(EP21=2024-04-13 'B급 오디션 EP.01', EP17=2024-02-19 'B급 뉴스'). ⚠ 서수는 목록 순서 기반이라 EP1~34 중 하나가 채널에서 삭제되면 창이 통째로 밀린다 — 그때는 이 값을 다시 계산할 것.",
+      "_note": "자사 롱폼. **청문회 제외**(title_exclude_regex) — 제외는 서수 부여 '전'에 적용되므로 회차 번호는 청문회를 뺀 나열 기준이다. 제목에 회차 표기 없음 → 업로드 오래된 순 서수. 2026-07-29 실측: 전체 263건 중 청문회 218건 제외 → 44회차. '죄송합니다  -제작진 일동-'(사과문, 613초)도 제외 — 길이 하한을 통과해 쇼츠 소재로 잡히는데 절대 쓰면 안 되는 영상이다. ⚠ 남는 44건은 입만살아서·입만살2·B급 리딩·B급 뉴스·꼬치꼬치·B급 오디션·B급 소개팅 등 **여러 프로그램이 섞여** 있다 — 서수는 업로드 순서일 뿐 특정 시리즈의 회차가 아니다."
+    }
+  ],
+  "youtube_index_cache_hours": 24
+}
