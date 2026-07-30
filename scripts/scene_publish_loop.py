@@ -333,6 +333,10 @@ def main():
     ap.add_argument("--skip-publish", action="store_true", help="공개 전환만 수행")
     ap.add_argument("--channel", default=None, help="이 채널만 처리")
     ap.add_argument("--machine", default=None, help="배정 정본에서 쓸 머신 id(기본: 자동 감지)")
+    # 아래 둘은 시험 발행용 — 자동 실행에는 쓰지 않는다(설정이 정본이어야 한다)
+    ap.add_argument("--run-id", default=None, help="이 run_id 장면 하나만 발행(시험용)")
+    ap.add_argument("--privacy", default=None, choices=["private", "unlisted"],
+                    help="예약 공개 대신 이 상태로만 올린다(시험용). 설정의 publish_privacy 를 덮는다")
     a = ap.parse_args()
 
     def log(m):
@@ -343,6 +347,9 @@ def main():
     policy, chans, mode = sl.resolve_run_config(sl.load_config(), log, machine=a.machine)
     records = registry.load_channels()
     chans = [publish_config(c, policy, records) for c in chans]
+    if a.privacy:
+        for c in chans:
+            c["publish_privacy"] = a.privacy
     if a.channel:
         chans = [c for c in chans if c["channel"] == a.channel]
         if not chans:
@@ -362,7 +369,11 @@ def main():
             sys.exit("⛔ PIPELINE_DB_URL 미설정/연결 실패 — 이미 발행된 장면을 가려낼 수 없어 "
                      "발행을 중단한다(중복 업로드 위험). --skip-publish 는 현황 보고만 한다")
         todo = pending_scenes(gen_state, pub_state)
-        log(f"[발행] 미발행 장면 {len(todo)}건")
+        if a.run_id:
+            todo = [t for t in todo if t[3].get("run_id") == a.run_id]
+            if not todo:
+                sys.exit(f"run_id '{a.run_id}' 가 미발행 목록에 없습니다(이미 발행됐거나 오타)")
+        log(f"[발행] 미발행 장면 {len(todo)}건" + (f" (--run-id {a.run_id} 로 한정)" if a.run_id else ""))
         # 설정은 슬롯으로 찾는다(같은 채널에 작품이 둘이면 채널명만으론 항목이 겹친다).
         # 발행 파라미터(--channel·공개 슬롯)는 항상 실제 채널명을 쓴다.
         ch_cfgs = {slot_key(c): c for c in cfg["channels"]}
