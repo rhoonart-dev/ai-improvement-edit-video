@@ -20,10 +20,19 @@ import argparse
 import pathlib
 import re
 
-# upload(발행) + readonly(발급 직후 채널 자동확인용)
+# upload(videos.insert) + youtube(videos.update = 공개 전환 · channels.list 로 채널 자동확인)
+#
+# ⚠️ `youtube` 를 빼면 **업로드는 되는데 공개 전환만 안 되는** 상태가 된다: unlisted 업로드까지는
+# upload scope 로 충분해 낮에는 정상처럼 보이고, 밤에 videos.update 가 403 insufficientPermissions
+# 로 죽는다(2026-07-27 실제 사고 — 전 채널의 공개 전환이 멈췄고 사람이 Studio 에서 손으로 공개해야
+# 했다). readonly 는 `youtube` 가 읽기까지 포함하므로 따로 두지 않는다.
+#
+# 권한은 **이 동의화면 시점에 고정**된다 — 여기 목록을 넓혀도 이미 발급된 토큰은 그대로다. 기존
+# 채널은 이 스크립트를 다시 돌려 재동의해야 하고, 무엇이 남았는지는 scripts/check_youtube_scopes.py
+# 로 확인한다.
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
-    "https://www.googleapis.com/auth/youtube.readonly",
+    "https://www.googleapis.com/auth/youtube",
 ]
 
 # 채널→토큰/OAuth 매핑 단일 소스(config/channels.json) — 하드코딩/퍼지매칭 제거
