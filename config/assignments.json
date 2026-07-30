@@ -32,9 +32,9 @@
       "label": "루나르트맥3 · 그외 레이블리 작품",
       "account": "rhoonartves03@gmail.com",
       "aliases": { "hostname": ["3-mac-mini"] },
-      "channels": ["명장면 세탁소", "리와인드포차", "ショトコン", "여운 보관소"],
+      "channels": ["명장면 세탁소", "리와인드포차", "여운 보관소", "ショトコン"],
       "schedule": { "kind": "claude_task", "at": "04:30" },
-      "_note": "⚠️ 계정명이 맥4 와 같은 'lunaleuteumaeg4' 라 hostname 으로만 구분된다 — aliases.user 를 두면 다중매칭으로 식별이 실패한다(2026-07-28 실측). 채널 표기 주의: 로컬 설정이 '숏콘' 으로 남아 있으면 발행이 하드 실패한다(정본은 'ショトコン')."
+      "_note": "⚠️ 계정명이 맥4 와 같은 'lunaleuteumaeg4' 라 hostname 으로만 구분된다 — aliases.user 를 두면 다중매칭으로 식별이 실패한다(2026-07-28 실측). 채널 표기 주의: 로컬 설정이 '숏콘' 으로 남아 있으면 발행이 하드 실패한다(정본은 'ショトコン'). ★배열 순서가 곧 생성 순서다(machine_channels 가 파일 순서를 그대로 쓴다) — ショトコン 을 맨 뒤로 뒀다(2026-07-29 지시)."
     },
     "macmini-luna4": {
       "label": "루나르트맥4 · 외부 협력 작품",
