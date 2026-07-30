@@ -498,8 +498,12 @@ def rendered_scenes(state, channel, ep_num, video_path, scan_roots, iou_th, cent
 
 
 def record_scene(state, channel, work_title, ep_num, video_path, span, run_id, job_dir):
+    # 🛑 video_path 는 반드시 str 로 넣는다 — source_cache.ensure_episode_source 가 Path 를 돌려주므로
+    # 그대로 담으면 save_state 의 json.dumps 가 TypeError(PosixPath not JSON serializable) 로 죽는다.
+    # 생성이 끝난 **뒤**에 터지는 자리라, 30~90분 쓴 렌더가 상태에 기록되지 않는다(2026-07-29 실측:
+    # 로컬 소스 채널 3곳이 전부 이걸로 실패). 렌더 스캔이 산출물을 주워 유실은 없었지만 매일 반복된다.
     ch = state.setdefault("channels", {}).setdefault(channel, {"work_title": work_title, "episodes": {}})
-    ep = ch.setdefault("episodes", {}).setdefault(str(ep_num), {"video_path": video_path, "scenes": []})
+    ep = ch.setdefault("episodes", {}).setdefault(str(ep_num), {"video_path": str(video_path), "scenes": []})
     ep["scenes"].append({"span": span, "run_id": run_id, "job_dir": job_dir,
                          "accepted_at": datetime.now().isoformat(timespec="seconds")})
 

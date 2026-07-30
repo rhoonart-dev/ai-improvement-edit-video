@@ -281,6 +281,34 @@ def test_rendered_scenes_merges_state_and_own_outputs():
         assert got == [[100.0, 150.0], [500.0, 560.0]]
 
 
+# ── 확정된 장면은 반드시 상태로 저장돼야 한다 ──
+
+def test_record_scene_survives_path_video_path():
+    """ensure_episode_source 는 Path 를 돌려준다 — 상태에 그대로 담기면 save_state 가 죽는다.
+
+    생성이 끝난 뒤에 터지는 자리라 30~90분 쓴 렌더가 기록되지 않았다(2026-07-29: 로컬 소스 3채널 전부)."""
+    state = {}
+    sl.record_scene(state, "채널1", "작품", 1, Path("/srv/sources/가나다/EP1.mp4"),
+                    [100.0, 150.0], "가나다_a1", "/out/job")
+
+    ep = state["channels"]["채널1"]["episodes"]["1"]
+    assert ep["video_path"] == "/srv/sources/가나다/EP1.mp4"
+    json.dumps(state, ensure_ascii=False)      # ← 예전엔 TypeError: PosixPath not JSON serializable
+
+
+def test_save_state_round_trips_after_record_scene():
+    """실제 저장 경로로도 한 번 확인한다(json.dumps 직접 호출만으론 save_state 변경을 못 잡는다)."""
+    with tempfile.TemporaryDirectory() as d:
+        p = Path(d, "scene_loop_state.json")
+        state = {}
+        sl.record_scene(state, "채널1", "작품", 1, Path("/srv/sources/가나다/EP1.mp4"),
+                        [100.0, 150.0], "가나다_a1", "/out/job")
+        sl.save_state(state, p)
+
+        back = json.loads(p.read_text(encoding="utf-8"))
+        assert back["channels"]["채널1"]["episodes"]["1"]["scenes"][0]["span"] == [100.0, 150.0]
+
+
 def test_episode_dir_name_matches_outdir_convention():
     # outdir 생성과 회차 스캔이 같은 이름을 써야 유튜브 중복판정이 동작한다
     assert sl.episode_dir_name(5) == "ep05" and sl.episode_dir_name(410) == "ep410"
