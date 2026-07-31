@@ -121,8 +121,9 @@
       ],
       "gemini_key": "API3",
       "schedule": {
-        "kind": "claude_task",
-        "at": "10:00"
+        "kind": "launchd",
+        "at": "00:00",
+        "_note": "2026-07-31 10:00 → 00:00 복구. 원 설계(커밋 b32e0e3)는 같은 키 짝을 00:00/04:00 으로 벌리는 것이고 맥5 는 00:00 이었다. 94524d3(B급 순삭 채널 등록)에서 배정 파일 형식을 재구성하며 스케줄 언급 없이 10:00 으로 바뀌었다 — 커밋 메시지에 근거가 없어 의도치 않은 변경으로 판단했다(운영자 확인). 파일과 기기가 둘 다 10:08 이라 서로 일치해 드러나지 않았고, 짝인 맥6 가 비활성이라 충돌도 나지 않았다. ⚠️ 관찰 대상: 맥5 는 3채널이라 최대 4.5시간(gen_timeout_sec 5400 × 3)이면 04:30 종료라 짝인 맥6(04:00 시작)와 꼬리가 겹칠 수 있다. 겹치면 채널 수를 줄이거나 간격을 벌린다."
       },
       "_note": "2026-07-30 'B급 순삭' 채널을 config/channels.json 에 등록해 배정에 넣었다(token_slug BGSUNSAK · channel_id UCXEWaNqCRwA0rk-Ywg-B7Ow · gcp_project SEAN · geoblock_capable false — channel_id·handle 은 그 채널 refresh token 으로 channels.list(mine=true) 조회해 확인한 실값). 재미쇼츠는 지오블락 가능 채널이라 유미의 세포들 시즌3·언더커버셰프(둘 다 지오블락 필수)를 맡는다 — 운영은 **순차**이고 현재는 유미의 세포들 시즌3 만 works 에 있다(언더커버셰프는 소스 범위 확인 대기, channels.json 의 _works_note 참고). 🛑 재미쇼츠 발행은 unlisted 까지만 — 지오블락은 PC 업로드에서만 걸 수 있어 사람이 Studio 에서 걸고 공개한다. 스케줄은 실제 설치된 예약 작업에 맞춰 10:00 으로 적는다(2026-07-30) — 선언값 00:00 은 설치된 적이 없어 정본이 현실과 어긋나 있었다. API3 를 함께 쓰는 맥6(04:00)과 6시간 벌어져 Gemini 쿼터 충돌은 없다. 2026-07-31 담당 3채널 토큰 재발급 완료(youtube scope 포함 — check_youtube_scopes 전부 ✓, BGSUNSAK 토큰이 가리키는 채널도 정본 channel_id 와 일치 확인). ⚠️ 동의 계정이 채널마다 다르다: 커리어데이 숏츠·재미쇼츠는 rhoonart0sean@gmail.com, B급 순삭은 contact@laeebly.com — 다음 재발급 때 그 계정으로 로그인해야 한다(account 필드는 머신 기본 계정일 뿐)."
     },
