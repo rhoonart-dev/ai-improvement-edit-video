@@ -101,7 +101,7 @@
         "kind": "claude_task",
         "at": "04:00"
       },
-      "_note": "⚠️ 계정명이 맥3 과 같아 hostname 으로만 구분된다. 이 머신은 SNL 야간 루틴(snl-nightly-upload, 마크다운 절차서 방식)도 함께 쓰고 있었다 — SNL 시즌8 이 맥1 로 재배정됐으므로 그 루틴의 거취를 정해야 한다. 담당 4작품이 전부 laeebly 미등재(외부 협력)라 작품 카드에 rights_lookup:'none' 이 필요하다."
+      "_note": "⚠️ 계정명이 맥3 과 같아 hostname 으로만 구분된다. 2026-07-31 SNL 야간 루틴(snl-nightly-upload, 마크다운 절차서 방식)을 폐지하고 예약 작업을 scene-loop-daily 로 교체했다 — SNL 시즌8 은 맥1 담당이라 두 대가 같은 채널에 올릴 위험이 있었고, 시즌7 은 어느 채널에도 배정돼 있지 않다(폐지 기록은 그 머신의 ~/ves/ops/README.md). 같은 날 담당 4작품 카드를 works.json 에 넣어 이 머신이 실제로 돌 수 있게 됐다 — 전부 laeebly 미등재(외부 협력)라 rights_lookup:'none' 이고, 소스는 권리사 Drive 가 아니라 **사람이 그 머신에 직접 받아 두는 로컬 파일**(sources_root 기본값 ~/ves/sources/<dir_slug>)이다."
     },
     "macmini-luna5": {
       "label": "루나르트맥5 · 레이블리 공식 채널",
