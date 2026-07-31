@@ -29,6 +29,29 @@ fi
 [ -x "$RUNNER" ] || { echo "⛔ 러너가 없거나 실행 권한이 없다: $RUNNER"; exit 1; }
 mkdir -p "$HOME/Library/LaunchAgents" "$BRAIN/results"
 
+# ── 생성 시각은 config/assignments.json 이 정본 ──
+# 시각을 여기 박아두면 안 된다. 머신마다 다르고, 그 값은 **Gemini 키 공유 구조**에서 나온다:
+# 같은 gemini_key 를 쓰는 머신끼리 시각이 겹치면 쿼터를 서로 잡아먹어 생성이 실패한다
+# (2026-07-29 키 재발급·분배, 커밋 b32e0e3). 정본에서 읽어 그 머신의 시각으로 건다.
+INFO="$("$BRAIN/.venv/bin/python" -c "
+import sys, json; sys.path.insert(0,'$BRAIN/scripts')
+import channel_registry as registry
+mid = registry.detect_machine_id()
+a = json.load(open('$BRAIN/config/assignments.json'))
+mm = a['machines'][mid]
+at = mm['schedule']['at']
+h, m = at.split(':')
+print(f\"{mid}|{at}|{int(h)}|{int(m)}|{mm.get('gemini_key','?')}|{len(mm.get('channels',[]))}\")
+" 2>&1)" || { echo "⛔ 배정 정본에서 시각을 읽지 못했다:"; echo "$INFO"; exit 1; }
+
+MID="${INFO%%|*}"; rest="${INFO#*|}"
+AT="${rest%%|*}"; rest="${rest#*|}"
+HOUR="${rest%%|*}"; rest="${rest#*|}"
+MIN="${rest%%|*}"; rest="${rest#*|}"
+GKEY="${rest%%|*}"; NCH="${rest##*|}"
+
+echo "머신 $MID · Gemini $GKEY · 채널 $NCH개 · 생성 시각 $AT (배정 정본)"
+
 cat > "$PLIST" <<PLIST_EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -43,12 +66,14 @@ cat > "$PLIST" <<PLIST_EOF
 		<string>$RUNNER</string>
 	</array>
 
+	<!-- 시각은 config/assignments.json 의 schedule.at ($MID = $AT). 여기서 손으로 바꾸지 말 것 —
+	     정본을 고치고 이 스크립트를 다시 돌린다. 같은 Gemini 키를 쓰는 짝과 겹치면 안 된다. -->
 	<key>StartCalendarInterval</key>
 	<dict>
 		<key>Hour</key>
-		<integer>4</integer>
+		<integer>$HOUR</integer>
 		<key>Minute</key>
-		<integer>0</integer>
+		<integer>$MIN</integer>
 	</dict>
 
 	<!-- 로드·로그인 시점에 생성이 튀지 않게 한다(편당 수십 분~90분). -->
@@ -70,9 +95,15 @@ plutil -lint "$PLIST" >/dev/null || { echo "⛔ plist 문법 오류"; exit 1; }
 launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true   # 재실행 안전
 launchctl bootstrap "$DOMAIN" "$PLIST"
 
-echo "설치 완료 — 매일 04:00, $RUNNER"
+echo "설치 완료 — $MID, 매일 $AT, $RUNNER"
 echo
 launchctl print "$DOMAIN/$LABEL" | grep -E "state =|program =|runs =|last exit" || true
 echo
-echo "다음: 예약작업(보고)이 생성까지 하고 있지 않은지 확인할 것 — 둘 다 생성하면 하루 두 번 돈다."
+# 보고는 생성이 끝난 뒤여야 한다. 채널당 최대 90분(gen_timeout_sec 5400)이라
+# 4채널이면 6시간까지 걸린다 → 생성 + 6시간을 권장값으로 계산해 알려준다.
+RPT=$(( (HOUR + 6) % 24 ))
+printf '다음: 예약작업(보고) 스케줄을 %02d:%02d 로 맞출 것 — 생성(%s) + 6시간.\n' "$RPT" "$MIN" "$AT"
+echo "      Claude 에게: \"예약작업 scene-loop-daily 의 스케줄을 매일 $(printf '%02d:%02d' "$RPT" "$MIN") 로 맞춰줘."
+echo "                    SKILL.md 는 이미 넣었으니 건드리지 마.\""
+echo "      ⛔ 예약작업이 생성까지 하고 있으면 안 된다 — 둘 다 생성하면 하루 두 번 돈다."
 echo "      런북 SCENE_LOOP_OPERATIONS.md §5 참조."

@@ -13,8 +13,8 @@ description: 지난밤 launchd 가 돌린 scene_loop 생성 결과를 로그에�
 
 | | 담당 | 시각 |
 |---|---|---|
-| 생성 | launchd `com.rhoonart.scene-loop` → `scripts/scene_loop_run.sh` | 매일 04:00 |
-| 보고 | 이 스킬 (예약 작업) | 매일 10:00 |
+| 생성 | launchd `com.rhoonart.scene-loop` → `scripts/scene_loop_run.sh` | 배정 정본 `schedule.at` |
+| 보고 | 이 스킬 (예약 작업) | 생성 + 6시간 |
 
 러너가 배정 검증 게이트·중복 실행 락·PATH 보정·로깅을 전부 자체 처리한다. 설치는
 `./scripts/install_scene_loop_launchd.sh`, 자세한 건 `SCENE_LOOP_OPERATIONS.md §5`.
@@ -55,7 +55,7 @@ launchctl print gui/$(id -u)/com.rhoonart.scene-loop | grep -E "state =|runs =|l
 | 지난밤 항목 자체가 없음 | launchd 미발화 | 2)의 결과와 함께 보고 |
 
 ⛔ **기다리지 말 것 — `sleep`·`until` 대기·Monitor 를 쓰지 않는다.** 채널이 많은 머신
-(luna1~4 는 4채널)은 10:00 에도 아직 돌고 있을 수 있다. 그때는 거기까지의 결과를 보고하면
+(luna1~4 는 4채널)은 보고 시각에도 아직 돌고 있을 수 있다. 그때는 거기까지의 결과를 보고하면
 된다. 완료를 기다리는 건 이 세션의 일이 아니다.
 
 ## 보고 형식 (짧게)
