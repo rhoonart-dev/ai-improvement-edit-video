@@ -125,7 +125,7 @@ python scripts/fetch_sources.py --dry-run                # 무엇을 받을지�
 | 생성 산출물 | **ai-video 레포** `~/ves/ai-video/outputs/scene_loop/<채널>/ep<NN>/` (편당 150~310MB) |
 | 폐기한 산출물 | `~/ves/ai-video/rejected/` — 루프 스캔 경로 밖으로 옮긴 것(§6-3) |
 | 로컬 소스 | `<sources_root>/<dir_slug>/` (§1-4) |
-| 예약 작업 정의 (보고) | `~/.claude/scheduled-tasks/scene-loop-daily/SKILL.md` — 스케줄만 담고 절차는 레포의 스킬을 부른다 |
+| 예약 작업 정의 (보고) | `~/.claude/scheduled-tasks/scene-loop-daily/SKILL.md` — 레포 `deploy/scheduled-task-scene-loop-daily.md` 의 **사본**(§5-2). 6대 전부 바이트 단위로 같아야 한다 |
 | launchd 잡 (생성) | `~/Library/LaunchAgents/com.rhoonart.scene-loop.plist` — 레포의 `scripts/install_scene_loop_launchd.sh` 가 생성한다. 손으로 편집하지 말 것(§5-1) |
 
 ⚠️ 위 둘은 **홈 디렉터리라 `git pull` 로 전파되지 않는다.** 레포를 받아도 스케줄은 머신마다
@@ -303,15 +303,29 @@ launchctl print gui/$(id -u)/com.rhoonart.scene-loop | grep -E "state =|program 
 
 ### 5-2. 보고 — 예약 작업
 
-Claude 에게 이렇게 요청한다:
+예약작업 프롬프트 파일은 **레포 정본을 복사한다. 머신마다 새로 쓰지 않는다.**
+받아쓰면 그때마다 조금씩 달라지고, 그 표류가 지금 5대를 얇은 래퍼/두꺼운 복사본으로 갈라놓은
+원인이다(§5-3).
 
-```text
-매일 오전 10시에 /scene-loop-daily 를 실행하는 예약 작업을 만들어줘.
+```bash
+mkdir -p ~/.claude/scheduled-tasks/scene-loop-daily
+cp deploy/scheduled-task-scene-loop-daily.md \
+   ~/.claude/scheduled-tasks/scene-loop-daily/SKILL.md
 ```
 
-프롬프트를 길게 적지 않는다 — 절차는 `.claude/skills/scene-loop-daily/SKILL.md`(레포 정본)에
-있고, 담당 채널은 배정 정본에서 루프가 스스로 찾는다. 예약 작업 파일은 **레포 스킬을 부르는
-얇은 래퍼**로만 둔다.
+내용은 머신 무관하다 — 머신 이름도 담당 채널도 적혀 있지 않다(루프가 배정 정본에서 스스로
+찾는다). 그래서 6대의 이 파일은 **바이트 단위로 같아야 한다.** 확인:
+
+```bash
+shasum -a 256 ~/.claude/scheduled-tasks/scene-loop-daily/SKILL.md \
+              deploy/scheduled-task-scene-loop-daily.md
+```
+
+스케줄만 Claude 에게 맡긴다 (cron 은 파일이 아니라 예약작업 등록 정보에 있다):
+
+```text
+예약작업 scene-loop-daily 의 스케줄을 매일 오전 10시로 맞춰줘. SKILL.md 는 이미 넣었으니 건드리지 마.
+```
 
 10:00 인 이유: 04:00 시작 + 채널당 ~68분(롱폼 기준)이면 4채널 머신(luna1~4)이 08:30 전후에
 끝난다. 그래도 아직 돌고 있으면 스킬이 "진행 중"으로 보고한다 — **기다리게 만들지 말 것.**
@@ -321,10 +335,15 @@ Claude 에게 이렇게 요청한다:
 7/31 이전에 셋업한 머신은 예약 작업이 **생성까지** 하고 있다. 아래 순서로 바꾼다.
 순서를 뒤집으면 하루 두 번 생성된다.
 
-1. 예약 작업을 먼저 **보고 전용으로** 바꾼다 — 스케줄 10:00, 프롬프트는 `/scene-loop-daily`
-   호출만. (레포 스킬이 이미 보고 전용으로 갱신돼 있으므로 `git pull` 이 선행돼야 한다.)
-2. 그 다음 launchd 를 설치한다(§5-1).
-3. `results/scene_loop.log` 로 다음 날 04:00 발화와 10:00 보고를 한 번 확인한다.
+1. `git pull` — 레포 스킬(보고 전용)과 `deploy/` 정본을 받는다.
+2. launchd 를 설치한다(§5-1) — 생성 담당을 먼저 확보한다.
+3. 예약작업 파일을 정본 사본으로 교체하고(§5-2 의 `cp`) 스케줄을 10:00 으로 바꾼다.
+4. `results/scene_loop.log` 로 다음 날 04:00 발화와 10:00 보고를 한 번 확인한다.
+   04:00 항목이 **두 번** 찍혔으면 이중 생성 — 3을 재확인한다.
+
+※ 예약작업 파일이 절차를 통째로 복사한 구형(두꺼운 복사본)인 머신은 2~3 사이가 이중 생성
+구간이다. 2 와 3 을 한 세션에서 연속으로 하면 몇 분이라 실제로 겹치지 않는다.
+**03:00~05:00 에는 이관하지 말 것.**
 
 이관 완료 머신: `macmini-luna2`(2026-07-31).
 
