@@ -751,6 +751,31 @@ def newest_job_dir(outdir):
     return str(Path(max(cands, key=os.path.getmtime)).parent) if cands else None
 
 
+def save_gen_output(outdir, cmd, rc, stdout, stderr):
+    """실패한 생성의 stdout/stderr 전문을 시도 디렉토리에 남기고 그 경로를 돌려준다.
+
+    로그에는 stderr 꼬리 300자만 적는다(밤새 도는 로그를 트레이스백으로 채우지 않으려고).
+    그런데 원인은 대개 꼬리 밖에 있다 — Gemini 재시도 경고(`[WARN] …`)는 stdout 으로 나가는데
+    그건 통째로 버려져, 2026-07-30·31 실패 3건의 원인(응답 잘림)을 찾는 데 로그를 거슬러
+    올라가야 했다. 전문은 파일에 두고 로그는 그대로 짧게 유지한다."""
+    def text(v):
+        # 타임아웃 경로(TimeoutExpired)는 파이썬 판마다 bytes 로 올 수 있다
+        if isinstance(v, bytes):
+            return v.decode("utf-8", "replace")
+        return v or ""
+
+    path = Path(outdir) / "gen_output.log"
+    try:
+        path.write_text(
+            f"$ {' '.join(str(c) for c in cmd)}\nrc={rc}\n"
+            f"\n===== stdout =====\n{text(stdout)}\n"
+            f"\n===== stderr =====\n{text(stderr)}\n",
+            encoding="utf-8")
+        return str(path)
+    except OSError as e:
+        return f"(저장 실패: {e})"
+
+
 # ─────────────────────────── 채널 상태 판정 ───────────────────────────
 
 def channel_plan(cfg, ch, state, conn, api_key, scan_roots, gen_py=None, log=lambda m: None):
@@ -859,13 +884,15 @@ def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_ro
         log(f"{tag}   시도 {attempt}/{attempts}: {' '.join(cmd[:6])} … → {outdir}")
         try:
             r = run_generation(cmd, worktree, ai_video_root, cfg["gen_timeout_sec"])
-        except subprocess.TimeoutExpired:
-            log(f"{tag}   ✗ 생성 타임아웃({cfg['gen_timeout_sec']}s) → 이 채널 오늘 종료")
+        except subprocess.TimeoutExpired as e:
+            saved = save_gen_output(outdir, cmd, "timeout", e.stdout, e.stderr)
+            log(f"{tag}   ✗ 생성 타임아웃({cfg['gen_timeout_sec']}s) → 이 채널 오늘 종료. 전문: {saved}")
             return
         job_dir = newest_job_dir(outdir)
         if r.returncode != 0 or not job_dir:
-            log(f"{tag}   ✗ 생성 실패 rc={r.returncode} → 이 채널 오늘 종료. stderr꼬리: "
-                f"{(r.stderr or r.stdout or '')[-300:]}")
+            saved = save_gen_output(outdir, cmd, r.returncode, r.stdout, r.stderr)
+            log(f"{tag}   ✗ 생성 실패 rc={r.returncode} → 이 채널 오늘 종료. 전문: {saved}\n"
+                f"      stderr꼬리: {(r.stderr or r.stdout or '')[-300:]}")
             return
         try:
             plan = json.loads((Path(job_dir) / "edit_plan.json").read_text(encoding="utf-8"))
