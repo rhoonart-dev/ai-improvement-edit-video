@@ -125,7 +125,11 @@ python scripts/fetch_sources.py --dry-run                # 무엇을 받을지�
 | 생성 산출물 | **ai-video 레포** `~/ves/ai-video/outputs/scene_loop/<채널>/ep<NN>/` (편당 150~310MB) |
 | 폐기한 산출물 | `~/ves/ai-video/rejected/` — 루프 스캔 경로 밖으로 옮긴 것(§6-3) |
 | 로컬 소스 | `<sources_root>/<dir_slug>/` (§1-4) |
-| 예약 작업 정의 | `~/.claude/scheduled-tasks/scene-loop-daily/SKILL.md` — 스케줄만 담고 절차는 레포의 스킬을 부른다 |
+| 예약 작업 정의 (보고) | `~/.claude/scheduled-tasks/scene-loop-daily/SKILL.md` — 스케줄만 담고 절차는 레포의 스킬을 부른다 |
+| launchd 잡 (생성) | `~/Library/LaunchAgents/com.rhoonart.scene-loop.plist` — 레포의 `scripts/install_scene_loop_launchd.sh` 가 생성한다. 손으로 편집하지 말 것(§5-1) |
+
+⚠️ 위 둘은 **홈 디렉터리라 `git pull` 로 전파되지 않는다.** 레포를 받아도 스케줄은 머신마다
+직접 걸어야 한다(§5). 새 머신에서 빠뜨리기 가장 쉬운 지점이다.
 
 ---
 
@@ -256,31 +260,73 @@ URL 모양 일치 · 채널 소스의 작품 한정 앵커 · 지오블락 필�
 
 ---
 
-## 5. 스케줄러 걸기
+## 5. 스케줄러 걸기 — 표준 구성 (6대 전부 동일)
 
-🔀 **둘 중 하나만.** 둘 다 걸면 하루 두 번 돌아 중복 생성된다.
+**생성은 launchd, 보고는 예약 작업. 둘 다 걸어야 하고, 역할이 겹치면 안 된다.**
 
-| | Claude 예약 작업 | launchd |
-|---|---|---|
-| 조건 | Claude 앱이 열려 있어야 함 | 맥만 깨어 있으면 됨 |
-| 보고 | 결과를 요약해 알려줌 | 로그 파일만 |
-| 시각 | 지터로 몇 분 흔들림 | 지정 시각 정확 |
+| | 담당 | 시각 | 권한 |
+|---|---|---|---|
+| **생성** | launchd `com.rhoonart.scene-loop` → `scripts/scene_loop_run.sh` | 04:00 | 해당 없음(에이전트 없음) |
+| **보고** | 예약 작업 `/scene-loop-daily` | 10:00 | 읽기 전용 |
 
-### 5-1. Claude 예약 작업
+> 🛑 **예약 작업이 생성까지 하면 안 된다.** launchd 와 예약 작업이 둘 다 생성하면 하루 두 번
+> 돌아 채널당 2장면이 나온다(`scene_loop.py` 의 "1회 실행에 채널당 1장면" 폭주 방지 설계 위반).
+
+**왜 이 구조인가**(2026-07-31 변경): 예전에는 예약 작업이 생성까지 띄웠다. 그런데 세션이
+권한 승인창에서 멈추면 **그날 생성이 통째로 유실**됐다(7/28·7/29). 원인을 "권한을 열어서"
+풀려다 무인 세션에 전권을 주는 방향으로 갔는데, 애초에 **결정적(deterministic) 스크립트의
+실행 경로에 LLM 에이전트를 끼운 것**이 문제였다. `scene_loop_run.sh` 는 배정 검증 게이트·
+중복 실행 락·PATH 보정·로깅을 이미 자체 처리하므로 에이전트가 실행에 기여하는 게 없다.
+분리하면 예약 세션이 죽어도 손실은 "보고 하루 누락"뿐이고, 보고는 읽기 전용이라 권한 논의
+자체가 사라진다.
+
+### 5-1. 생성 — launchd 설치
+
+```bash
+cd ~/ves/ai-improvement-edit-video && ./scripts/install_scene_loop_launchd.sh
+```
+
+레포 위치를 스크립트가 스스로 유도하므로 `~/ves` 가 아닌 머신도 그대로 쓴다. 재실행해도
+안전하다(기존 잡을 교체). 제거는 `--uninstall`.
+
+확인:
+
+```bash
+launchctl print gui/$(id -u)/com.rhoonart.scene-loop | grep -E "state =|program =|runs ="
+```
+
+- **호출 대상은 `scene_loop_run.sh`** — `scene_daily_run.sh` 를 걸지 말 것. 뒤에
+  `scene_publish_loop.py`(발행·공개 전환)가 붙어 있어 무인 발행이 된다. 발행은 사람 개입 지점이다.
+- 04:00 에 맥이 자고 있으면 깨어날 때 실행되고, 꺼져 있었으면 다음 부팅 때 실행된다. 시각을
+  고정하려면 자동 기상을 건다: `sudo pmset repeat wake MTWRFSU 03:55:00`
+  (관리자 비밀번호 필요 — **사람이** 직접).
+
+### 5-2. 보고 — 예약 작업
 
 Claude 에게 이렇게 요청한다:
 
 ```text
-매일 새벽 4시에 /scene-loop-daily 를 실행하는 예약 작업을 만들어줘.
+매일 오전 10시에 /scene-loop-daily 를 실행하는 예약 작업을 만들어줘.
 ```
 
-프롬프트를 길게 적을 필요가 없다 — 절차는 `.claude/skills/scene-loop-daily/SKILL.md` 에 있고,
-담당 채널은 배정 정본에서 루프가 스스로 찾는다.
+프롬프트를 길게 적지 않는다 — 절차는 `.claude/skills/scene-loop-daily/SKILL.md`(레포 정본)에
+있고, 담당 채널은 배정 정본에서 루프가 스스로 찾는다. 예약 작업 파일은 **레포 스킬을 부르는
+얇은 래퍼**로만 둔다.
 
-### 5-2. launchd
+10:00 인 이유: 04:00 시작 + 채널당 ~68분(롱폼 기준)이면 4채널 머신(luna1~4)이 08:30 전후에
+끝난다. 그래도 아직 돌고 있으면 스킬이 "진행 중"으로 보고한다 — **기다리게 만들지 말 것.**
 
-`SETUP_NEW_MACHINE.md` 의 plist 절차를 쓰되, 호출 대상은 `scripts/scene_loop_run.sh` 다.
-맥 자동 기상이 필요하면 `sudo pmset repeat wake MTWRFSU 03:55:00`(관리자 비밀번호 필요 — 사람이).
+### 5-3. 기존 머신 이관 (⚠️ 순서 지킬 것)
+
+7/31 이전에 셋업한 머신은 예약 작업이 **생성까지** 하고 있다. 아래 순서로 바꾼다.
+순서를 뒤집으면 하루 두 번 생성된다.
+
+1. 예약 작업을 먼저 **보고 전용으로** 바꾼다 — 스케줄 10:00, 프롬프트는 `/scene-loop-daily`
+   호출만. (레포 스킬이 이미 보고 전용으로 갱신돼 있으므로 `git pull` 이 선행돼야 한다.)
+2. 그 다음 launchd 를 설치한다(§5-1).
+3. `results/scene_loop.log` 로 다음 날 04:00 발화와 10:00 보고를 한 번 확인한다.
+
+이관 완료 머신: `macmini-luna2`(2026-07-31).
 
 ---
 
