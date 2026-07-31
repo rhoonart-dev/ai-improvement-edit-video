@@ -11,6 +11,9 @@
     보류(미확정)+경고. 할당량 유지(다음날 재시도).
   - **런어웨이 방지**: public 이 quota 미만이라도 '미공개 대기 장면'이 max_pending_unpublished 개
     쌓이면 그 회차 생성을 멈추고 사람의 공개를 기다린다(리뷰 풀 유지).
+  - **반려(rejected)는 대기로 세지 않는다**: 사람이 비공개로 돌린(또는 삭제한) 장면은 영원히
+    공개되지 않으므로 대기로 세면 그 회차가 영구 교착된다. 카운트에서 빼 생성 슬롯을 돌려주고,
+    구간만 중복 회피 대상으로 남긴다 → 반려한 장면을 다시 만들지 않는다(2026-07-30).
   - 다음 회차 소스 파일이 아직 폴더에 없으면 대기.
   - 회차는 start_episode(기본 1)부터 오름차순. 장기 방영작은 이 값으로 시작점을 올린다.
 
@@ -29,9 +32,16 @@
    사용 가능")도 있다. 설정값은 가이드를 사람이 읽고 채운다 — 코드가 추측하지 않는다.
    같은 이유로 title_episode_regex 는 기본값 없이 **필수**다.
 
-공개 여부 판정(코드 미변경): 장면 run_id → (DB clip_metadata.ai_video_run_id ↔ clips.video_external_id)
-  → 유튜브 Data API videos.list(공개 API 키) 로 privacyStatus. API키로 조회되고 status=='public' 인
-  영상이 하나라도 있으면 그 장면=공개. (private 는 API키 조회에서 아예 안 나오므로 자동 제외.)
+공개 여부 판정: 장면 run_id → (DB clip_metadata.ai_video_run_id ↔ clips.video_external_id)
+  → 유튜브 Data API videos.list(공개 API 키) 로 privacyStatus. 장면 분류는 classify_scenes:
+    - public   : 영상 중 하나라도 status=='public'
+    - rejected : 링크된 영상이 있는데 **하나도 조회되지 않고**, 발행 기록상 예약 대기도 아님
+                 = 사람이 비공개로 반려/삭제한 것. 대기에서 뺀다.
+    - pending  : 그 밖 — unlisted(검수 대기) · 예약 공개 대기 · 아직 업로드 안 된 렌더
+
+  ⚠️ 예약 공개(publishAt)는 공개 시각 전까지 private 이라 조회가 안 된다. 조회 불가만 보고
+     반려로 판정하면 예약 대기분이 통째로 반려가 되므로, results/scene_publish_state.json 의
+     시각과 reject_grace_days 유예로 '스스로 풀리는 것'과 '영영 안 풀리는 것'을 가른다.
 
 ★ 기존 코드는 수정하지 않는다. 생성은 ai-video create_shorts 를 있는 그대로 subprocess 호출.
 
@@ -54,7 +64,7 @@ import subprocess
 import sys
 import urllib.parse
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -589,10 +599,14 @@ def db_run_videos(conn, channel, run_ids):
     return out
 
 
-def youtube_public_ids(video_ids, api_key):
-    """video_ids 중 유튜브에서 privacyStatus=='public' 인 것들의 집합. 공개 API 키로 조회
-       (private 는 조회에서 아예 안 나옴 → 자동 제외). 실패 시 예외."""
-    pub = set()
+def youtube_statuses(video_ids, api_key):
+    """{video_id: privacyStatus} — 공개 API 키로 조회. 실패 시 예외.
+
+    🛑 **응답에 없는 id 는 dict 에 안 들어온다.** 공개 API 키는 private 영상을 아예 돌려주지
+    않으므로, '링크는 있는데 조회 결과에 없음' = 비공개(사람이 반려) 또는 삭제됨이다.
+    이 구분이 필요해서 public 집합만 돌려주던 걸 상태 dict 로 바꿨다(2026-07-30).
+    """
+    out = {}
     ids = [v for v in dict.fromkeys(video_ids) if v]
     for i in range(0, len(ids), 50):
         batch = ids[i:i + 50]
@@ -600,23 +614,110 @@ def youtube_public_ids(video_ids, api_key):
         with urllib.request.urlopen("https://www.googleapis.com/youtube/v3/videos?" + q, timeout=20) as r:
             data = json.loads(r.read())
         for it in data.get("items", []):
-            if (it.get("status") or {}).get("privacyStatus") == "public":
-                pub.add(it["id"])
-    return pub
+            out[it["id"]] = (it.get("status") or {}).get("privacyStatus")
+    return out
 
 
-def count_public_scenes(scenes, conn, channel, api_key):
-    """scenes(merge_scenes 결과) 중 '공개된 장면' 수. 장면의 영상 중 하나라도 public 이면 공개."""
+def youtube_public_ids(video_ids, api_key):
+    """video_ids 중 privacyStatus=='public' 인 것들의 집합."""
+    return {v for v, s in youtube_statuses(video_ids, api_key).items() if s == "public"}
+
+
+# 장면 분류 — 회차 카운트와 브레이크 판정의 기준
+SCENE_PUBLIC = "public"        # 공개됨 → 회차 quota 에 카운트
+SCENE_PENDING = "pending"      # 검수 대기·예약 대기·미업로드 → 기다리면 풀린다
+SCENE_REJECTED = "rejected"    # 비공개/삭제 → 사람이 공개할 수 없다. 브레이크에서 제외한다
+
+# 발행 상태 파일(scene_publish_loop 가 쓴다) — 경로 정본을 여기 둔다
+PUB_STATE_PATH = REPO_ROOT / "results" / "scene_publish_state.json"
+
+# 올린 뒤 이 기간 안에 조회가 안 되면 '아직 공개 전'으로 본다(예약 공개는 시각 전까지 private).
+# 지나도 안 보이면 사람이 비공개로 돌린 것으로 판정한다. loop_policy 의 reject_grace_days 로 덮는다.
+REJECT_GRACE_DAYS = 7
+
+
+def load_publish_records(path=None):
+    """run_id → 발행 기록(scene_publish_state.json 의 scenes). 없으면 {}."""
+    p = Path(path or PUB_STATE_PATH)
+    try:
+        return (json.loads(p.read_text(encoding="utf-8")) or {}).get("scenes") or {}
+    except (OSError, json.JSONDecodeError, AttributeError):
+        return {}
+
+
+def _parse_dt(s):
+    """ISO 문자열 → tz-aware datetime. naive 면 로컬 tz 로 본다. 실패하면 None."""
+    if not s:
+        return None
+    try:
+        d = datetime.fromisoformat(str(s))
+    except ValueError:
+        return None
+    return d if d.tzinfo else d.astimezone()
+
+
+def _awaiting_publish(rec, now, grace_days):
+    """이 발행 기록이 '아직 공개 전(대기)'로 볼 만한가.
+
+    예약 공개(publishAt)는 **공개 시각 전까지 private** 이라 공개 API 키 조회에 안 나온다.
+    그래서 조회 불가만 보고 반려로 판정하면 예약 대기분이 통째로 반려가 된다 — 그런데
+    scene_publish_loop 의 **기본 동작이 예약 공개**라 브레이크가 통째로 무력해진다
+    (2026-07-30 실측: 숏테토칩 EP1 이 예약 1건 때문에 상한이 잘못 풀렸다).
+
+    예약 시각을 알면 그걸 쓰고, 모르면 업로드 시각 + 유예로 본다 — 사람이 Studio 에서 직접
+    예약을 걸면 우리 상태 파일엔 시각이 안 남기 때문이다. 유예가 지나도 안 보이면 반려다:
+    예약분은 시각이 되면 스스로 public 이 되지만 반려분은 영원히 안 보이므로, 유예가
+    '스스로 풀리는 것'과 '영영 안 풀리는 것'을 가른다.
+    """
+    ref = _parse_dt(rec.get("scheduled_publish_at"))
+    if ref is not None:
+        return now < ref + timedelta(days=grace_days)
+    up = _parse_dt(rec.get("published_at"))
+    return up is not None and now < up + timedelta(days=grace_days)
+
+
+def classify_scenes(scenes, conn, channel, api_key, publish_records=None,
+                    now=None, grace_days=REJECT_GRACE_DAYS):
+    """scenes(merge_scenes 결과)를 public|pending|rejected 로 분류. scenes 와 같은 순서의 리스트.
+
+    🛑 **rejected 를 '공개 대기'로 세면 안 된다.** pending 은 "기다리면 풀리는 것"이라는 뜻이고,
+    그래서 max_pending_unpublished 에 도달하면 루프가 멈춰 사람을 기다린다. 그런데 사람이
+    **비공개로 반려한** 장면은 영원히 공개되지 않으므로, 그걸 대기로 세면 그 회차는 **영구 교착**이
+    된다(2026-07-30 실측: 너굴안방 EP5·흥행수집 EP4 가 반려 1개씩을 대기로 점유 중이었고, 반려가
+    3개 쌓이면 그 회차는 죽는다). 반려는 카운트에서 빼서 생성 슬롯을 되돌려 준다.
+
+    🛑 **거꾸로, 예약 대기분을 반려로 세도 안 된다** — _awaiting_publish 참고. 공개 API 키는
+    private 을 안 돌려주므로 '예약 대기'와 '반려'가 조회상 똑같이 보인다. 발행 기록의 시각으로
+    가른다.
+
+    ⚠️ 반려 장면의 **구간은 중복 회피 대상에 그대로 남긴다**(호출부가 info['scenes'] 를 통째로
+    prior_spans 에 쓴다) — 안 그러면 사람이 버린 그 구간을 루프가 다시 만든다.
+    """
+    recs = load_publish_records() if publish_records is None else publish_records
+    now = now or datetime.now().astimezone()
     run_ids = sorted({r for sc in scenes for r in sc["run_ids"]})
     run2vid = db_run_videos(conn, channel, run_ids)
     all_vids = [v for vs in run2vid.values() for v in vs]
-    pub = youtube_public_ids(all_vids, api_key) if all_vids else set()
-    cnt = 0
+    st = youtube_statuses(all_vids, api_key) if all_vids else {}
+    kinds = []
     for sc in scenes:
         vids = [v for r in sc["run_ids"] for v in run2vid.get(r, [])]
-        if any(v in pub for v in vids):
-            cnt += 1
-    return cnt
+        if any(st.get(v) == SCENE_PUBLIC for v in vids):
+            kinds.append(SCENE_PUBLIC)
+        elif vids and not any(v in st for v in vids):
+            # 링크는 있는데 전부 조회 불가 = 비공개/삭제 **또는** 예약 공개 대기
+            awaiting = any(_awaiting_publish(recs.get(r) or {}, now, grace_days)
+                           for r in sc["run_ids"])
+            kinds.append(SCENE_PENDING if awaiting else SCENE_REJECTED)
+        else:
+            kinds.append(SCENE_PENDING)    # unlisted 이거나 아직 업로드 안 된 렌더
+    return kinds
+
+
+def count_public_scenes(scenes, conn, channel, api_key, publish_records=None):
+    """scenes 중 '공개된 장면' 수. 장면의 영상 중 하나라도 public 이면 공개."""
+    return classify_scenes(scenes, conn, channel, api_key,
+                           publish_records=publish_records).count(SCENE_PUBLIC)
 
 
 # ─────────────────────────── 생성 (ai-video 그대로 호출) ───────────────────────────
@@ -658,14 +759,22 @@ def channel_plan(cfg, ch, state, conn, api_key, scan_roots, gen_py=None, log=lam
     quota = cfg["quota_per_episode"]
     max_pending = cfg.get("max_pending_unpublished", quota)
     iou_th, ctol = cfg["dup_iou_threshold"], cfg["dup_center_tolerance_sec"]
+    pub_recs = load_publish_records()          # 예약 대기 ↔ 반려를 가르는 근거
+    grace = cfg.get("reject_grace_days", REJECT_GRACE_DAYS)
     eps = discover_episodes_for(ch, gen_py, cfg.get("youtube_index_cache_hours", 24), log)
     if not eps:
         return ("no_source", None, None, {"eps": []})
     for ep_num, vp in eps:
+        # 진행 키는 slot_key(상태·산출물·중복판정), 공개 조회는 실제 채널명 — 섞으면 안 된다.
         scenes = rendered_scenes(state, slot_key(ch), ep_num, vp, scan_roots, iou_th, ctol)
-        pub = count_public_scenes(scenes, conn, ch["channel"], api_key)
+        kinds = classify_scenes(scenes, conn, ch["channel"], api_key,
+                                publish_records=pub_recs, grace_days=grace)
+        pub = kinds.count(SCENE_PUBLIC)
+        # 브레이크는 pending 만 본다 — 반려(rejected)는 사람이 공개해 줄 수 없으므로 제외한다.
+        # scenes 는 통째로 넘긴다: 반려 구간도 중복 회피 대상이어야 한다(classify_scenes 참고).
         info = {"eps": eps, "rendered": len(scenes), "public": pub,
-                "pending": len(scenes) - pub, "scenes": scenes}
+                "pending": kinds.count(SCENE_PENDING), "rejected": kinds.count(SCENE_REJECTED),
+                "scenes": scenes, "kinds": kinds}
         if pub >= quota:
             continue                                  # 이 회차 공개 완료 → 다음 회차 검사
         if info["pending"] >= max_pending:
@@ -703,13 +812,15 @@ def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_ro
     if action == "done_all":
         log(f"{tag} 발견된 회차({[e for e,_ in info['eps']]}) 모두 공개 {quota}개 충족 → 다음 회차 소스 대기")
         return
+    rej = f", 반려 {info['rejected']}(카운트 제외)" if info.get("rejected") else ""
     if action == "wait_publish":
         log(f"{tag} EP{ep_num}: 공개 {info['public']}/{quota}, 미공개 대기 {info['pending']}개"
-            f"(상한 {cfg.get('max_pending_unpublished', quota)}) → 생성 멈춤. 리뷰/공개 필요")
+            f"(상한 {cfg.get('max_pending_unpublished', quota)}){rej} → 생성 멈춤. 발행/공개 필요")
         return
 
     # action == 'gen'
-    log(f"{tag} EP{ep_num}: 공개 {info['public']}/{quota} (렌더 {info['rendered']}, 미공개 {info['pending']})"
+    log(f"{tag} EP{ep_num}: 공개 {info['public']}/{quota} "
+        f"(렌더 {info['rendered']}, 미공개 {info['pending']}{rej})"
         f" → 이번에 1장면 생성 (소스 {source_label(vp)})")
     if dry_run:
         log(f"{tag}   (dry-run) 생성 생략")
@@ -783,6 +894,8 @@ def cmd_status(cfg, state, conn, api_key, ai_video_root, log, gen_py=None):
     scan_roots = [str(Path(ai_video_root) / d) for d in cfg.get("outputs_scan_dirs", ["outputs"])]
     quota = cfg["quota_per_episode"]
     iou_th, ctol = cfg["dup_iou_threshold"], cfg["dup_center_tolerance_sec"]
+    pub_recs = load_publish_records()
+    grace = cfg.get("reject_grace_days", REJECT_GRACE_DAYS)
     for ch in cfg["channels"]:
         if ch.get("_paused"):
             log(f"[{ch['channel']} · {ch['work_title']}]  ⏸ 착수 전(works.json paused)")
@@ -792,13 +905,17 @@ def cmd_status(cfg, state, conn, api_key, ai_video_root, log, gen_py=None):
         for ep_num, vp in eps:
             scenes = rendered_scenes(state, slot_key(ch), ep_num, vp, scan_roots, iou_th, ctol)
             try:
-                pub = count_public_scenes(scenes, conn, ch["channel"], api_key)
-                pubs = str(pub)
+                kinds = classify_scenes(scenes, conn, ch["channel"], api_key,
+                                        publish_records=pub_recs, grace_days=grace)
+                pub, pubs = kinds.count(SCENE_PUBLIC), str(kinds.count(SCENE_PUBLIC))
             except Exception as e:  # noqa: BLE001
-                pub, pubs = None, f"조회실패({type(e).__name__})"
+                kinds, pub, pubs = None, None, f"조회실패({type(e).__name__})"
             mark = "✓완료" if (pub is not None and pub >= quota) else "…진행"
+            # 🛑 `if kinds` 로 쓰면 렌더 0인 회차(kinds==[])가 조회실패와 같은 '?' 로 찍힌다
+            rej = kinds.count(SCENE_REJECTED) if kinds is not None else 0
             log(f"    EP{ep_num}: 공개 {pubs}/{quota} {mark}  (렌더 {len(scenes)}, "
-                f"미공개 {len(scenes)-pub if pub is not None else '?'})  "
+                f"미공개 {kinds.count(SCENE_PENDING) if kinds is not None else '?'}"
+                f"{f', 반려 {rej}' if rej else ''})  "
                 f"구간={[[round(x,1) for x in s['span']] for s in scenes]}")
 
 

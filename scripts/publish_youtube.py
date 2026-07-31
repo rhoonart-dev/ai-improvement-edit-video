@@ -307,8 +307,11 @@ def _credentials(channel):
                        token_uri="https://oauth2.googleapis.com/token")
 
 
-def upload(video_path, snippet, privacy, channel):
-    """YouTube videos.insert → content_id. OAuth 미설정이면 RuntimeError."""
+def upload(video_path, snippet, privacy, channel, publish_at=None):
+    """YouTube videos.insert → content_id. OAuth 미설정이면 RuntimeError.
+    publish_at(ISO 8601, tz 포함) 지정 시 유튜브 네이티브 예약 공개 — privacy 는 private 여야
+    하며(YouTube 규칙) 그 시각에 유튜브가 알아서 public 전환한다. 토큰이 upload 스코프뿐이라
+    사후 videos.update(공개 전환)가 403 나는 문제(2026-07-27 실측)를 업로드 시점 예약으로 우회."""
     creds = _credentials(channel)
     if creds is None:
         # 폴백을 없앴으므로 어느 키가 비었는지 이름으로 찍는다 — 채널마다 키 이름이 다르다.
@@ -319,7 +322,11 @@ def upload(video_path, snippet, privacy, channel):
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaFileUpload
     yt = build("youtube", "v3", credentials=creds)
-    body = {"snippet": snippet, "status": {"privacyStatus": privacy, "selfDeclaredMadeForKids": False}}
+    status = {"privacyStatus": privacy, "selfDeclaredMadeForKids": False}
+    if publish_at:
+        status["privacyStatus"] = "private"   # publishAt 은 private 에서만 유효
+        status["publishAt"] = publish_at
+    body = {"snippet": snippet, "status": status}
     media = MediaFileUpload(video_path, chunksize=-1, resumable=True, mimetype="video/mp4")
     resp = yt.videos().insert(part="snippet,status", body=body, media_body=media).execute()
     return resp["id"]
@@ -341,6 +348,9 @@ def main():
     ap.add_argument("--safety-floor", type=float, default=None,
                     help="명백히 깨진 산출물 차단용 안전 바닥. 미지정=judge quality로 안 막음(성과예측 아님)")
     ap.add_argument("--privacy", default="private", choices=["private", "unlisted", "public"])
+    ap.add_argument("--publish-at", default=None,
+                    help="유튜브 예약 공개 시각(ISO 8601, tz 포함). 지정 시 private 로 올라가 "
+                         "그 시각에 자동 public 전환(YouTube 네이티브 예약)")
     ap.add_argument("--publish", action="store_true", help="실제 업로드(기본 dry-run)")
     a = ap.parse_args()
 
@@ -383,7 +393,7 @@ def main():
             sys.exit(f"지오블락 게이트 차단 — 발행 안 함: {geo_reason}")
         if not ok:
             sys.exit(f"게이트 차단 — 발행 안 함: {reason}")
-        vid = upload(a.video, snip, a.privacy, a.channel)
+        vid = upload(a.video, snip, a.privacy, a.channel, publish_at=a.publish_at)
         print("uploaded content_id:", vid)
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         from datetime import datetime, timezone

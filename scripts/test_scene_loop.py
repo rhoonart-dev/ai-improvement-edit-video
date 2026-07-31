@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import tempfile
+from datetime import datetime
 from pathlib import Path
 
 import scene_loop as sl
@@ -312,6 +313,130 @@ def test_save_state_round_trips_after_record_scene():
 def test_episode_dir_name_matches_outdir_convention():
     # outdir 생성과 회차 스캔이 같은 이름을 써야 유튜브 중복판정이 동작한다
     assert sl.episode_dir_name(5) == "ep05" and sl.episode_dir_name(410) == "ep410"
+
+
+# ── 장면 분류: 반려(비공개/삭제)를 공개 대기로 세지 않는다 ──
+
+def _patch(**kw):
+    old = {k: getattr(sl, k) for k in kw}
+    for k, v in kw.items():
+        setattr(sl, k, v)
+    return old
+
+
+def _restore(old):
+    for k, v in old.items():
+        setattr(sl, k, v)
+
+
+def test_classify_scenes_separates_public_pending_rejected():
+    scenes = [{"span": [0.0, 1.0], "run_ids": ["w_pub"]},
+              {"span": [2.0, 3.0], "run_ids": ["w_unl"]},
+              {"span": [4.0, 5.0], "run_ids": ["w_priv"]},
+              {"span": [6.0, 7.0], "run_ids": ["w_none"]}]
+    old = _patch(
+        # w_none 은 발행된 적이 없어 링크가 없다
+        db_run_videos=lambda conn, ch, rids: {"w_pub": ["v1"], "w_unl": ["v2"], "w_priv": ["v3"]},
+        # v3 는 응답에 없다 = 공개 API 키로 조회 불가 = 비공개거나 삭제됨
+        youtube_statuses=lambda vids, key: {"v1": "public", "v2": "unlisted"},
+    )
+    try:
+        kinds = sl.classify_scenes(scenes, None, "채널1", "KEY")
+    finally:
+        _restore(old)
+    assert kinds == [sl.SCENE_PUBLIC, sl.SCENE_PENDING, sl.SCENE_REJECTED, sl.SCENE_PENDING]
+
+
+def test_scene_keeps_pending_when_one_video_is_still_unlisted():
+    """같은 장면에 반려분과 검수대기분이 섞이면 여전히 대기다 — 사람이 공개할 여지가 남아 있다."""
+    scenes = [{"span": [0.0, 1.0], "run_ids": ["w_a", "w_b"]}]
+    old = _patch(
+        db_run_videos=lambda conn, ch, rids: {"w_a": ["v_priv"], "w_b": ["v_unl"]},
+        youtube_statuses=lambda vids, key: {"v_unl": "unlisted"},
+    )
+    try:
+        assert sl.classify_scenes(scenes, None, "채널1", "KEY") == [sl.SCENE_PENDING]
+    finally:
+        _restore(old)
+
+
+def test_scheduled_publish_is_pending_not_rejected():
+    """🛑 회귀 방지 — 예약 공개 대기분을 반려로 세면 안 된다.
+
+    예약 공개(publishAt)는 공개 시각 전까지 private 이라 공개 API 키 조회에 안 나온다. 조회 불가만
+    보고 반려로 판정하면, scene_publish_loop 의 **기본 동작이 예약 공개**라 브레이크가 통째로
+    무력해진다(2026-07-30 실측: 숏테토칩 EP1 이 예약 1건 때문에 상한이 잘못 풀렸다).
+    """
+    now = datetime.fromisoformat("2026-07-30T16:00:00+09:00")
+    scenes = [{"span": [0.0, 1.0], "run_ids": ["w_sched"]},   # 오늘 19:00 예약
+              {"span": [2.0, 3.0], "run_ids": ["w_recent"]},  # 방금 올림(예약 시각은 미기록)
+              {"span": [4.0, 5.0], "run_ids": ["w_old"]},     # 오래전 올렸는데 여태 안 보임
+              {"span": [6.0, 7.0], "run_ids": ["w_none"]}]    # 발행 기록 자체가 없음
+    recs = {
+        "w_sched": {"scheduled_publish_at": "2026-07-30T19:00:00+09:00"},
+        "w_recent": {"published_at": "2026-07-30T15:00:00"},          # naive = 로컬 tz
+        "w_old": {"published_at": "2026-07-01T12:00:00+09:00"},
+    }
+    old = _patch(
+        db_run_videos=lambda conn, ch, rids: {r: [f"vid_{r}"] for r in rids},
+        youtube_statuses=lambda vids, key: {},   # 전부 조회 불가
+    )
+    try:
+        kinds = sl.classify_scenes(scenes, None, "채널1", "KEY",
+                                   publish_records=recs, now=now, grace_days=7)
+    finally:
+        _restore(old)
+    assert kinds == [sl.SCENE_PENDING,    # 예약 대기 — 시각이 되면 스스로 공개된다
+                     sl.SCENE_PENDING,    # 방금 올림 — 유예 안
+                     sl.SCENE_REJECTED,   # 유예 지나도 안 보임 = 사람이 비공개로 돌렸다
+                     sl.SCENE_REJECTED]   # 발행 기록 없음 = 손으로 올렸다 내린 것
+
+
+def test_rejected_scenes_do_not_block_generation():
+    """🛑 회귀 방지 — 반려만 상한만큼 쌓인 회차가 영구 교착되면 안 된다.
+
+    예전엔 pending = 렌더 - 공개 였으므로 반려 3개 = 대기 3개 = 상한 → wait_publish 로 멈추고,
+    사람이 공개해 줄 수 없으니 그 회차가 영원히 안 풀렸다(2026-07-30 실측).
+    """
+    scenes = [{"span": [10.0, 20.0], "run_ids": ["w_a"]},
+              {"span": [30.0, 40.0], "run_ids": ["w_b"]},
+              {"span": [50.0, 60.0], "run_ids": ["w_c"]}]
+    cfg = {"quota_per_episode": 3, "max_pending_unpublished": 3,
+           "dup_iou_threshold": 0.5, "dup_center_tolerance_sec": 5}
+    old = _patch(
+        discover_episodes_for=lambda ch, gen_py, hours, log: [(1, "/srv/EP1.mp4")],
+        rendered_scenes=lambda *a, **k: scenes,
+        db_run_videos=lambda conn, ch, rids: {r: [f"vid_{r}"] for r in rids},
+        youtube_statuses=lambda vids, key: {},          # 전부 조회 불가 = 전부 반려
+    )
+    try:
+        action, ep_num, vp, info = sl.channel_plan(
+            cfg, {"channel": "채널1", "work_title": "작품"}, {}, None, "KEY", ["/out"])
+    finally:
+        _restore(old)
+    assert (info["rejected"], info["pending"], info["public"]) == (3, 0, 0)
+    assert action == "gen" and ep_num == 1
+    # 반려 구간은 중복 회피용으로 남아야 한다 — 사람이 버린 구간을 다시 만들면 안 된다
+    assert [s["span"] for s in info["scenes"]] == [[10.0, 20.0], [30.0, 40.0], [50.0, 60.0]]
+
+
+def test_unlisted_backlog_still_blocks_generation():
+    """반려 제외가 브레이크 자체를 없애면 안 된다 — 검수대기 3개는 여전히 멈춘다."""
+    scenes = [{"span": [float(i), float(i) + 1], "run_ids": [f"w_{i}"]} for i in range(3)]
+    cfg = {"quota_per_episode": 3, "max_pending_unpublished": 3,
+           "dup_iou_threshold": 0.5, "dup_center_tolerance_sec": 5}
+    old = _patch(
+        discover_episodes_for=lambda ch, gen_py, hours, log: [(1, "/srv/EP1.mp4")],
+        rendered_scenes=lambda *a, **k: scenes,
+        db_run_videos=lambda conn, ch, rids: {r: [f"vid_{r}"] for r in rids},
+        youtube_statuses=lambda vids, key: {v: "unlisted" for v in vids},
+    )
+    try:
+        action, _, _, info = sl.channel_plan(
+            cfg, {"channel": "채널1", "work_title": "작품"}, {}, None, "KEY", ["/out"])
+    finally:
+        _restore(old)
+    assert action == "wait_publish" and info["pending"] == 3 and info["rejected"] == 0
 
 
 def _run():
