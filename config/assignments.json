@@ -8,7 +8,7 @@
     "aliases.user": "자동 감지용 계정명(정확일치). ⚠️ 두 머신이 같은 계정명을 쓰면 다중매칭으로 식별이 실패한다 — 그럴 땐 hostname 만 둔다",
     "channels": "이 머신이 담당하는 채널 표시명. config/channels.json 의 name 과 완전일치해야 한다. 채널의 작품은 channels.json 이 정본이라 여기에 다시 적지 않는다. 운영 기준 **머신당 2~4채널** — 채널당 하룻밤 1편이라 4채널이면 최대 4편(롱폼이 걸리면 편당 68분까지)",
     "schedule.kind": "claude_task | launchd — 🔀 택일. 둘 다 걸면 하루 두 번 돌아 중복 생성된다",
-    "schedule.at": "HH:MM 로컬시각. 선언용이며 자동 설치되지 않는다(사람이 건다). ★같은 gemini_key 를 쓰는 머신끼리는 반드시 시각을 벌린다(2026-07-29 재발급·분배 이후 00:00 / 04:00 2교대) — 겹치면 Gemini 쿼터를 서로 잡아먹어 생성이 실패한다. ⚠️ 4시간 간격이 항상 충분하지는 않다: 롱폼 1편이 ~68분이고 채널 4개면 4~6시간이 걸릴 수 있어(gen_timeout_sec 5400 × 4) 00:00 머신이 04:00 을 넘겨 돌 수 있다. 실제로 겹치는지 관찰하고, 겹치면 채널 수를 줄이거나 간격을 더 벌린다. ※다른 키를 쓰는 머신끼리 같은 시각인 것은 Gemini 쿼터상 문제없다(구 규칙의 '30분씩 벌린다'는 유튜브 조회 한도·공유 문서 충돌 때문이었고, 그쪽은 여전히 관찰 대상)",
+    "schedule.at": "HH:MM 로컬시각. 선언용이며 자동 설치되지 않는다(사람이 건다). ★같은 gemini_key 를 쓰는 머신끼리는 반드시 시각을 벌린다(2026-07-31 기준 API1 00:00/04:00 · API2 00:00/04:00 · API3 04:00/10:00) — 겹치면 Gemini 쿼터를 서로 잡아먹어 생성이 실패한다. ⚠️ 4시간 간격이 항상 충분하지는 않다: 롱폼 1편이 ~68분이고 채널 4개면 4~6시간이 걸릴 수 있어(gen_timeout_sec 5400 × 4) 00:00 머신이 04:00 을 넘겨 돌 수 있다. 실제로 겹치는지 관찰하고, 겹치면 채널 수를 줄이거나 간격을 더 벌린다. ※다른 키를 쓰는 머신끼리 같은 시각인 것은 Gemini 쿼터상 문제없다(구 규칙의 '30분씩 벌린다'는 유튜브 조회 한도·공유 문서 충돌 때문이었고, 그쪽은 여전히 관찰 대상)",
     "gemini_key": "그 머신이 쓰는 Gemini API 키 그룹(API1|API2|API3). 키 자체는 각 머신 .env 의 GEMINI_API_KEY 이고 여기엔 어느 그룹인지만 적는다 — 시각을 바꿀 때 '왜 이 시각인지'를 알 수 있어야 하기 때문이다. 같은 그룹이 둘 이상 같은 시각이면 안 된다",
     "_note": "그 머신 특이사항"
   },
@@ -101,7 +101,7 @@
         "kind": "claude_task",
         "at": "04:00"
       },
-      "_note": "⚠️ 계정명이 맥3 과 같아 hostname 으로만 구분된다. 이 머신은 SNL 야간 루틴(snl-nightly-upload, 마크다운 절차서 방식)도 함께 쓰고 있었다 — SNL 시즌8 이 맥1 로 재배정됐으므로 그 루틴의 거취를 정해야 한다. 담당 4작품이 전부 laeebly 미등재(외부 협력)라 작품 카드에 rights_lookup:'none' 이 필요하다."
+      "_note": "⚠️ 계정명이 맥3 과 같아 hostname 으로만 구분된다. 2026-07-31 SNL 야간 루틴(snl-nightly-upload, 마크다운 절차서 방식)을 폐지하고 예약 작업을 scene-loop-daily 로 교체했다 — SNL 시즌8 은 맥1 담당이라 두 대가 같은 채널에 올릴 위험이 있었고, 시즌7 은 어느 채널에도 배정돼 있지 않다(폐지 기록은 그 머신의 ~/ves/ops/README.md). 같은 날 담당 4작품 카드를 works.json 에 넣어 이 머신이 실제로 돌 수 있게 됐다 — 전부 laeebly 미등재(외부 협력)라 rights_lookup:'none' 이고, 소스는 권리사 Drive 가 아니라 **사람이 그 머신에 직접 받아 두는 로컬 파일**(sources_root 기본값 ~/ves/sources/<dir_slug>)이다."
     },
     "macmini-luna5": {
       "label": "루나르트맥5 · 레이블리 공식 채널",
@@ -122,10 +122,10 @@
       "gemini_key": "API3",
       "schedule": {
         "kind": "launchd",
-        "at": "00:00",
-        "_note": "2026-07-31 10:00 → 00:00 복구. 원 설계(커밋 b32e0e3)는 같은 키 짝을 00:00/04:00 으로 벌리는 것이고 맥5 는 00:00 이었다. 94524d3(B급 순삭 채널 등록)에서 배정 파일 형식을 재구성하며 스케줄 언급 없이 10:00 으로 바뀌었다 — 커밋 메시지에 근거가 없어 의도치 않은 변경으로 판단했다(운영자 확인). 파일과 기기가 둘 다 10:08 이라 서로 일치해 드러나지 않았고, 짝인 맥6 가 비활성이라 충돌도 나지 않았다. ⚠️ 관찰 대상: 맥5 는 3채널이라 최대 4.5시간(gen_timeout_sec 5400 × 3)이면 04:30 종료라 짝인 맥6(04:00 시작)와 꼬리가 겹칠 수 있다. 겹치면 채널 수를 줄이거나 간격을 벌린다."
+        "at": "04:00",
+        "_note": "2026-07-31 10:00 → 04:00 (운영자 결정). API3 짝은 맥5 04:00 / 맥6 10:00 으로 6시간 벌린다. 경위: 원 설계(b32e0e3)는 맥5 00:00 이었으나 실제로 설치된 적이 없어 2026-07-30 에 현실(10:00)에 맞춰 정본을 고쳤다. 이제 launchd 로 실제 설치하므로 선언과 현실이 갈릴 일이 없어졌고, 시각을 다시 정할 수 있게 돼 짝 구조로 정렬했다. 00:00 이 아닌 이유: 맥5 는 3채널이라 최대 4.5시간(gen_timeout_sec 5400 × 3)이라 00:00 시작이면 04:30 종료로 맥6 와 꼬리가 겹친다. 04:00 시작이면 08:30 종료라 맥6(10:00)와 겹치지 않는다."
       },
-      "_note": "2026-07-30 'B급 순삭' 채널을 config/channels.json 에 등록해 배정에 넣었다(token_slug BGSUNSAK · channel_id UCXEWaNqCRwA0rk-Ywg-B7Ow · gcp_project SEAN · geoblock_capable false — channel_id·handle 은 그 채널 refresh token 으로 channels.list(mine=true) 조회해 확인한 실값). 재미쇼츠는 지오블락 가능 채널이라 유미의 세포들 시즌3·언더커버셰프(둘 다 지오블락 필수)를 맡는다 — 운영은 **순차**이고 현재는 유미의 세포들 시즌3 만 works 에 있다(언더커버셰프는 소스 범위 확인 대기, channels.json 의 _works_note 참고). 🛑 재미쇼츠 발행은 unlisted 까지만 — 지오블락은 PC 업로드에서만 걸 수 있어 사람이 Studio 에서 걸고 공개한다. 스케줄은 실제 설치된 예약 작업에 맞춰 10:00 으로 적는다(2026-07-30) — 선언값 00:00 은 설치된 적이 없어 정본이 현실과 어긋나 있었다. API3 를 함께 쓰는 맥6(04:00)과 6시간 벌어져 Gemini 쿼터 충돌은 없다. 2026-07-31 담당 3채널 토큰 재발급 완료(youtube scope 포함 — check_youtube_scopes 전부 ✓, BGSUNSAK 토큰이 가리키는 채널도 정본 channel_id 와 일치 확인). ⚠️ 동의 계정이 채널마다 다르다: 커리어데이 숏츠·재미쇼츠는 rhoonart0sean@gmail.com, B급 순삭은 contact@laeebly.com — 다음 재발급 때 그 계정으로 로그인해야 한다(account 필드는 머신 기본 계정일 뿐)."
+      "_note": "2026-07-30 'B급 순삭' 채널을 config/channels.json 에 등록해 배정에 넣었다(token_slug BGSUNSAK · channel_id UCXEWaNqCRwA0rk-Ywg-B7Ow · gcp_project SEAN · geoblock_capable false — channel_id·handle 은 그 채널 refresh token 으로 channels.list(mine=true) 조회해 확인한 실값). 재미쇼츠는 지오블락 가능 채널이라 유미의 세포들 시즌3·언더커버셰프(둘 다 지오블락 필수)를 맡는다 — 운영은 **순차**이고 현재는 유미의 세포들 시즌3 만 works 에 있다(언더커버셰프는 소스 범위 확인 대기, channels.json 의 _works_note 참고). 🛑 재미쇼츠 발행은 unlisted 까지만 — 지오블락은 PC 업로드에서만 걸 수 있어 사람이 Studio 에서 걸고 공개한다. 스케줄 경위는 schedule._note 참조(00:00 선언 → 미설치로 10:00 → 2026-07-31 launchd 설치와 함께 04:00). 2026-07-31 담당 3채널 토큰 재발급 완료(youtube scope 포함 — check_youtube_scopes 전부 ✓, BGSUNSAK 토큰이 가리키는 채널도 정본 channel_id 와 일치 확인). ⚠️ 동의 계정이 채널마다 다르다: 커리어데이 숏츠·재미쇼츠는 rhoonart0sean@gmail.com, B급 순삭은 contact@laeebly.com — 다음 재발급 때 그 계정으로 로그인해야 한다(account 필드는 머신 기본 계정일 뿐)."
     },
     "macmini-luna6": {
       "label": "루나르트맥6 · 일본 채널",
@@ -140,10 +140,11 @@
       ],
       "gemini_key": "API3",
       "schedule": {
-        "kind": "claude_task",
-        "at": "04:00"
+        "kind": "launchd",
+        "at": "10:00",
+        "_note": "2026-07-31 04:00 → 10:00 (운영자 결정). API3 짝인 맥5 가 04:00 이라 6시간 벌린다. 맥6 는 1채널이라 최대 1.5시간 — 11:30 종료라 다음날 맥5 04:00 까지 여유가 크다."
       },
-      "_note": "⏳ 담당 채널 'まいにちじゃんまんるぴー' 가 config/channels.json 에 아직 없어 이 머신은 돌 수 없다 — token_slug·channel_id·handle·gcp_project·geoblock_capable·works 가 필요하다(맥5 의 'B급 순삭' 과 같은 상태). 배정만 먼저 적어두는 이유는 API3 키를 맥5 와 공유하므로 시각 제약(맥5 00:00 / 맥6 04:00)을 정본에 남겨야 하기 때문이다. hostname 은 `hostname` 명령이 'lunaleuteumaeg6ui-Macmini.local' 을 돌려주므로 소문자 조각으로 매칭한다."
+      "_note": "⏳ 담당 채널 'まいにちじゃんまんるぴー' 가 config/channels.json 에 아직 없어 이 머신은 돌 수 없다 — token_slug·channel_id·handle·gcp_project·geoblock_capable·works 가 필요하다(맥5 의 'B급 순삭' 과 같은 상태). 배정만 먼저 적어두는 이유는 API3 키를 맥5 와 공유하므로 시각 제약(맥5 04:00 / 맥6 10:00)을 정본에 남겨야 하기 때문이다. hostname 은 `hostname` 명령이 'lunaleuteumaeg6ui-Macmini.local' 을 돌려주므로 소문자 조각으로 매칭한다."
     }
   }
 }

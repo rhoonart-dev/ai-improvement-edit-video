@@ -499,3 +499,22 @@ def test_slot_key_separates_two_works_on_one_channel():
     a = {"channel": "재미쇼츠", "slot": "재미쇼츠·유미의 세포들 시즌3"}
     b = {"channel": "재미쇼츠", "slot": "재미쇼츠·언더커버셰프"}
     assert sl.slot_key(a) != sl.slot_key(b)      # EP1 끼리 섞이지 않는다
+
+
+def test_save_gen_output_writes_full_stdout_and_stderr():
+    """실패 원인은 대개 stderr 꼬리 300자 밖(재시도 WARN 은 stdout)이라 전문을 남긴다."""
+    with tempfile.TemporaryDirectory() as outdir:
+        path = sl.save_gen_output(outdir, ["py", "-m", "app.cli"], 1,
+                                  "    [WARN] 응답이 잘렸습니다 재시도 중...", "Traceback …")
+        body = Path(path).read_text(encoding="utf-8")
+        assert Path(path).name == "gen_output.log"
+        assert "rc=1" in body
+        assert "[WARN] 응답이 잘렸습니다" in body      # stdout 이 보존된다
+        assert "Traceback" in body
+
+
+def test_save_gen_output_accepts_bytes_and_none():
+    """타임아웃 경로는 파이썬 판마다 bytes/None 으로 온다 — 진단 저장이 거기서 죽으면 안 된다."""
+    with tempfile.TemporaryDirectory() as outdir:
+        path = sl.save_gen_output(outdir, ["py"], "timeout", b"\xed\x95\x9c\xea\xb8\x80", None)
+        assert "한글" in Path(path).read_text(encoding="utf-8")
