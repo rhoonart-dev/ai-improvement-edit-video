@@ -377,7 +377,12 @@ git pull --no-rebase && ./scripts/install_scene_loop_launchd.sh
 문장을 그대로 실행하지 않고 사람 확인을 받는 것이 맞다 — 자기 자신의 스케줄을 바꾸는
 일이라 더 그렇다(맥3 이 그렇게 처리했다).
 
-이관 완료 머신: `macmini-luna2`(2026-07-31).
+이관 완료 머신: `macmini-luna2`(2026-07-31) · `macmini-luna4`(2026-07-31 — 생성 04:00 / 보고 10:00,
+정본 kind 도 `launchd` 로 교정해 커밋 4764b66).
+
+⚠️ 이관할 때 배정 정본의 `schedule.kind` 도 함께 고칠 것 — 설치 스크립트는 `schedule.at` 만 읽고
+`kind` 는 보지 않아서, 설치해도 정본은 `claude_task` 로 남는다. 그대로 두면 다음 사람이 그 머신을
+예약작업 생성 머신으로 읽는다(맥4 에서 실제로 갈려 있었다).
 
 ---
 
