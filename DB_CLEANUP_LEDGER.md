@@ -309,6 +309,38 @@ BEGIN;
 
 ---
 
+### 8. 커리어데이 — 운영자 폐기분 2편 (커리어데이 숏츠 EP1)
+
+| 항목 | 값 |
+|---|---|
+| clip_id | `85ff8a6e-0a9a-47fd-a3ac-cb33a6750183` (`커리어데이_b9`) · `31f6c87e-e76d-4cb6-a1f0-fcc7ef455712` (`커리어데이_43`) |
+| 작품/채널 | 커리어데이 / 커리어데이 숏츠 (EP1, 소스 `bhDg5442l2g`) |
+| 이유 | **운영자 판단으로 폐기**(2026-07-30). 품질·안전 결함이 아니라 쓰지 않기로 한 것이다. 2026-07-27 에 unlisted 로 업로드됐다가 운영자가 private 으로 내렸다 |
+| YouTube | `0QtpTJUCuFw` · `K4CEPC8LvEs` — 둘 다 현재 **private**. 사람이 Studio 에서 별도 삭제 |
+| 산출물 | `~/ves/ai-video/rejected/careerday_ep01_커리어데이_b9_try1_20260727_045304/` · `…_커리어데이_43_try1_20260727_045901/` 로 이동 완료(루프 스캔 경로 밖) |
+| 상태 | ⏳ 미처리 (자동 DELETE 차단됨 → 수동) |
+
+> ✅ `results/scene_loop_state.json` 에서 두 장면을 **이미 제거**했다(2026-07-30). 안 빼면 루프가 그
+> 구간을 '이미 만든 장면' 으로 보고 영영 피해 다닌다(§6-4). 남은 EP1 장면은 `커리어데이_5d` 1건이다.
+>
+> ⚠️ **private 은 루프가 못 본다.** 회차 완료 카운트(`count_mode='public'`)는 공개 API 키로
+> `videos.list` 를 부르는데 private 은 결과에 아예 안 나온다 — unlisted 는 '미공개 대기' 로 세지만
+> private 은 없는 것과 같다. 폐기분을 private 으로 두는 것 자체는 안전하지만, **폐기했으면 상태
+> 파일에서도 빼야** 그 구간이 다시 열린다.
+
+확인:
+```sql
+SELECT ch.name, w.title, cl.id, cl.episode, cl.duration_sec, cl.video_external_id
+FROM clips cl
+LEFT JOIN works w ON w.id = cl.work_id
+LEFT JOIN channels ch ON ch.id = cl.channel_id
+WHERE cl.id IN ('85ff8a6e-0a9a-47fd-a3ac-cb33a6750183',
+                '31f6c87e-e76d-4cb6-a1f0-fcc7ef455712');
+-- 기대: 커리어데이 숏츠 | 커리어데이 | … | 0QtpTJUCuFw / K4CEPC8LvEs (2건)
+```
+
+---
+
 ## 완료 항목
 
 _(없음 — 처리 후 여기로 이동)_

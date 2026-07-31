@@ -182,6 +182,32 @@ $PY scripts/m4_ab_analysis.py --experiment loudness_v1 --window-days 7
   묶여서 폴백으로는 어차피 갱신이 거부되는데, 폴백이 있으면 그 사실이 밤중 업로드 단계까지 숨는다.
   실제로 이 폴백 때문에 `gcp_project` 가 폐기된 `P2`~`P6`/`DEFAULT` 를 가리키는 걸 아무도 못 보고 있었고,
   18채널 전부가 `401 unauthorized_client` 로 발행 실패 직전이었다. 지금은 빠진 키 이름을 찍고 멈춘다.
+- **토큰 scope — 업로드는 되는데 공개 전환만 안 되는 함정**(2026-07-30): refresh token 의 권한은
+  **발급 시점 동의에 고정**돼 코드로 넓힐 수 없다. 기존 토큰은 `youtube.upload`+`youtube.readonly`
+  로만 발급돼 **`videos.update`(공개 전환) 권한이 없다** → 7/27 밤 전 채널 공개 전환이
+  `403 insufficientPermissions` 로 죽었다. unlisted 업로드까지는 upload scope 로 충분하니 낮에는
+  정상처럼 보이는 게 이 버그의 성질이다. 두 층이 따로 있으니 헷갈리지 말 것:
+  1. **선언 층(코드, 고쳐짐)** — `Credentials(scopes=…)` 를 지정하면 access token 이 그 부분집합으로
+     **좁혀진다**(google-auth `refresh_grant`). upload 만 선언한 자격증명 때문에 `videos.list(part=status)`
+     같은 읽기까지 403 이었다. 이제 `publish_youtube._credentials` 는 scope 를 선언하지 않는다 —
+     넓게 선언하는 것도 답이 아니다(미승인 scope 를 요청하면 갱신 자체가 거부돼 되는 업로드까지 막힌다).
+  2. **동의 층(사람만 가능)** — 채널마다 `scripts/get_youtube_token.py` 재실행 → 브라우저 재동의.
+     발급 SCOPES 에 `youtube` 를 넣어뒀으므로 재발급분은 공개 전환이 된다.
+  현황 확인은 **`scripts/check_youtube_scopes.py`** (tokeninfo 로 실제 granted scope 조회 —
+  추측 금지). 2026-07-30 기준 맥5 담당 3채널 전부 ⛔.
+- **무인 실행 권한은 전면 자동 허용(bypassPermissions)으로 운영한다**(2026-07-30 변경, 사용자
+  결정): 예약/루틴 세션이 승인창에서 멈춰 예약이 유실되는 문제(7/28·7/29, 커밋 2d7e441)를 개별
+  허용 목록 유지로는 근절할 수 없어, 권한 프롬프트 자체를 끄기로 했다. 설정 파일은 **3개 세트**:
+  1. `~/ves/.claude/settings.json` (예약 세션의 cwd) — `permissions.defaultMode: "bypassPermissions"`
+  2. 이 레포 `.claude/settings.json` — 같은 내용 복제(두 파일 동일 유지 규칙은 계속 유효)
+  3. `~/.claude/settings.json` — `skipDangerousModePermissionPrompt: true`
+     (bypass 모드 첫 진입 시 뜨는 일회성 동의 대화상자를 건너뜀 — 없으면 무인 세션이 여기서 멈춘다)
+  기존 `allow` 목록은 보존한다(bypass 를 되돌릴 때의 폴백). 새 머신을 붙일 때는
+  `SCENE_LOOP_OPERATIONS.md` 온보딩과 함께 이 3개 파일을 똑같이 세팅할 것.
+  ※과거 원칙("넓은 규칙 금지 — 무인 사고 반경")은 이 결정으로 대체됐다. 대신 파괴적 명령이
+  확인 없이 돌 수 있으므로, 루프 스크립트에 삭제·강제 푸시류를 넣을 때는 사람이 직접 검토한다.
+  스킬에 `sleep`·`until` 대기·Monitor 를 안 넣는 설계(SKILL.md 4단계)는 그대로 둔다 —
+  승인창 문제는 사라졌지만 대기 없는 구조가 여전히 단순하고 안전하다.
 - **작품별 권리 규칙은 laeebly `licensed_video.guide`가 정본** — 소스 범위(채널 전체/플레이리스트 한정/Drive 제공분만)·지오블락(**§3-1**)·홀드백·설명란 필수 표기가 전부 여기 있다. 새 작품을 붙이기 전에 반드시 읽을 것. 설명란 필수 표기는 `config/work_publish_notice.json`에 사람이 옮겨 적으면 발행 시 자동 반영된다(미설정인데 가이드가 요구하면 경고).
 - **형제 DB 분단**: 과거 xxondf(형제 repo)와 fdidiqd로 갈렸으나 fdidiqd로 통일. 형제 repo(`ai-improve-edit-video`)는 아직 xxondf 가리킬 수 있음 — 쓸 거면 PIPELINE_DB_URL을 fdidiqd로.
 - **디스크**: 소스 마스터 ~2.9GB × N + 생성 중간파일. 여유 확인.

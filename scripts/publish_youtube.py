@@ -34,6 +34,14 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 NOTICE_CONFIG_PATH = REPO_ROOT / "config" / "work_publish_notice.json"
 CATEGORY_ENTERTAINMENT = "24"
 UPLOAD_SCOPE = "https://www.googleapis.com/auth/youtube.upload"
+# ⚠️ Credentials(scopes=…) 를 지정하면 **그 부분집합으로 좁혀진 access token** 이 발급된다
+# (google-auth refresh_grant: "Scopes to request. If present, all scopes must be authorized").
+# 그래서 여기서 scope 를 선언하지 않는다 — 토큰이 실제로 받은 권한 그대로 쓴다. 이유 2가지:
+#  ① 좁히면 업로드 외 호출이 죽는다. upload 만 선언한 자격증명을 공개 전환 코드가 재사용해
+#     videos.list(part=status) 까지 403 insufficientPermissions 로 죽었다(2026-07-27 밤 전 채널).
+#  ② 넓게 선언해도 못 고친다 — 미승인 scope 를 요청하면 갱신 자체가 거부돼 지금 되는 업로드까지
+#     막힌다. 권한은 발급 시점 동의에 고정이라 코드로 넓힐 수 없다(scripts/get_youtube_token.py).
+# 토큰이 실제로 무슨 권한인지는 scripts/check_youtube_scopes.py 로 확인한다.
 
 
 # ─────────────────────────── 순수 (단위테스트) ───────────────────────────
@@ -294,8 +302,9 @@ def _credentials(channel):
     rt = os.environ.get(token_env_name(channel))   # §3-5: generic 폴백 없음(채널별 토큰만)
     if not (cid and cs and rt):
         return None
+    # scopes 를 넘기지 않는다 — 넘기면 access token 이 그 부분집합으로 좁혀진다(위 주석 참고).
     return Credentials(None, refresh_token=rt, client_id=cid, client_secret=cs,
-                       token_uri="https://oauth2.googleapis.com/token", scopes=[UPLOAD_SCOPE])
+                       token_uri="https://oauth2.googleapis.com/token")
 
 
 def upload(video_path, snippet, privacy, channel, publish_at=None):
