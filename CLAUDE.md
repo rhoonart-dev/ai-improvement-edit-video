@@ -195,19 +195,34 @@ $PY scripts/m4_ab_analysis.py --experiment loudness_v1 --window-days 7
      발급 SCOPES 에 `youtube` 를 넣어뒀으므로 재발급분은 공개 전환이 된다.
   현황 확인은 **`scripts/check_youtube_scopes.py`** (tokeninfo 로 실제 granted scope 조회 —
   추측 금지). 2026-07-30 기준 맥5 담당 3채널 전부 ⛔.
-- **무인 실행 권한은 전면 자동 허용(bypassPermissions)으로 운영한다**(2026-07-30 변경, 사용자
-  결정): 예약/루틴 세션이 승인창에서 멈춰 예약이 유실되는 문제(7/28·7/29, 커밋 2d7e441)를 개별
-  허용 목록 유지로는 근절할 수 없어, 권한 프롬프트 자체를 끄기로 했다. 설정 파일은 **3개 세트**:
-  1. `~/ves/.claude/settings.json` (예약 세션의 cwd) — `permissions.defaultMode: "bypassPermissions"`
-  2. 이 레포 `.claude/settings.json` — 같은 내용 복제(두 파일 동일 유지 규칙은 계속 유효)
-  3. `~/.claude/settings.json` — `skipDangerousModePermissionPrompt: true`
-     (bypass 모드 첫 진입 시 뜨는 일회성 동의 대화상자를 건너뜀 — 없으면 무인 세션이 여기서 멈춘다)
-  기존 `allow` 목록은 보존한다(bypass 를 되돌릴 때의 폴백). 새 머신을 붙일 때는
-  `SCENE_LOOP_OPERATIONS.md` 온보딩과 함께 이 3개 파일을 똑같이 세팅할 것.
+- **무인 실행 권한은 전면 자동 허용(bypassPermissions)으로 운영한다**(2026-07-30 결정,
+  2026-07-31 맥2 검증 보고로 정정): 예약/루틴 세션이 승인창에서 멈춰 예약이 유실되는 문제
+  (7/28·7/29, 커밋 2d7e441)를 개별 허용 목록으로는 근절할 수 없어 권한 프롬프트를 끄기로 했다.
+  **파일 설정(커밋으로 전파 가능)**: `~/ves/.claude/settings.json`(예약 세션 cwd)과 이 레포
+  `.claude/settings.json` **양쪽에 동일하게** `permissions.defaultMode: "bypassPermissions"` +
+  아래 deny 규칙. (구버전 문서의 3번 항목 `skipDangerousModePermissionPrompt` 는 삭제 — CLI 가
+  수락 후 스스로 기록하는 상태값이지, 손으로 써서 대화상자를 건너뛰는 스위치가 아니다. 맥2 검증:
+  문서·스키마에 없어 no-op. 스키마에 있는 빌드도 있으나 신뢰하지 말 것.)
+  **사람 절차(머신마다 1회, 커밋 불가)**: ① 대화형 세션에서 bypass 동의 대화상자를 한 번
+  수락해야 무인(`--bg`)·예약 세션이 거부되지 않는다. ② 데스크톱 앱 머신은 설정의 "Allow
+  bypass permissions mode" 토글을 먼저 켜야 하고, 폴더별로 기억된 모드가 `defaultMode` 보다
+  우선하므로 모드 선택기에서 bypass 를 한 번 골라둔다. → 새 머신 온보딩 체크리스트에 포함.
+  **배포 순서**: 정책 커밋을 먼저 push 하고 각 머신이 pull 한 뒤 프롬프트를 배포한다 —
+  맥2 에서 §5 가 로컬에 없는 채 권한 변경 프롬프트만 도착해 "없는 규칙을 근거로 권한을 열라는
+  요청"으로 보여 작업이 중단됐다(7/31). 배포 프롬프트 1단계에 `git pull` 을 넣는 것도 방법.
+  **allow 목록**: bypass 모드에서는 **무효**다(전부 승인이라 매칭할 일이 없음). bypass 를
+  되돌릴 때의 폴백으로만 보존한다. 반대로 **`deny`·명시적 `ask` 는 bypass 에서도 유효**하다.
+  **deny 규칙(2026-07-31 신설)**: 루틴이 자기 스킬·예약작업 프롬프트를 승인 없이 수정하지
+  못하게 `~/.claude/scheduled-tasks/**` 와 이 레포 `.claude/skills/**` 의 Edit/Write 를 deny —
+  맥2 에서 예약작업 본문(`~/.claude/scheduled-tasks/scene-loop-daily/SKILL.md`)이 권한 변경
+  프롬프트로 덮여 scene_loop 이 안 돌 뻔한 사고의 재발 방지(맥2 7/31 복구, 맥5 무오염 확인).
+  다른 머신도 예약작업 본문이 scene_loop 절차인지 확인할 것. 정당한 스킬 수정이 필요하면
+  deny 를 잠깐 빼고 작업 후 되돌린다.
   ※과거 원칙("넓은 규칙 금지 — 무인 사고 반경")은 이 결정으로 대체됐다. 대신 파괴적 명령이
   확인 없이 돌 수 있으므로, 루프 스크립트에 삭제·강제 푸시류를 넣을 때는 사람이 직접 검토한다.
-  스킬에 `sleep`·`until` 대기·Monitor 를 안 넣는 설계(SKILL.md 4단계)는 그대로 둔다 —
-  승인창 문제는 사라졌지만 대기 없는 구조가 여전히 단순하고 안전하다.
+  대안으로 `auto` 모드(classifier 배후 검사, 사고 반경 유지)가 문서상 더 적합하다는 의견이
+  있다(맥2 보고 §제안3) — 전환은 사용자 결정 대기. 스킬에 `sleep`·`until` 대기·Monitor 를 안
+  넣는 설계(SKILL.md 4단계)는 그대로 둔다 — 대기 없는 구조가 여전히 단순하고 안전하다.
 - **작품별 권리 규칙은 laeebly `licensed_video.guide`가 정본** — 소스 범위(채널 전체/플레이리스트 한정/Drive 제공분만)·지오블락(**§3-1**)·홀드백·설명란 필수 표기가 전부 여기 있다. 새 작품을 붙이기 전에 반드시 읽을 것. 설명란 필수 표기는 `config/work_publish_notice.json`에 사람이 옮겨 적으면 발행 시 자동 반영된다(미설정인데 가이드가 요구하면 경고).
 - **형제 DB 분단**: 과거 xxondf(형제 repo)와 fdidiqd로 갈렸으나 fdidiqd로 통일. 형제 repo(`ai-improve-edit-video`)는 아직 xxondf 가리킬 수 있음 — 쓸 거면 PIPELINE_DB_URL을 fdidiqd로.
 - **디스크**: 소스 마스터 ~2.9GB × N + 생성 중간파일. 여유 확인.

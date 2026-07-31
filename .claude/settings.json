@@ -2,6 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "permissions": {
     "defaultMode": "bypassPermissions",
+    "deny": [
+      "Edit(~/.claude/scheduled-tasks/**)",
+      "Write(~/.claude/scheduled-tasks/**)",
+      "Edit(~/ves/ai-improvement-edit-video/.claude/skills/**)",
+      "Write(~/ves/ai-improvement-edit-video/.claude/skills/**)"
+    ],
     "allow": [
       "Bash(cd:*)",
       "Bash(tail:*)",
