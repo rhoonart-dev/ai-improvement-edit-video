@@ -103,6 +103,118 @@
    "video_id": "0VcKkec1UqA",
    "privacy": "unlisted",
    "published_at": "2026-07-31T16:48:28"
+  },
+  "샤먼:_미신전_1b": {
+   "channel": "여운 보관소",
+   "slot": "여운 보관소",
+   "stage": "published",
+   "video_id": "KiLHPGsl7jI",
+   "source": "db-reconciled"
+  },
+  "샤먼:_미신전_e1": {
+   "channel": "여운 보관소",
+   "slot": "여운 보관소",
+   "stage": "published",
+   "video_id": "XAcBH4XZqFU",
+   "source": "db-reconciled"
+  },
+  "놀라운_토요일_90": {
+   "channel": "숏나우저",
+   "slot": "숏나우저",
+   "stage": "published",
+   "video_id": "IbWcgnLUNgQ",
+   "source": "db-reconciled"
+  },
+  "놀라운_토요일_92": {
+   "channel": "숏나우저",
+   "slot": "숏나우저",
+   "stage": "published",
+   "video_id": "PTeVFgE60oM",
+   "source": "db-reconciled"
+  },
+  "SNL_코리아_리부트_시즌8_27": {
+   "channel": "킥킥극장",
+   "slot": "킥킥극장",
+   "episode": 1,
+   "clip_id": "97d488e9-de61-4680-b7a9-96f4a138af17",
+   "stage": "published",
+   "video_id": "mnfREhpQ-8w",
+   "privacy": "unlisted",
+   "published_at": "2026-08-03T14:51:51"
+  },
+  "SNL_코리아_리부트_시즌8_0b": {
+   "channel": "몰입도둑",
+   "slot": "몰입도둑",
+   "episode": 1,
+   "clip_id": "035f25fc-ca49-4597-9579-f17fef587eed",
+   "stage": "published",
+   "video_id": "x9cpeXN3Gmw",
+   "privacy": "unlisted",
+   "published_at": "2026-08-03T14:52:43"
+  },
+  "국대:_로드_투_노스_아메리카_70": {
+   "channel": "락커룸",
+   "slot": "락커룸",
+   "episode": 1,
+   "clip_id": "ebb970d7-0e4e-492a-b4c3-176973e5a32d",
+   "stage": "published",
+   "video_id": "J5ITEFHTat0",
+   "privacy": "unlisted",
+   "published_at": "2026-08-03T14:53:09"
+  },
+  "원희는_스무살_7b": {
+   "channel": "다람쥐 숏토리",
+   "slot": "다람쥐 숏토리",
+   "episode": 1,
+   "clip_id": "4df5a4ce-30a9-46b9-ad12-26ec66f9899b",
+   "stage": "published",
+   "video_id": "9Eh0kEJ-zIg",
+   "privacy": "unlisted",
+   "rejected_at": "2026-08-04T19:37:00",
+   "_reject_note": "사람이 Studio 에서 비공개 반려(OAuth 실측: private·publishAt 없음). published_at 제거로 유예 없이 반려 판정시킴. 원값=2026-08-03T14:53:36"
+  },
+  "SNL_코리아_리부트_시즌8_a5": {
+   "channel": "킥킥극장",
+   "slot": "킥킥극장",
+   "episode": 1,
+   "clip_id": "3480891d-ca14-4292-84a3-e10ad5830eda",
+   "stage": "published",
+   "video_id": "tbTLwShL3zE",
+   "privacy": "unlisted",
+   "rejected_at": "2026-08-04T19:37:00",
+   "_reject_note": "사람이 Studio 에서 비공개 반려(OAuth 실측: private·publishAt 없음). published_at 제거로 유예 없이 반려 판정시킴. 원값=2026-08-03T14:54:02"
+  },
+  "SNL_코리아_리부트_시즌8_bd": {
+   "channel": "몰입도둑",
+   "slot": "몰입도둑",
+   "episode": 1,
+   "clip_id": "146af5c1-3a41-4715-b577-1f3667178e61",
+   "stage": "published",
+   "video_id": "alvSDFcol_c",
+   "privacy": "unlisted",
+   "rejected_at": "2026-08-04T19:37:00",
+   "_reject_note": "사람이 Studio 에서 비공개 반려(OAuth 실측: private·publishAt 없음). published_at 제거로 유예 없이 반려 판정시킴. 원값=2026-08-03T14:54:29"
+  },
+  "국대:_로드_투_노스_아메리카_ca": {
+   "channel": "락커룸",
+   "slot": "락커룸",
+   "episode": 1,
+   "clip_id": "8d3abb48-6bfc-4084-be97-71acfc921655",
+   "stage": "published",
+   "video_id": "9YHQm6YJl6Q",
+   "privacy": "unlisted",
+   "rejected_at": "2026-08-04T19:37:00",
+   "_reject_note": "사람이 Studio 에서 비공개 반려(OAuth 실측: private·publishAt 없음). published_at 제거로 유예 없이 반려 판정시킴. 원값=2026-08-03T14:54:56"
+  },
+  "원희는_스무살_d5": {
+   "channel": "다람쥐 숏토리",
+   "slot": "다람쥐 숏토리",
+   "episode": 1,
+   "clip_id": "1575ef36-e57f-483a-84dd-50f09f10e9a1",
+   "stage": "published",
+   "video_id": "n9esAaHzTtQ",
+   "privacy": "unlisted",
+   "published_at": "2026-08-03T14:55:22"
   }
  },
  "publicized": {
