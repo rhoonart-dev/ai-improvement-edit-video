@@ -23,7 +23,9 @@
       "하이라이트",
       "몰아보기"
     ],
-    "_works_note": "운영은 유미의 세포들 시즌3 → 언더커버셰프 **순차**다. 둘 다 지오블락 필수라 지오블락 가능 채널인 여기에 묶여 있다. 진행 상태는 작품별 슬롯으로 갈리므로 (channel_registry 의 slot) 두 작품의 EP1 이 섞이지 않는다."
+    "_works_note": "운영은 유미의 세포들 시즌3 → 언더커버셰프 **순차**다. 둘 다 지오블락 필수라 지오블락 가능 채널인 여기에 묶여 있다. 진행 상태는 작품별 슬롯으로 갈리므로 (channel_registry 의 slot) 두 작품의 EP1 이 섞이지 않는다.",
+    "publish_privacy": "unlisted",
+    "_note": "publish_privacy=unlisted 고정(2026-08-04): 지오블락 필수 작품 채널이라 예약 공개 금지 — 공개는 사람이 Studio 에서 지오블락 걸고 전환"
   },
   {
     "token_slug": "CINEMAINBED",

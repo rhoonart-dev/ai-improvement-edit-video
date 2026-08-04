@@ -567,12 +567,18 @@ def rendered_scenes(state, channel, ep_num, video_path, scan_roots, iou_th, cent
     return merge_scenes(raw, iou_th, center_tol)
 
 
-def record_scene(state, channel, work_title, ep_num, video_path, span, run_id, job_dir):
+def record_scene(state, slot, work_title, ep_num, video_path, span, run_id, job_dir,
+                 channel=None):
     # 🛑 video_path 는 반드시 str 로 넣는다 — source_cache.ensure_episode_source 가 Path 를 돌려주므로
     # 그대로 담으면 save_state 의 json.dumps 가 TypeError(PosixPath not JSON serializable) 로 죽는다.
     # 생성이 끝난 **뒤**에 터지는 자리라, 30~90분 쓴 렌더가 상태에 기록되지 않는다(2026-07-29 실측:
     # 로컬 소스 채널 3곳이 전부 이걸로 실패). 렌더 스캔이 산출물을 주워 유실은 없었지만 매일 반복된다.
-    ch = state.setdefault("channels", {}).setdefault(channel, {"work_title": work_title, "episodes": {}})
+    # 🛑 상태 키는 슬롯이지만 **업로드 대상 채널명('channel')을 반드시 함께 적는다** — 다작품 채널은
+    # 슬롯이 '재미쇼츠·유미의 세포들 시즌3' 처럼 채널명과 달라, 이 필드가 없으면
+    # scene_publish_loop 가 슬롯명을 채널명으로 넘겨 발행이 미등록 채널로 하드 실패한다(2026-08-04 실측).
+    ch = state.setdefault("channels", {}).setdefault(slot, {"work_title": work_title, "episodes": {}})
+    if channel:
+        ch["channel"] = channel
     ep = ch.setdefault("episodes", {}).setdefault(str(ep_num), {"video_path": str(video_path), "scenes": []})
     ep["scenes"].append({"span": span, "run_id": run_id, "job_dir": job_dir,
                          "accepted_at": datetime.now().isoformat(timespec="seconds")})
@@ -907,7 +913,8 @@ def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_ro
             log(f"{tag}   ↻ 중복 장면 {span} (기존과 겹침) → 재생성")
             continue
         run_id = _run_id_of(job_dir)
-        record_scene(state, slot_key(ch), ch["work_title"], ep_num, vp, span, run_id, job_dir)
+        record_scene(state, slot_key(ch), ch["work_title"], ep_num, vp, span, run_id, job_dir,
+                     channel=ch["channel"])
         save_state(state)
         log(f"{tag}   ✓ 새 장면 확정(미공개) {span} (run={run_id}) — 공개 {info['public']}/{quota} 유지."
             f" 공개 처리하면 회차 카운트 반영")

@@ -135,8 +135,15 @@ def pending_scenes(gen_state, pub_state):
     채널은 슬롯 안의 'channel' 이 정본 — 없으면(슬롯 도입 전 상태) 슬롯명이 곧 채널명이다."""
     done = pub_state.setdefault("scenes", {})
     out = []
+    known_channels = set(registry.channel_names())
     for slot, ch in (gen_state.get("channels") or {}).items():
         ch_name = ch.get("channel") or slot
+        # 구 상태 폴백: 'channel' 필드가 없는 다작품 슬롯('채널·작품')은 슬롯명이 채널명이 아니다 —
+        # 등록 채널명과 대조해 복원한다(2026-08-04 실측: 재미쇼츠 발행이 미등록 채널로 하드 실패).
+        if ch_name not in known_channels and "·" in ch_name:
+            head = ch_name.split("·")[0].strip()
+            if head in known_channels:
+                ch_name = head
         for ep_num, ep in (ch.get("episodes") or {}).items():
             for sc in ep.get("scenes", []):
                 rid = sc.get("run_id")
