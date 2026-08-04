@@ -301,15 +301,32 @@ _COLS = ["machine_id", "host", "trigger", "status", "rc", "run_started_at", "run
 _JSONB = {"channels", "warnings", "fail_tails", "state_snapshot", "publish_snapshot"}
 
 
-def upsert(row, dsn):
-    import psycopg2  # brain venv 에 있음 (requirements.txt)
+# 문자열 파라미터의 타입 캐스트 — psycopg v3 는 서버측 바인딩이라 text→jsonb/timestamptz
+# 암묵 캐스트가 없다(맥1 실측으로 v2 부재 발견 후 v3 전환하며 함께 수정, 2026-08-04).
+# v2 에서도 캐스트는 무해하므로 공통으로 붙인다.
+_CASTS = {**{c: "::jsonb" for c in _JSONB},
+          "run_started_at": "::timestamptz", "run_finished_at": "::timestamptz"}
+
+
+def _build_upsert(row):
     cols = [c for c in _COLS if c in row and row[c] is not None]
     vals = [json.dumps(row[c], ensure_ascii=False) if c in _JSONB else row[c] for c in cols]
+    ph = ", ".join("%s" + _CASTS.get(c, "") for c in cols)
     sets = ", ".join(f"{c} = EXCLUDED.{c}" for c in cols if c not in ("host", "run_started_at"))
     sql = (f"INSERT INTO machine_heartbeats ({', '.join(cols)}) "
-           f"VALUES ({', '.join(['%s'] * len(cols))}) "
+           f"VALUES ({ph}) "
            f"ON CONFLICT (host, run_started_at) DO UPDATE SET {sets}")
-    conn = psycopg2.connect(dsn, connect_timeout=DB_TIMEOUT_SEC)
+    return sql, vals
+
+
+def upsert(row, dsn):
+    # brain venv 정본은 psycopg v3(requirements.txt) — v2 만 있는 환경도 동작하게 폴백.
+    try:
+        import psycopg as pg
+    except ModuleNotFoundError:
+        import psycopg2 as pg
+    sql, vals = _build_upsert(row)
+    conn = pg.connect(dsn, connect_timeout=DB_TIMEOUT_SEC)
     try:
         with conn, conn.cursor() as cur:
             cur.execute(sql, vals)
