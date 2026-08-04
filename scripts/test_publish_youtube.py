@@ -315,6 +315,78 @@ def test_gate_ok_safety_floor_blocks_obviously_broken():
     assert pub.gate_ok(_FakeConn((0.5, "false")), "cid", 0.2)[0] is True
 
 
+# ── 단일 영상 채널 설명란 (episode_line=False + 원본 링크, 2026-08-04) ──
+
+
+def test_snippet_episode_line_false_suppresses_episode():
+    s = pub.build_snippet("제목", ["커리어데이"], work_title="커리어데이", episode=1,
+                          episode_line=False)
+    assert "1화" not in s["description"]
+    assert s["description"] == "#커리어데이"
+
+
+def test_snippet_source_link_block():
+    s = pub.build_snippet("제목", ["커리어데이"], work_title="커리어데이", episode=2,
+                          episode_line=False, source_url="https://youtu.be/bhDg5442l2g",
+                          source_link_heading="FULL 영상 보러가기")
+    assert s["description"] == "FULL 영상 보러가기\n🖇️ https://youtu.be/bhDg5442l2g\n\n#커리어데이"
+
+
+def test_snippet_source_link_default_heading():
+    s = pub.build_snippet("제목", ["커리어데이"], episode_line=False,
+                          source_url="https://youtu.be/abc123def45")
+    assert s["description"].startswith("FULL 영상 보러가기\n🖇️ ")
+
+
+def test_snippet_episode_line_false_keeps_work_display():
+    # 회차 줄을 안 쓰는 작품이어도 권리사 필수 표기(work_display)는 남아야 한다
+    s = pub.build_snippet("제목", ["작품"], work_title="작품", episode=3,
+                          episode_line=False, work_display="OTT 오리지널 [작품]")
+    assert s["description"].splitlines()[0] == "OTT 오리지널 [작품]"
+    assert "3화" not in s["description"]
+
+
+def test_snippet_episode_line_default_keeps_legacy_shape():
+    s = pub.build_snippet("제목", ["놀라운 토요일"], work_title="놀라운 토요일", episode=410)
+    assert s["description"].splitlines()[0] == "놀라운 토요일 410화"
+
+
+def test_work_desc_style_reads_config():
+    cfg = {"커리어데이": {"episode_line": False, "source_link_heading": "FULL 영상 보러가기"},
+           "놀토": {}}
+    assert pub.work_desc_style("커리어데이", cfg) == (False, "FULL 영상 보러가기")
+    assert pub.work_desc_style("놀토", cfg) == (True, None)
+    assert pub.work_desc_style("미등록", cfg) == (True, None)
+
+
+def test_notice_config_has_single_video_channels():
+    cfg = pub.load_notice_config()
+    for w, heading in (("커리어데이", "FULL 영상 보러가기"), ("B급 스튜디오", "원본 풀영상 보러가기")):
+        assert cfg.get(w, {}).get("episode_line") is False, f"{w} episode_line 설정 누락"
+        assert cfg[w]["source_link_heading"] == heading
+
+
+def test_resolve_source_url_from_meta():
+    import pathlib
+    import tempfile
+
+    import source_cache
+    with tempfile.TemporaryDirectory() as td:
+        root = pathlib.Path(td)
+        ep_dir = root / "테스트작품" / "ep001"
+        source_cache.write_meta(ep_dir, work="테스트작품", episode=1, video_id="bhDg5442l2g",
+                                source_url="https://www.youtube.com/watch?v=bhDg5442l2g")
+        url = pub.resolve_source_url("테스트작품", 1, sources_root=root)
+    assert url == "https://youtu.be/bhDg5442l2g"
+
+
+def test_resolve_source_url_missing_meta_returns_none():
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        assert pub.resolve_source_url("없는작품", 1, sources_root=td) is None
+        assert pub.resolve_source_url("없는작품", None, sources_root=td) is None
+
+
 def _run():
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for fn in fns:

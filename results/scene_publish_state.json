@@ -46,18 +46,22 @@
    "episode": 1,
    "clip_id": "1fafd6dd-82ec-43e5-99c9-0dc0192253a6",
    "stage": "published",
-   "video_id": "E7ewXnlRMug",
-   "privacy": "unlisted",
-   "published_at": "2026-07-31T16:21:30"
+   "video_id": "OPajHotwQfQ",
+   "privacy": "public",
+   "published_at": "2026-07-31T07:25:40+00:00",
+   "_video_id_replaced": "E7ewXnlRMug",
+   "_note": "사람이 수동 재업로드 후 공개 — 2026-08-04 DB 재링크와 함께 동기화"
   },
   "커리어데이_8e": {
    "channel": "커리어데이 숏츠",
    "episode": 1,
    "clip_id": "77d02708-f287-4956-b557-0e93d9ae4301",
    "stage": "published",
-   "video_id": "dXgHoKdQLIw",
-   "privacy": "unlisted",
-   "published_at": "2026-07-31T16:21:30"
+   "video_id": "dX4NUmRP4xc",
+   "privacy": "public",
+   "published_at": "2026-08-01T09:00:32+00:00",
+   "_video_id_replaced": "dXgHoKdQLIw",
+   "_note": "사람이 수동 재업로드 후 공개 — 2026-08-04 DB 재링크와 함께 동기화"
   },
   "B급_스튜디오_2d": {
    "channel": "B급 순삭",
@@ -103,6 +107,26 @@
    "video_id": "0VcKkec1UqA",
    "privacy": "unlisted",
    "published_at": "2026-07-31T16:48:28"
+  },
+  "커리어데이_50": {
+   "channel": "커리어데이 숏츠",
+   "slot": "커리어데이 숏츠",
+   "episode": 1,
+   "clip_id": "0753c800-1177-408b-94f3-dc778dfacaac",
+   "stage": "published",
+   "video_id": "5VLVM-LxhiQ",
+   "privacy": "unlisted",
+   "published_at": "2026-08-04T17:09:47"
+  },
+  "유미의_세포들_시즌3_71": {
+   "channel": "재미쇼츠·유미의 세포들 시즌3",
+   "slot": "재미쇼츠·유미의 세포들 시즌3",
+   "episode": 1,
+   "clip_id": "c7cbbf3b-6347-45df-9bb3-deb0c4c23917",
+   "stage": "published",
+   "video_id": "YPFfTzslzBs",
+   "privacy": "unlisted",
+   "published_at": "2026-08-04T19:23:47"
   },
   "샤먼:_미신전_1b": {
    "channel": "여운 보관소",
