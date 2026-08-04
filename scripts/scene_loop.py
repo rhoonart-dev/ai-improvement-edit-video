@@ -33,15 +33,18 @@
    같은 이유로 title_episode_regex 는 기본값 없이 **필수**다.
 
 공개 여부 판정: 장면 run_id → (DB clip_metadata.ai_video_run_id ↔ clips.video_external_id)
-  → 유튜브 Data API videos.list(공개 API 키) 로 privacyStatus. 장면 분류는 classify_scenes:
+  → 유튜브 Data API videos.list 로 privacyStatus. 장면 분류는 classify_scenes:
     - public   : 영상 중 하나라도 status=='public'
-    - rejected : 링크된 영상이 있는데 **하나도 조회되지 않고**, 발행 기록상 예약 대기도 아님
-                 = 사람이 비공개로 반려/삭제한 것. 대기에서 뺀다.
+    - rejected : 사람이 비공개로 반려/삭제한 것. **대기에서 뺀다**(슬롯이 돌아온다)
     - pending  : 그 밖 — unlisted(검수 대기) · 예약 공개 대기 · 아직 업로드 안 된 렌더
 
-  ⚠️ 예약 공개(publishAt)는 공개 시각 전까지 private 이라 조회가 안 된다. 조회 불가만 보고
-     반려로 판정하면 예약 대기분이 통째로 반려가 되므로, results/scene_publish_state.json 의
+  ★ 조회는 **그 채널 자신의 OAuth**(SOURCE_OWNER)로 한다(2026-08-04 전환). 소유자로 보면
+    private 영상도 돌아오고 예약 시각(publishAt)까지 보이므로 '반려'와 '예약 대기'가 조회만으로
+    갈린다 — 사람이 Studio 에서 비공개로 돌리면 **그날 밤 바로** 슬롯이 돌아온다.
+  ⚠️ OAuth 조회가 실패하면 공개 API 키로 폴백한다(SOURCE_PUBLIC_KEY). 공개 키는 private 을 아예
+     안 돌려줘 '반려'와 '예약 대기'가 똑같이 보이므로, 그때만 results/scene_publish_state.json 의
      시각과 reject_grace_days 유예로 '스스로 풀리는 것'과 '영영 안 풀리는 것'을 가른다.
+  ★ 발행 기록에 rejected_at 이 있으면 조회보다 그 판단이 우선한다(공개된 경우만 예외).
 
 ★ 기존 코드는 수정하지 않는다. 생성은 ai-video create_shorts 를 있는 그대로 subprocess 호출.
 
@@ -623,6 +626,56 @@ def youtube_public_ids(video_ids, api_key):
     return {v for v, s in youtube_statuses(video_ids, api_key).items() if s == "public"}
 
 
+def youtube_statuses_owner(video_ids, channel):
+    """{video_id: (privacyStatus, publishAt|None)} — **그 채널 자신의 OAuth** 로 조회. 실패 시 예외.
+
+    공개 API 키와의 결정적 차이: 소유자 자격으로 보면 **private 영상도 돌아오고 예약 시각
+    (status.publishAt)까지 보인다.** 그래서 '사람이 반려한 private'(publishAt 없음)과
+    '예약 공개 대기 중인 private'(publishAt 있음)이 조회만으로 갈린다 — 공개 API 키로는 둘 다
+    똑같이 '응답에 없음' 이라 reject_grace_days 유예로 시간을 때워야 했다(2026-08-04 전환).
+
+    필요 scope 는 `youtube.readonly` 로, 발행용으로 이미 발급된 토큰에 들어 있다(재동의 불필요 —
+    18채널 실측). 조회 비용은 videos.list 1유닛/50건으로 공개 키 경로와 같다.
+    """
+    from googleapiclient.discovery import build  # 무거워서 지연 임포트
+
+    import publish_youtube as _pub  # scripts/ 는 모듈 상단에서 이미 sys.path 에 있다
+
+    creds = _pub._credentials(channel)
+    if creds is None:
+        raise RuntimeError(f"채널 OAuth 미설정: {channel}")
+    yt = build("youtube", "v3", credentials=creds, cache_discovery=False)
+    out = {}
+    ids = [v for v in dict.fromkeys(video_ids) if v]
+    for i in range(0, len(ids), 50):
+        resp = yt.videos().list(part="status", id=",".join(ids[i:i + 50])).execute()
+        for it in resp.get("items", []):
+            st = it.get("status") or {}
+            out[it["id"]] = (st.get("privacyStatus"), st.get("publishAt"))
+    return out
+
+
+# 상태 조회 출처 — 판정 규칙이 출처마다 다르므로 어느 쪽으로 읽었는지를 끝까지 들고 다닌다
+SOURCE_OWNER = "owner"          # 채널 OAuth — private/예약이 구분된다(유예 불필요)
+SOURCE_PUBLIC_KEY = "public_key"  # 공개 API 키 — 구분 불가라 유예로 가른다(구 경로)
+
+
+def scene_statuses(video_ids, channel, api_key):
+    """({video_id: (privacy, publishAt)}, 출처) — OAuth 우선, 실패하면 공개 키로 폴백.
+
+    🛑 **폴백이 있어야 한다.** 토큰 만료·scope 축소·클라이언트 폐기는 밤중에 일어나고, 그때
+    조회가 예외로 죽으면 그 채널이 통째로 스킵된다(호출부가 '공개 카운트 조회 실패 → 오늘 이
+    채널 스킵'). 폴백은 예전과 똑같이 동작할 뿐이므로 회귀가 아니다 — 정확도만 낮아진다.
+    """
+    if not video_ids:
+        return {}, SOURCE_OWNER
+    try:
+        return youtube_statuses_owner(video_ids, channel), SOURCE_OWNER
+    except Exception:  # noqa: BLE001 — 어떤 실패든 구 경로로 계속 간다
+        return ({v: (s, None) for v, s in youtube_statuses(video_ids, api_key).items()},
+                SOURCE_PUBLIC_KEY)
+
+
 # 장면 분류 — 회차 카운트와 브레이크 판정의 기준
 SCENE_PUBLIC = "public"        # 공개됨 → 회차 quota 에 카운트
 SCENE_PENDING = "pending"      # 검수 대기·예약 대기·미업로드 → 기다리면 풀린다
@@ -677,7 +730,7 @@ def _awaiting_publish(rec, now, grace_days):
 
 
 def classify_scenes(scenes, conn, channel, api_key, publish_records=None,
-                    now=None, grace_days=REJECT_GRACE_DAYS):
+                    now=None, grace_days=REJECT_GRACE_DAYS, log=lambda m: None):
     """scenes(merge_scenes 결과)를 public|pending|rejected 로 분류. scenes 와 같은 순서의 리스트.
 
     🛑 **rejected 를 '공개 대기'로 세면 안 된다.** pending 은 "기다리면 풀리는 것"이라는 뜻이고,
@@ -686,31 +739,48 @@ def classify_scenes(scenes, conn, channel, api_key, publish_records=None,
     된다(2026-07-30 실측: 너굴안방 EP5·흥행수집 EP4 가 반려 1개씩을 대기로 점유 중이었고, 반려가
     3개 쌓이면 그 회차는 죽는다). 반려는 카운트에서 빼서 생성 슬롯을 되돌려 준다.
 
-    🛑 **거꾸로, 예약 대기분을 반려로 세도 안 된다** — _awaiting_publish 참고. 공개 API 키는
-    private 을 안 돌려주므로 '예약 대기'와 '반려'가 조회상 똑같이 보인다. 발행 기록의 시각으로
-    가른다.
+    🛑 **거꾸로, 예약 대기분을 반려로 세도 안 된다** — 두 경로가 이걸 다르게 가른다:
+      · SOURCE_OWNER(채널 OAuth) — `publishAt` 이 있으면 예약, 없으면 반려. 조회만으로 확실하다.
+      · SOURCE_PUBLIC_KEY(공개 키 폴백) — 둘 다 '응답에 없음' 이라 구분이 안 돼, 발행 기록의
+        시각과 `reject_grace_days` 유예로 가른다(_awaiting_publish).
 
     ⚠️ 반려 장면의 **구간은 중복 회피 대상에 그대로 남긴다**(호출부가 info['scenes'] 를 통째로
     prior_spans 에 쓴다) — 안 그러면 사람이 버린 그 구간을 루프가 다시 만든다.
+
+    ★ 사람이 발행 기록에 `rejected_at` 을 남긴 장면은 조회 결과보다 **그 판단이 우선**한다
+      (공개된 경우만 예외 — 실제로 공개돼 있으면 그게 사실이다). 추론보다 명시적 결정이 먼저다.
     """
     recs = load_publish_records() if publish_records is None else publish_records
     now = now or datetime.now().astimezone()
     run_ids = sorted({r for sc in scenes for r in sc["run_ids"]})
     run2vid = db_run_videos(conn, channel, run_ids)
     all_vids = [v for vs in run2vid.values() for v in vs]
-    st = youtube_statuses(all_vids, api_key) if all_vids else {}
+    st, source = scene_statuses(all_vids, channel, api_key)
+    if all_vids and source == SOURCE_PUBLIC_KEY:
+        # 조용히 넘어가면 토큰 만료가 몇 주씩 묻힌다 — 유예 판정으로 낮아진 정확도를 알린다
+        log(f"  ⚠ 채널 OAuth 조회 실패 → 공개 API 키 폴백(반려/예약 구분에 유예 {grace_days}일 적용)")
     kinds = []
     for sc in scenes:
         vids = [v for r in sc["run_ids"] for v in run2vid.get(r, [])]
-        if any(st.get(v) == SCENE_PUBLIC for v in vids):
+        privacies = [(st.get(v) or (None, None)) for v in vids]
+        if any(p == SCENE_PUBLIC for p, _ in privacies):
             kinds.append(SCENE_PUBLIC)
-        elif vids and not any(v in st for v in vids):
-            # 링크는 있는데 전부 조회 불가 = 비공개/삭제 **또는** 예약 공개 대기
+        elif any((recs.get(r) or {}).get("rejected_at") for r in sc["run_ids"]):
+            kinds.append(SCENE_REJECTED)          # 사람이 명시적으로 반려
+        elif not vids:
+            kinds.append(SCENE_PENDING)           # 아직 업로드 안 된 렌더
+        elif source == SOURCE_OWNER:
+            # 소유자 시점: unlisted=검수 대기 · private+publishAt=예약 대기 · 그 밖=반려(비공개/삭제)
+            waiting = any(p == "unlisted" or (p == "private" and pub_at)
+                          for p, pub_at in privacies)
+            kinds.append(SCENE_PENDING if waiting else SCENE_REJECTED)
+        elif not any(v in st for v in vids):
+            # 공개 키 폴백: 링크는 있는데 전부 조회 불가 = 비공개/삭제 **또는** 예약 공개 대기
             awaiting = any(_awaiting_publish(recs.get(r) or {}, now, grace_days)
                            for r in sc["run_ids"])
             kinds.append(SCENE_PENDING if awaiting else SCENE_REJECTED)
         else:
-            kinds.append(SCENE_PENDING)    # unlisted 이거나 아직 업로드 안 된 렌더
+            kinds.append(SCENE_PENDING)           # unlisted 로 조회됨 = 검수 대기
     return kinds
 
 
@@ -793,7 +863,7 @@ def channel_plan(cfg, ch, state, conn, api_key, scan_roots, gen_py=None, log=lam
         # 진행 키는 slot_key(상태·산출물·중복판정), 공개 조회는 실제 채널명 — 섞으면 안 된다.
         scenes = rendered_scenes(state, slot_key(ch), ep_num, vp, scan_roots, iou_th, ctol)
         kinds = classify_scenes(scenes, conn, ch["channel"], api_key,
-                                publish_records=pub_recs, grace_days=grace)
+                                publish_records=pub_recs, grace_days=grace, log=log)
         pub = kinds.count(SCENE_PUBLIC)
         # 브레이크는 pending 만 본다 — 반려(rejected)는 사람이 공개해 줄 수 없으므로 제외한다.
         # scenes 는 통째로 넘긴다: 반려 구간도 중복 회피 대상이어야 한다(classify_scenes 참고).

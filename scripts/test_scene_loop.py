@@ -392,6 +392,81 @@ def test_scheduled_publish_is_pending_not_rejected():
                      sl.SCENE_REJECTED]   # 발행 기록 없음 = 손으로 올렸다 내린 것
 
 
+def test_owner_lookup_separates_scheduled_from_rejected_without_grace():
+    """★ 채널 OAuth 조회면 유예가 필요 없다 — publishAt 유무로 예약/반려가 갈린다.
+
+    공개 API 키 경로는 private 을 아예 못 봐서 '방금 반려한 것'도 유예(기본 7일) 동안 대기로
+    잡혔고, 그동안 그 회차가 상한에 걸려 생성이 멈췄다. 소유자 자격으로 보면 그날 밤 바로 풀린다.
+    """
+    now = datetime.fromisoformat("2026-08-04T20:00:00+09:00")
+    scenes = [{"span": [0.0, 1.0], "run_ids": ["w_pub"]},
+              {"span": [2.0, 3.0], "run_ids": ["w_sched"]},   # private + 예약 시각
+              {"span": [4.0, 5.0], "run_ids": ["w_rej"]},     # private + 예약 없음 = 반려
+              {"span": [6.0, 7.0], "run_ids": ["w_unl"]},     # unlisted = 검수 대기
+              {"span": [8.0, 9.0], "run_ids": ["w_gone"]}]    # 조회 자체가 안 됨 = 삭제
+    owner = {"vid_w_pub": ("public", None),
+             "vid_w_sched": ("private", "2026-08-04T10:00:00Z"),
+             "vid_w_rej": ("private", None),
+             "vid_w_unl": ("unlisted", None)}
+    old = _patch(
+        db_run_videos=lambda conn, ch, rids: {r: [f"vid_{r}"] for r in rids},
+        youtube_statuses_owner=lambda vids, ch: owner,
+        # 폴백이 끼어들면 안 된다 — 끼어들면 유예 규칙이 적용돼 결과가 달라진다
+        youtube_statuses=lambda vids, key: (_ for _ in ()).throw(AssertionError("폴백 금지")),
+    )
+    try:
+        # 발행 기록을 통째로 비워도(=유예 판정 근거 없음) 결과가 같아야 한다
+        kinds = sl.classify_scenes(scenes, None, "채널1", "KEY", publish_records={}, now=now)
+    finally:
+        _restore(old)
+    assert kinds == [sl.SCENE_PUBLIC, sl.SCENE_PENDING, sl.SCENE_REJECTED,
+                     sl.SCENE_PENDING, sl.SCENE_REJECTED]
+
+
+def test_owner_lookup_falls_back_to_public_key_on_failure():
+    """🛑 토큰 만료·scope 축소로 OAuth 가 죽어도 그 채널이 통째로 스킵되면 안 된다.
+
+    폴백은 구 경로와 똑같이 동작할 뿐이다 — 정확도(유예 필요)만 낮아진다.
+    """
+    now = datetime.fromisoformat("2026-08-04T20:00:00+09:00")
+    scenes = [{"span": [0.0, 1.0], "run_ids": ["w_recent"]},   # 방금 올림 → 유예 안 = 대기
+              {"span": [2.0, 3.0], "run_ids": ["w_old"]}]      # 유예 지남 = 반려
+    def _boom(vids, ch):
+        raise RuntimeError("invalid_grant")
+    old = _patch(
+        db_run_videos=lambda conn, ch, rids: {r: [f"vid_{r}"] for r in rids},
+        youtube_statuses_owner=_boom,
+        youtube_statuses=lambda vids, key: {},   # 공개 키로는 private 이 안 보인다
+    )
+    try:
+        kinds = sl.classify_scenes(
+            scenes, None, "채널1", "KEY", now=now, grace_days=7,
+            publish_records={"w_recent": {"published_at": "2026-08-04T19:00:00"},
+                             "w_old": {"published_at": "2026-07-01T12:00:00+09:00"}})
+    finally:
+        _restore(old)
+    assert kinds == [sl.SCENE_PENDING, sl.SCENE_REJECTED]
+
+
+def test_explicit_rejected_at_beats_lookup_but_not_actual_public():
+    """사람이 남긴 명시적 반려가 추론보다 우선한다. 단 실제로 공개돼 있으면 그게 사실이다."""
+    scenes = [{"span": [0.0, 1.0], "run_ids": ["w_marked"]},   # unlisted 인데 반려 표시
+              {"span": [2.0, 3.0], "run_ids": ["w_public"]}]   # 공개인데 반려 표시
+    owner = {"vid_w_marked": ("unlisted", None), "vid_w_public": ("public", None)}
+    old = _patch(
+        db_run_videos=lambda conn, ch, rids: {r: [f"vid_{r}"] for r in rids},
+        youtube_statuses_owner=lambda vids, ch: owner,
+    )
+    try:
+        kinds = sl.classify_scenes(
+            scenes, None, "채널1", "KEY",
+            publish_records={"w_marked": {"rejected_at": "2026-08-04T19:37:00"},
+                             "w_public": {"rejected_at": "2026-08-04T19:37:00"}})
+    finally:
+        _restore(old)
+    assert kinds == [sl.SCENE_REJECTED, sl.SCENE_PUBLIC]
+
+
 def test_rejected_scenes_do_not_block_generation():
     """🛑 회귀 방지 — 반려만 상한만큼 쌓인 회차가 영구 교착되면 안 된다.
 
