@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ctext y=%2213%22 font-size=%2213%22%3E%F0%9F%8E%9B%3C/text%3E%3C/svg%3E">
+<title>VES OPS — 운영 대시보드</title>
+<style>
+:root{--ground:#eef1f4;--panel:#fff;--side:#1e2833;--side-ink:#aebbc7;--side-on:#fff;
+--ink:#232830;--ink2:#5c6570;--ink3:#8b939d;--line:#c9d0d8;--soft:#dde2e8;
+--accent:#20586e;--accent-soft:#e3edf2;--ok:#1d7a46;--okbg:#e2f1e8;--warn:#a06008;--warnbg:#f7ecd8;
+--bad:#a33131;--badbg:#f6e4e4;--mono:ui-monospace,"SF Mono",Menlo,monospace}
+@media(prefers-color-scheme:dark){:root{--ground:#15181c;--panel:#1f242a;--side:#11161b;--side-ink:#7e8a95;
+--side-on:#e8edf2;--ink:#e3e7ec;--ink2:#9aa3ad;--ink3:#6d757f;--line:#3c434c;--soft:#2e343b;
+--accent:#7db3c9;--accent-soft:#243440;--ok:#5cb884;--okbg:#22352b;--warn:#d9a458;--warnbg:#3a3222;
+--bad:#d97e7e;--badbg:#3c2727}}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font:14.5px/1.5 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Segoe UI",sans-serif}
+.shell{display:flex;min-height:100vh}
+aside{width:210px;flex-shrink:0;background:var(--side);color:var(--side-ink);display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.brand{padding:20px 18px 14px;border-bottom:1px solid rgba(255,255,255,.08)}
+.brand h1{font-size:16px;margin:0;color:var(--side-on)}.brand .v{font-family:var(--mono);font-size:10px;opacity:.65}
+aside nav{display:flex;flex-direction:column;padding:10px 0}
+aside nav a{display:flex;gap:10px;padding:10px 18px;cursor:pointer;font-size:13.5px;color:var(--side-ink);text-decoration:none;border-left:3px solid transparent}
+aside nav a:hover{color:var(--side-on);background:rgba(255,255,255,.04)}
+aside nav a.on{color:var(--side-on);background:rgba(255,255,255,.07);border-left-color:#e8b04b;font-weight:600}
+aside nav a.dis{opacity:.4;cursor:default}
+.side-foot{margin-top:auto;padding:14px 18px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;line-height:1.7}
+main{flex:1;min-width:0;padding:0 26px 60px}
+.page{max-width:1240px;margin:0 auto;display:none}.page.on{display:block}
+.topbar{display:flex;align-items:baseline;gap:14px;padding:22px 0 14px;flex-wrap:wrap}
+.topbar h2{font-size:19px;margin:0}.topbar .sub{color:var(--ink2);font-size:13px}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.chip{font-size:12px;border:1px solid var(--line);padding:3px 11px;border-radius:20px;color:var(--ink2);background:var(--panel);cursor:pointer;user-select:none}
+.chip.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--soft)}
+.thumb{aspect-ratio:16/9;background:#0003;display:block;position:relative;overflow:hidden}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb.nothumb{display:flex;align-items:center;justify-content:center;background:repeating-linear-gradient(135deg,transparent 0 6px,rgba(128,128,128,.14) 6px 7px)}
+.thumb.nothumb::after{content:"썸네일 없음 · 비공개/삭제";font-size:10.5px;color:var(--ink3);text-align:center;padding:0 10px}
+.pill{display:inline-block;font-size:11px;font-weight:600;padding:1.5px 9px;border-radius:20px}
+.pill.pub{background:var(--okbg);color:var(--ok)}.pill.unl{background:var(--warnbg);color:var(--warn)}
+.pill.gone{background:var(--badbg);color:var(--bad)}.pill.na{background:var(--soft);color:var(--ink3)}
+.thumb .pill{position:absolute;top:8px;left:8px}
+.card .body{padding:10px 12px 12px}
+.card .title{font-size:12.5px;font-weight:600;line-height:1.4;margin:0 0 6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.8em}
+.card .meta{font-size:11px;color:var(--ink2);margin:0 0 8px}
+.mac{font-family:var(--mono);font-size:10.5px;color:var(--accent)}
+.lnk{font-size:11px;border:1px solid var(--line);padding:2px 8px;color:var(--ink2);text-decoration:none;margin-right:6px}
+.panel{background:var(--panel);border:1px solid var(--soft);padding:16px;margin-bottom:16px}
+.panel h3{margin:0 0 10px;font-size:14.5px}
+.tblw{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:13px}
+th{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);text-align:left;padding:7px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:7px 12px;border-bottom:1px solid var(--soft);white-space:nowrap;font-variant-numeric:tabular-nums}
+td.num,th.num{text-align:right}
+tr.rowlink{cursor:pointer}tr.rowlink:hover td{background:var(--accent-soft)}
+.bar{display:inline-block;height:8px;background:var(--accent);opacity:.75;vertical-align:middle}
+.note{border-left:3px solid var(--accent);background:var(--accent-soft);padding:9px 13px;font-size:12.5px;color:var(--ink2);margin:0 0 16px}
+.err{border-left-color:var(--bad);background:var(--badbg);color:var(--bad)}
+#login{position:fixed;inset:0;background:var(--ground);display:flex;align-items:center;justify-content:center;z-index:9}
+#login[hidden]{display:none}/* ★ #login 의 display:flex 가 hidden 속성을 이겨서 로그인 후에도 화면을 덮었다 */
+#login .box{background:var(--panel);border:1px solid var(--soft);padding:28px;width:320px}
+#login h1{font-size:17px;margin:0 0 4px}#login p{font-size:12.5px;color:var(--ink2);margin:0 0 14px}
+#login input{width:100%;padding:9px 11px;font:inherit;border:1px solid var(--line);background:var(--ground);color:var(--ink);margin-bottom:10px}
+#login button{width:100%;padding:9px;font:inherit;font-weight:600;background:var(--accent);color:#fff;border:none;cursor:pointer}
+#login .msg{font-size:12px;color:var(--bad);min-height:16px;margin-top:8px}
+.skel{color:var(--ink3);font-size:13px;padding:20px 0}
+@media(max-width:760px){.shell{flex-direction:column}aside{width:100%;height:auto;position:static}
+aside nav{flex-direction:row;overflow-x:auto;padding:0}aside nav a{border-left:none;border-bottom:3px solid transparent}
+aside nav a.on{border-left-color:transparent;border-bottom-color:#e8b04b}.side-foot{display:none}main{padding:0 14px 40px}}
+</style></head><body>
+<div id="login" hidden><div class="box"><h1>VES OPS</h1><p>팀 접속 코드를 입력하세요.</p>
+<input id="pw" type="password" placeholder="접속 코드" autocomplete="current-password">
+<button id="pwgo">들어가기</button><div class="msg" id="pwmsg"></div></div></div>
+<div class="shell">
+<aside>
+  <div class="brand"><h1>VES OPS</h1><div class="v">맥미니 6대 · 19채널</div></div>
+  <nav>
+    <a data-page="feed" class="on">▶ 영상 피드</a>
+    <a data-page="perf">↗ 채널 성과</a>
+    <a class="dis" title="하트비트 도입 후">▦ 머신 로그</a>
+    <a class="dis" title="하트비트 도입 후">⇅ 커밋·배포</a>
+  </nav>
+  <div class="side-foot">v1 — 피드·성과<br><span id="foot-upd"></span></div>
+</aside>
+<main>
+<section class="page on" id="page-feed">
+  <div class="topbar"><h2>영상 피드</h2><span class="sub">생성 파이프라인이 발행한 클립 — 최신순</span></div>
+  <div id="yt-note"></div>
+  <div class="filters" id="feed-filters"></div>
+  <div class="grid" id="feed-grid"><div class="skel">불러오는 중…</div></div>
+</section>
+<section class="page" id="page-perf">
+  <div class="topbar"><h2>채널 성과</h2><span class="sub">laeebly 스튜디오 데이터 · 일 단위</span>
+    <span style="margin-left:auto" class="filters">
+      <span class="chip on" data-days="7">7일</span><span class="chip" data-days="28">28일</span>
+    </span></div>
+  <p class="note">평균시청·지속시청은 <b>조회수 가중평균</b>입니다. Shorts 는 반복 재생돼 <b>평균시청%가 100%를 넘을 수 있습니다</b>(정상). 또한 짧은 영상일수록 이 비율이 유리하므로, 채널 비교는 <b>시청시간</b>을 함께 보세요.</p>
+  <div id="perf-note"></div>
+  <div class="panel"><h3>채널 리그테이블</h3><div class="tblw" id="perf-table"><div class="skel">불러오는 중…</div></div></div>
+  <div class="panel" id="drill" hidden><h3 id="drill-title"></h3><div class="tblw" id="drill-table"></div></div>
+</section>
+</main></div>
+<script>
+const $=(s)=>document.querySelector(s);
+const KEY=()=>localStorage.getItem('ves_key')||'';
+const api=async(path)=>{
+  const r=await fetch(path,{headers:{'x-ves-key':encodeURIComponent(KEY())}});
+  if(r.status===401){showLogin('코드가 틀렸거나 만료됐습니다.');throw new Error('unauthorized');}
+  if(r.status===503){const b=await r.json();if(b.setup){showSetup();throw new Error('setup');}}
+  return r.json();
+};
+function showLogin(msg){$('#login').hidden=false;$('#pwmsg').textContent=msg||'';}
+function showSetup(){$('#login').hidden=false;$('#pwmsg').textContent='서버에 DASHBOARD_PASSWORD 시크릿이 아직 설정되지 않았습니다. 관리자에게 문의하세요.';}
+$('#pwgo').onclick=async()=>{localStorage.setItem('ves_key',$('#pw').value.trim());
+  try{await api(BASE+'/api/feed?days=1');$('#login').hidden=true;boot();}
+  catch(e){if(e&&e.message!=='unauthorized'&&e.message!=='setup')showLogin('접속 실패: '+e.message);}};
+$('#pw').addEventListener('keydown',e=>{if(e.key==='Enter')$('#pwgo').click()});
+
+const BASE='https://fdidiqdhcyctdbogxkdu.supabase.co/functions/v1/dashboard';
+const fmt=(n)=>n==null?'—':Number(n).toLocaleString('ko-KR');
+const pct=(n)=>n==null?'—':Number(n).toFixed(1);
+
+// 페이지 전환
+document.querySelectorAll('aside nav a[data-page]').forEach(a=>{a.onclick=()=>{
+  document.querySelectorAll('aside nav a').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
+  a.classList.add('on');$('#page-'+a.dataset.page).classList.add('on');};});
+
+// ── 피드 ──
+let FEED=[],FILTER='전체';
+async function loadFeed(){
+  const d=await api(BASE+'/api/feed?days=60');FEED=d.items||[];renderFilters();renderFeed();enrichStatus();
+  $('#foot-upd').textContent='갱신 '+new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+}
+function renderFilters(){
+  const macs=['전체','맥1','맥2','맥3','맥4','맥5','맥6'];
+  $('#feed-filters').innerHTML=macs.map(m=>'<span class="chip'+(m===FILTER?' on':'')+'" data-m="'+m+'">'+m+'</span>').join('');
+  document.querySelectorAll('#feed-filters .chip').forEach(c=>c.onclick=()=>{FILTER=c.dataset.m;renderFilters();renderFeed();});
+}
+const PILL={public:['pub','공개'],unlisted:['unl','일부공개'],private:['gone','비공개'],gone:['gone','반려/삭제']};
+function renderFeed(){
+  const items=FEED.filter(x=>FILTER==='전체'||x.mac===FILTER);
+  if(!items.length){$('#feed-grid').innerHTML='<div class="skel">표시할 클립이 없습니다.</div>';return;}
+  $('#feed-grid').innerHTML=items.map(x=>{
+    const vid=x.video_id;const st=x._st&&PILL[x._st.privacy]||['na','상태 미확인'];
+    const thumb=vid?'<img loading="lazy" src="https://i.ytimg.com/vi/'+vid+'/mqdefault.jpg" alt="" onerror="this.remove();this.closest(\'.thumb\').classList.add(\'nothumb\')">':'';
+    const when=(x.created_at||'').slice(5,16).replace('T',' ');
+    return '<div class="card"><a class="thumb" '+(vid?'href="https://www.youtube.com/shorts/'+vid+'" target="_blank" rel="noopener"':'')+'>'
+      +thumb+'<span class="pill '+st[0]+'">'+st[1]+'</span></a>'
+      +'<div class="body"><p class="title">'+(x.title||'(제목 미기록)')+'</p>'
+      +'<p class="meta">'+(x.channel||'?')+' · <span class="mac">'+(x.mac||'?')+'</span> · '+when+'</p>'
+      +(vid?'<a class="lnk" href="https://www.youtube.com/shorts/'+vid+'" target="_blank" rel="noopener">▶ 보기</a>'
+      +'<a class="lnk" href="https://studio.youtube.com/video/'+vid+'/edit" target="_blank" rel="noopener">Studio</a>':'')
+      +'</div></div>';}).join('');
+}
+async function enrichStatus(){
+  const ids=FEED.map(x=>x.video_id).filter(Boolean);
+  let configured=true;
+  for(let i=0;i<ids.length;i+=50){
+    const d=await api(BASE+'/api/ytstatus?ids='+ids.slice(i,i+50).join(','));
+    if(d.configured===false){configured=false;break;}
+    FEED.forEach(x=>{if(d.statuses[x.video_id])x._st=d.statuses[x.video_id];});
+  }
+  if(!configured){$('#yt-note').innerHTML='<p class="note">공개/일부공개 상태 표시는 YOUTUBE_API_KEY 시크릿을 설정하면 켜집니다.</p>';}
+  renderFeed();
+}
+
+// ── 성과 ──
+let DAYS=7;
+document.querySelectorAll('[data-days]').forEach(c=>c.onclick=()=>{DAYS=+c.dataset.days;
+  document.querySelectorAll('[data-days]').forEach(x=>x.classList.toggle('on',+x.dataset.days===DAYS));loadPerf();});
+function spark(daily){
+  if(!daily||daily.length<2)return'';
+  const vs=daily.map(d=>d[1]),max=Math.max(...vs,1);const w=86,h=20;
+  const pts=vs.map((v,i)=>((i/(vs.length-1))*w).toFixed(1)+','+(h-2-(v/max)*(h-4)).toFixed(1)).join(' ');
+  return '<svg width="'+w+'" height="'+h+'" style="vertical-align:middle"><polyline points="'+pts+'" fill="none" stroke="var(--accent)" stroke-width="1.5"/></svg>';
+}
+async function loadPerf(){
+  const d=await api(BASE+'/api/perf?days='+DAYS);
+  if(d.configured===false){$('#perf-note').innerHTML='<p class="note err">LAEEBLY_DB_URL 시크릿이 설정되지 않아 성과 데이터를 읽을 수 없습니다.</p>';$('#perf-table').innerHTML='';return;}
+  if(d.error){$('#perf-note').innerHTML='<p class="note err">성과 조회 오류: '+d.error+'</p>';return;}
+  $('#perf-note').innerHTML='';
+  const max=Math.max(...d.channels.map(c=>c.views),1);
+  $('#perf-table').innerHTML='<table><tr><th>채널</th><th>머신</th><th class="num">조회수 '+DAYS+'d</th><th></th><th class="num">시청시간(h)</th><th class="num">평균시청%</th><th class="num">지속시청%</th><th class="num">좋아요</th><th class="num">수익(원)</th><th>추이 14d</th></tr>'
+    +d.channels.map(c=>'<tr class="rowlink" data-ch="'+c.channel_id+'" data-name="'+c.name+'">'
+    +'<td><b>'+c.name+'</b></td><td class="mac">'+(c.mac||'—')+'</td>'
+    +'<td class="num">'+fmt(c.views)+'</td><td><span class="bar" style="width:'+Math.max(2,(c.views/max)*90)+'px"></span></td>'
+    +'<td class="num">'+pct(c.watch_hours)+'</td>'
+    +'<td class="num">'+pct(c.apv)+'</td><td class="num">'+pct(c.kwr)+'</td>'
+    +'<td class="num">'+fmt(c.likes)+'</td><td class="num">'+fmt(c.profits_krw==null?null:Math.round(c.profits_krw))+'</td>'
+    +'<td>'+spark(c.daily)+'</td></tr>').join('')+'</table>';
+  document.querySelectorAll('#perf-table tr.rowlink').forEach(tr=>tr.onclick=()=>drill(tr.dataset.ch,tr.dataset.name));
+}
+async function drill(chId,name){
+  $('#drill').hidden=false;$('#drill-title').textContent='드릴다운: '+name+' › 영상별 (최근 28일)';
+  $('#drill-table').innerHTML='<div class="skel">불러오는 중…</div>';
+  const d=await api(BASE+'/api/videos?channel_id='+chId+'&days=28');
+  if(d.error){$('#drill-table').innerHTML='<p class="note err">'+d.error+'</p>';return;}
+  $('#drill-table').innerHTML='<table><tr><th>영상</th><th class="num">길이(초)</th><th class="num">조회수</th><th class="num">시청시간(h)</th><th class="num">평균시청%</th><th class="num">좋아요</th><th class="num">수익(원)</th><th>업로드</th><th></th></tr>'
+    +d.videos.map(v=>'<tr><td style="max-width:420px;overflow:hidden;text-overflow:ellipsis">'+(v.title||v.content_id)+'</td>'
+    +'<td class="num">'+(v.length_sec==null?'—':Math.round(v.length_sec))+'</td>'
+    +'<td class="num">'+fmt(v.views)+'</td><td class="num">'+pct(v.watch_hours)+'</td>'
+    +'<td class="num">'+pct(v.apv)+'</td><td class="num">'+fmt(v.likes)+'</td>'
+    +'<td class="num">'+fmt(v.profits_krw==null?null:Math.round(v.profits_krw))+'</td>'
+    +'<td>'+String(v.uploaded||'').slice(0,10)+'</td>'
+    +'<td><a class="lnk" href="https://www.youtube.com/watch?v='+v.content_id+'" target="_blank" rel="noopener">▶</a></td></tr>').join('')+'</table>';
+  $('#drill').scrollIntoView({behavior:'smooth'});
+}
+
+async function boot(){try{await loadFeed();await loadPerf();}catch(e){console.error(e);}}
+if(KEY())boot();else showLogin('');
+</script></body></html>

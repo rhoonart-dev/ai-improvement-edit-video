@@ -378,7 +378,8 @@ git pull --no-rebase && ./scripts/install_scene_loop_launchd.sh
 일이라 더 그렇다(맥3 이 그렇게 처리했다).
 
 이관 완료 머신: `macmini-luna2`(2026-07-31) · `macmini-luna4`(2026-07-31 — 생성 04:00 / 보고 10:00,
-정본 kind 도 `launchd` 로 교정해 커밋 4764b66).
+정본 kind 도 `launchd` 로 교정해 커밋 4764b66) · `macmini-luna5`(2026-07-31 — 예약작업 cron 이
+이미 보고 시각(10:00)이어서 3 은 변경 불요, §5-3 의 4(다음 날 발화 확인)만 남음).
 
 ⚠️ 이관할 때 배정 정본의 `schedule.kind` 도 함께 고칠 것 — 설치 스크립트는 `schedule.at` 만 읽고
 `kind` 는 보지 않아서, 설치해도 정본은 `claude_task` 로 남는다. 그대로 두면 다음 사람이 그 머신을
