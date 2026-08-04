@@ -80,6 +80,19 @@ def test_kst_to_utc():
     assert hb.kst_to_utc_iso("깨진값") is None
 
 
+
+
+def test_build_upsert_casts():
+    row = {"host": "h1", "run_started_at": "2026-08-04T00:00:00+00:00", "status": "done",
+           "channels": [{"channel": "몰입도둑"}], "schema_version": 1}
+    sql, vals = hb._build_upsert(row)
+    assert "run_started_at" in sql and "%s::timestamptz" in sql   # psycopg v3 서버측 바인딩 대응
+    assert "%s::jsonb" in sql
+    assert "ON CONFLICT (host, run_started_at)" in sql
+    assert "host = EXCLUDED" not in sql                            # 키 컬럼은 갱신 대상 아님
+    assert vals[sql.split("(")[1].split(")")[0].split(", ").index("channels")].startswith("[")
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_"):
