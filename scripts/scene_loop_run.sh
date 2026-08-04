@@ -31,6 +31,13 @@ fi
 echo $$ > "$LOCK/pid"
 trap 'rm -rf "$LOCK"' EXIT INT TERM
 
+# ── 하트비트(시작) ──
+# 실행 요약을 중앙 DB(machine_heartbeats)에 남긴다 — "보고가 안 온다" 자체가 경보가 되도록
+# 시작 시점에도 1회 기록(끝만 기록하면 크래시/행이 무신호로 사라진다). `|| true` 필수:
+# 하트비트는 어떤 경우에도 생성을 막으면 안 된다(DB 장애의 밤에 6대가 통째로 죽는 역전 금지).
+HB_TRIGGER="${SCENE_LOOP_TRIGGER:-launchd}"
+"$PY" scripts/send_heartbeat.py --phase start --trigger "$HB_TRIGGER" >> "$LOG" 2>&1 || true
+
 # ── 배정·작품 카드 검증 게이트 ──
 # 잘못된 배정(한 채널을 두 머신이 담당)이나 잘못된 카드(플레이리스트 한정 작품에 채널 URL)는
 # 실행 시점에는 정상처럼 보이고 결과물이 나온 뒤에야 드러난다. 편당 수십 분·수백 MB 가 들어가므로
@@ -38,6 +45,8 @@ trap 'rm -rf "$LOCK"' EXIT INT TERM
 echo "===== $(date '+%Y-%m-%d %H:%M:%S') 배정 검증 =====" >> "$LOG"
 if ! "$PY" scripts/check_assignments.py >> "$LOG" 2>&1; then
   echo "===== $(date '+%Y-%m-%d %H:%M:%S') ⛔ 검증 실패 → 생성하지 않고 종료 =====" >> "$LOG"
+  # 이 경로는 예전엔 조용히 죽던 지점 — status=blocked 로 보고해야 아침에 보인다
+  "$PY" scripts/send_heartbeat.py --phase end --status blocked --trigger "$HB_TRIGGER" >> "$LOG" 2>&1 || true
   exit 2
 fi
 
@@ -45,4 +54,7 @@ echo "===== $(date '+%Y-%m-%d %H:%M:%S') scene_loop 시작 =====" >> "$LOG"
 "$PY" scripts/scene_loop.py "$@" >> "$LOG" 2>&1
 rc=$?
 echo "===== $(date '+%Y-%m-%d %H:%M:%S') scene_loop 종료 (rc=$rc) =====" >> "$LOG"
+
+# ── 하트비트(종료) — 채널별 결과·로그 구간·실패 꼬리·스냅샷 2종·SHA·디스크 ──
+"$PY" scripts/send_heartbeat.py --phase end --rc "$rc" --trigger "$HB_TRIGGER" >> "$LOG" 2>&1 || true
 exit $rc
