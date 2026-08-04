@@ -1,15 +1,20 @@
-// VES 운영 대시보드 — v1 (영상 피드 + 채널 성과)
+// VES 운영 대시보드 — v2 API (피드·성과 + 하트비트 기반 검수함·머신·배포)
 // 배포: Supabase Edge Function `dashboard` (프로젝트 fdidiqdhcyctdbogxkdu, verify_jwt=false)
-// 인증: 접속 코드(DASHBOARD_PASSWORD secret) — 페이지 자체는 데이터 없음, API만 코드 요구.
-// 데이터: 피드=fdidiqd(자체 프로젝트, service role 자동 주입) · 성과=laeebly(LAEEBLY_DB_URL secret, 읽기전용 세션 강제)
+// 화면: https://rhoonart-da.github.io/ves-ops-dashboard/ (GitHub Pages, React 단일 파일) — 이 함수는 API 전용.
+//   슈파베이스 기본 도메인은 text/html 을 text/plain 으로 강제해 HTML 서빙이 불가하다.
+// 인증: 접속 코드(DASHBOARD_PASSWORD secret). 데이터: fdidiqd(SELECT만) · laeebly(읽기전용 세션 강제)
+//   · machine_heartbeats(0007) · GitHub API(GITHUB_TOKEN secret, 선택 — 없으면 커밋 목록만 비활성)
+// 원본 관리: ai-improvement-edit-video/deploy/edge-dashboard/index.ts
 import { createClient } from "npm:@supabase/supabase-js@2";
 import postgres from "npm:postgres@3.4.5";
 
 const SB_URL = Deno.env.get("SUPABASE_URL")!;
 const SB_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const PASSWORD = (Deno.env.get("DASHBOARD_PASSWORD") ?? "").trim();  // 시크릿 입력칸이 textarea 라 끝에 개행이 붙기 쉽다
-const LAEEBLY = Deno.env.get("LAEEBLY_DB_URL") ?? "";
-const YT_KEY = Deno.env.get("YOUTUBE_API_KEY") ?? "";
+// ⚠ 시크릿 입력칸이 여러 줄 textarea 라 값 끝에 개행·공백이 딸려오기 쉽다 — 전부 trim.
+const PASSWORD = (Deno.env.get("DASHBOARD_PASSWORD") ?? "").trim();
+const LAEEBLY = (Deno.env.get("LAEEBLY_DB_URL") ?? "").trim();
+const YT_KEY = (Deno.env.get("YOUTUBE_API_KEY") ?? "").trim();
+const GH_TOKEN = (Deno.env.get("GITHUB_TOKEN") ?? "").trim();
 
 // ── 정본에서 옮겨온 상수 (config/channels.json · assignments.json 2026-08-03 기준) ──
 const CHANNELS: Record<string, { id: string; mac: string }> = {
@@ -33,6 +38,18 @@ const CHANNELS: Record<string, { id: string; mac: string }> = {
   "재미쇼츠": { id: "UC7eXwtR1TyUVe2ts6BUjXGA", mac: "맥5" },
   "B급 순삭": { id: "UCXEWaNqCRwA0rk-Ywg-B7Ow", mac: "맥5" },
 };
+const MACHINES: Record<string, { mac: string; label: string; at: string }> = {
+  "macmini-luna1": { mac: "맥1", label: "쿠팡플레이", at: "00:00" },
+  "macmini-luna2": { mac: "맥2", label: "CJ ENM", at: "04:00" },
+  "macmini-luna3": { mac: "맥3", label: "그외 레이블리", at: "00:00" },
+  "macmini-luna4": { mac: "맥4", label: "외부 협력", at: "04:00" },
+  "macmini-luna5": { mac: "맥5", label: "레이블리 공식", at: "04:00" },
+  "macmini-luna6": { mac: "맥6", label: "일본 채널", at: "10:00" },
+};
+const REPOS = [
+  { key: "brain", repo: "rhoonart-dev/ai-improvement-edit-video" },
+  { key: "aivideo", repo: "rht-22/ai-video" },
+];
 const HOST_MAC: [string, string][] = [
   ["lunaleuteumaeg1", "맥1"], ["lunaleuteumaeg2", "맥2"], ["3-mac-mini", "맥3"],
   ["lunaleuteumaeg4", "맥4"], ["lunaleuteumaeg5", "맥5"], ["lunaleuteumaeg6", "맥6"],
@@ -54,9 +71,9 @@ const json = (body: unknown, status = 200) =>
 function authed(req: Request, url: URL): Response | null {
   if (!PASSWORD) return json({ setup: true, missing: "DASHBOARD_PASSWORD" }, 503);
   // 브라우저는 non-ASCII 를 헤더에 못 담는다 → 화면이 encodeURIComponent 로 보내고 여기서 되돌린다.
-  const raw = (req.headers.get("x-ves-key") ?? url.searchParams.get("key") ?? "").trim();
-  let k = raw;
-  try { k = decodeURIComponent(raw); } catch { /* 인코딩 안 된 값이면 원본 그대로 */ }
+  const rawK = (req.headers.get("x-ves-key") ?? url.searchParams.get("key") ?? "").trim();
+  let k = rawK;
+  try { k = decodeURIComponent(rawK); } catch { /* 인코딩 안 된 값이면 원본 그대로 */ }
   if (k.trim() !== PASSWORD) return json({ error: "unauthorized" }, 401);
   return null;
 }
@@ -70,16 +87,16 @@ async function apiFeed(url: URL) {
     .select("clip_id,created_at,publish_snippet,host:run_log->provenance->>host")
     .gte("created_at", since).order("created_at", { ascending: false }).limit(400);
   if (e1) return json({ error: e1.message }, 500);
-  const ids = (metas ?? []).map((m) => m.clip_id);
+  const ids = (metas ?? []).map((m: Record<string, unknown>) => m.clip_id);
   const { data: clips, error: e2 } = await sb.from("clips")
     .select("id,channel_id,episode,video_external_id,published_at").in("id", ids);
   if (e2) return json({ error: e2.message }, 500);
-  const chIds = [...new Set((clips ?? []).map((c) => c.channel_id).filter(Boolean))];
+  const chIds = [...new Set((clips ?? []).map((c: Record<string, unknown>) => c.channel_id).filter(Boolean))];
   const { data: chs } = await sb.from("channels").select("id,name").in("id", chIds);
-  const chName = new Map((chs ?? []).map((c) => [c.id, c.name]));
-  const byClip = new Map((clips ?? []).map((c) => [c.id, c]));
-  const items = (metas ?? []).map((m) => {
-    const c = byClip.get(m.clip_id) ?? {} as Record<string, unknown>;
+  const chName = new Map((chs ?? []).map((c: Record<string, unknown>) => [c.id, c.name]));
+  const byClip = new Map((clips ?? []).map((c: Record<string, unknown>) => [c.id, c]));
+  const items = (metas ?? []).map((m: Record<string, unknown>) => {
+    const c = (byClip.get(m.clip_id) ?? {}) as Record<string, unknown>;
     const snip = (m.publish_snippet ?? {}) as Record<string, unknown>;
     return {
       clip_id: m.clip_id,
@@ -95,7 +112,7 @@ async function apiFeed(url: URL) {
   return json({ items });
 }
 
-// ── API: YouTube 공개 상태 (선택 — YOUTUBE_API_KEY secret) ──
+// ── API: YouTube 공개 상태 (선택 — YOUTUBE_API_KEY) ──
 async function apiYtStatus(url: URL) {
   if (!YT_KEY) return json({ configured: false, statuses: {} });
   const ids = (url.searchParams.get("ids") ?? "").split(",").filter(Boolean).slice(0, 50);
@@ -107,7 +124,7 @@ async function apiYtStatus(url: URL) {
   for (const it of data.items ?? []) {
     statuses[it.id] = { privacy: it.status?.privacyStatus ?? "unknown", views: Number(it.statistics?.viewCount ?? 0) };
   }
-  for (const id of ids) if (!statuses[id]) statuses[id] = { privacy: "gone" }; // 조회 불가 = 비공개 전환/삭제(반려)
+  for (const id of ids) if (!statuses[id]) statuses[id] = { privacy: "gone" }; // 조회 불가 = 비공개/삭제(반려)
   return json({ configured: true, statuses });
 }
 
@@ -128,8 +145,7 @@ async function apiPerf(url: URL) {
   const chIds = Object.values(CHANNELS).map((c) => c.id);
   try {
     return await withLaeebly(async (sql) => {
-      // apv·kwr 은 **조회수 가중평균**. 단순 avg 는 조회수 9,117 인 영상과 3 인 영상을 같은 1표로
-      // 세서 채널 대표값을 왜곡한다(2026-08-03 실측). 분모는 그 지표가 있는 행의 조회수만 센다.
+      // apv·kwr 은 조회수 가중평균 — 단순 avg 는 조회수 9,117 영상과 3 영상을 같은 1표로 센다(2026-08-03 실측).
       const league = await sql`
         SELECT channel_id, channel_name,
                sum(views)::bigint AS views, sum(watch_time_hours)::float AS watch_hours,
@@ -151,16 +167,15 @@ async function apiPerf(url: URL) {
       const series: Record<string, [string, number][]> = {};
       for (const r of daily) (series[r.channel_id] ??= []).push([String(r.d), Number(r.views)]);
       const known = new Map(Object.entries(CHANNELS).map(([name, v]) => [v.id, { name, mac: v.mac }]));
-      const channels = league.map((r) => ({
+      const channels = league.map((r: Record<string, unknown>) => ({
         channel_id: r.channel_id,
-        name: known.get(r.channel_id)?.name ?? r.channel_name,
-        mac: known.get(r.channel_id)?.mac ?? null,
+        name: known.get(r.channel_id as string)?.name ?? r.channel_name,
+        mac: known.get(r.channel_id as string)?.mac ?? null,
         views: Number(r.views), watch_hours: r.watch_hours, apv: r.apv, kwr: r.kwr,
         likes: Number(r.likes), comments: Number(r.comments), shares: Number(r.shares),
         profits_krw: r.profits_krw, videos: Number(r.videos),
-        daily: series[r.channel_id] ?? [],
+        daily: series[r.channel_id as string] ?? [],
       })).sort((a, b) => b.views - a.views);
-      // 기간 내 데이터가 없는 담당 채널도 0 으로 표시(누락이 아니라 무활동임을 보이기 위해)
       for (const [name, v] of Object.entries(CHANNELS)) {
         if (!channels.find((c) => c.channel_id === v.id)) {
           channels.push({ channel_id: v.id, name, mac: v.mac, views: 0, watch_hours: 0, apv: null, kwr: null, likes: 0, comments: 0, shares: 0, profits_krw: 0, videos: 0, daily: series[v.id] ?? [] });
@@ -190,24 +205,111 @@ async function apiVideos(url: URL) {
         FROM youtube_studio
         WHERE channel_id = ${chId} AND created_at >= now() - ${days + " days"}::interval
         GROUP BY 1 ORDER BY views DESC LIMIT 60`;
-      return json({ configured: true, videos: rows.map((r) => ({ ...r, views: Number(r.views), likes: Number(r.likes) })) });
+      return json({ configured: true, videos: rows.map((r: Record<string, unknown>) => ({ ...r, views: Number(r.views), likes: Number(r.likes) })) });
     });
   } catch (err) {
     return json({ configured: true, error: String(err) }, 500);
   }
 }
 
+// ── API: 머신 현황 + 검수 대기 큐 (machine_heartbeats — 0007) ──
+// 검수 큐 도출(A안 2026-08-04): 렌더 확정 장면(state_snapshot) − 발행 기록(publish_snapshot).
+// state 에는 재배정 이전 채널 잔재가 남으므로(맥1 실측) 채널→맥 정본과 어긋나면 stale 표시.
+async function apiMachines() {
+  const sb = createClient(SB_URL, SB_KEY);
+  const { data: beats, error } = await sb.from("machine_heartbeats")
+    .select("machine_id,host,trigger,status,rc,run_started_at,run_finished_at,brain_sha,aivideo_sha,disk_free_gb,channels,warnings,fail_tails,state_snapshot,publish_snapshot")
+    .order("run_started_at", { ascending: false }).limit(60);
+  if (error) return json({ error: error.message }, 500);
+  const latest = new Map<string, Record<string, unknown>>();
+  for (const b of beats ?? []) {
+    const key = (b.machine_id as string) ?? macOfHost(b.host as string) ?? (b.host as string);
+    if (!latest.has(key)) latest.set(key, b);
+  }
+  const queue: Record<string, unknown>[] = [];
+  const anomalies: Record<string, unknown>[] = [];
+  const machines = Object.entries(MACHINES).map(([mid, meta]) => {
+    const b = latest.get(mid) ?? latest.get(meta.mac);
+    if (b) {
+      const st = (b.state_snapshot ?? {}) as { channels?: Record<string, { work_title?: string; episodes?: Record<string, { scenes?: { run_id?: string; accepted_at?: string }[] }> }> };
+      const pub = ((b.publish_snapshot ?? {}) as { scenes?: Record<string, { video_id?: string; privacy?: string; clip_id?: string }> }).scenes ?? {};
+      for (const [ch, cdata] of Object.entries(st.channels ?? {})) {
+        const chMac = CHANNELS[ch]?.mac ?? null;
+        // 상태 파일 키가 정본(channels.json)과 어긋나는 두 경우를 구분해 걸러낸다(2026-08-04 실측):
+        //   stale   = 정본에 있으나 지금은 다른 맥 담당 → 재배정 이전 잔재
+        //   unknown = 정본에 아예 없는 이름(예 "재미쇼츠·유미의 세포들 시즌3", "숏콘")
+        // 둘 다 검수함에서 빼되 **조용히 버리지 않고** anomalies 로 올려 사람이 교정하게 한다.
+        const stale = chMac !== null && chMac !== meta.mac;
+        const unknown = chMac === null;
+        if (unknown) anomalies.push({ machine_id: mid, mac: meta.mac, channel: ch, reason: "channels.json 에 없는 채널명" });
+        for (const [ep, edata] of Object.entries(cdata.episodes ?? {})) {
+          for (const sc of edata.scenes ?? []) {
+            if (!sc.run_id) continue;
+            const p = pub[sc.run_id];
+            queue.push({
+              machine_id: mid, mac: meta.mac, stale, unknown,
+              channel: ch, work: cdata.work_title ?? null, episode: Number(ep),
+              run_id: sc.run_id, accepted_at: sc.accepted_at ?? null,
+              video_id: p?.video_id ?? null, privacy_at_publish: p?.privacy ?? null, clip_id: p?.clip_id ?? null,
+            });
+          }
+        }
+      }
+    }
+    return {
+      machine_id: mid, mac: meta.mac, label: meta.label, schedule_at: meta.at,
+      beat: b ? {
+        status: b.status, rc: b.rc, trigger: b.trigger,
+        run_started_at: b.run_started_at, run_finished_at: b.run_finished_at,
+        brain_sha: b.brain_sha, aivideo_sha: b.aivideo_sha, disk_free_gb: b.disk_free_gb,
+        channels: b.channels ?? [], warnings: b.warnings ?? [], fail_tails: b.fail_tails ?? null,
+      } : null,
+    };
+  });
+  return json({ now: new Date().toISOString(), machines, queue, anomalies });
+}
+
+// ── API: 최신 커밋 (GITHUB_TOKEN 선택 — 없으면 configured:false, pull 매트릭스는 상호 비교로 동작) ──
+async function apiCommits() {
+  if (!GH_TOKEN) return json({ configured: false, repos: {} });
+  const out: Record<string, unknown> = {};
+  for (const { key, repo } of REPOS) {
+    try {
+      const r = await fetch(`https://api.github.com/repos/${repo}/commits?per_page=15`, {
+        headers: { authorization: `Bearer ${GH_TOKEN}`, accept: "application/vnd.github+json", "user-agent": "ves-ops-dashboard" },
+      });
+      if (!r.ok) { out[key] = { repo, error: `github ${r.status}` }; continue; }
+      const data = await r.json() as Record<string, unknown>[];
+      out[key] = {
+        repo,
+        commits: data.map((c) => {
+          const commit = c.commit as { message?: string; committer?: { date?: string }; author?: { name?: string } };
+          return {
+            sha: c.sha,
+            message: String(commit?.message ?? "").split("\n")[0],
+            date: commit?.committer?.date ?? null,
+            author: commit?.author?.name ?? null,
+          };
+        }),
+      };
+    } catch (err) {
+      out[key] = { repo, error: String(err) };
+    }
+  }
+  return json({ configured: true, repos: out });
+}
+
 Deno.serve(async (req) => {
   const url = new URL(req.url);
-  // 함수는 /dashboard/... 로 라우팅됨 — 함수명 프리픽스를 벗겨 경로 판정
   const path = url.pathname.replace(/^\/dashboard/, "") || "/";
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (req.method !== "GET" && req.method !== "HEAD") return json({ error: "method" }, 405);
   if (path === "/" || path === "") {
-    return json({ service: "VES OPS API", note: "화면은 정적 호스팅 페이지에서 열어야 합니다 — supabase 기본 도메인은 HTML 서빙을 막습니다", endpoints: ["/api/feed", "/api/perf", "/api/videos", "/api/ytstatus"] });
+    return json({ service: "VES OPS API", ui: "https://rhoonart-da.github.io/ves-ops-dashboard/", endpoints: ["/api/health", "/api/feed", "/api/perf", "/api/videos", "/api/ytstatus", "/api/machines", "/api/commits"] });
   }
+  // 설정 진단용 — 어떤 시크릿이 들어있는지만 보고(값은 절대 노출하지 않음). 인증 불필요.
   if (path === "/api/health") {
-    return json({ ok: true, secrets: { password: !!PASSWORD, laeebly: !!LAEEBLY, youtube: !!YT_KEY } });
+    return json({ ok: true, secrets: { password: !!PASSWORD, laeebly: !!LAEEBLY, youtube: !!YT_KEY, github: !!GH_TOKEN } });
   }
   const deny = authed(req, url);
   if (deny) return deny;
@@ -215,5 +317,7 @@ Deno.serve(async (req) => {
   if (path === "/api/ytstatus") return apiYtStatus(url);
   if (path === "/api/perf") return apiPerf(url);
   if (path === "/api/videos") return apiVideos(url);
+  if (path === "/api/machines") return apiMachines();
+  if (path === "/api/commits") return apiCommits();
   return json({ error: "not found" }, 404);
 });
