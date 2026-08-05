@@ -30,6 +30,24 @@ def test_iter_state_scenes_marks_assignment():
     assert len(flat) == 3
 
 
+def test_iter_state_scenes_resolves_multiwork_slot():
+    # 다작품 채널의 상태 키는 슬롯('채널·작품') — 'channel' 필드 또는 '·' 복원으로
+    # 실제 채널명을 얻어야 배정 대조가 맞는다 (2026-08-05 맥5: 재미쇼츠가 배정 밖으로 오인).
+    state = {"channels": {
+        "재미쇼츠·유미의 세포들 시즌3": {"work_title": "유미의 세포들 시즌3", "episodes": {
+            "1": {"scenes": [{"run_id": "유미_3f", "job_dir": "x", "accepted_at": "2026-08-05"}]}}},
+        "재미쇼츠·언더커버셰프": {"work_title": "언더커버셰프", "channel": "재미쇼츠", "episodes": {
+            "1": {"scenes": [{"run_id": "언더_aa", "job_dir": "y", "accepted_at": "2026-08-05"}]}}},
+    }}
+    flat = up.iter_state_scenes(state, ["재미쇼츠"], known_channels=["재미쇼츠", "커리어데이 숏츠"])
+    by = {s[2]["run_id"]: (s[0], s[3]) for s in flat}
+    assert by["유미_3f"] == ("재미쇼츠", True)    # '·' 복원 (구 상태 — channel 필드 없음)
+    assert by["언더_aa"] == ("재미쇼츠", True)    # channel 필드 정본
+    # known_channels 없이(순수 호출) 구 동작 유지 — 슬롯명 그대로
+    flat_legacy = up.iter_state_scenes(state, ["재미쇼츠"])
+    assert flat_legacy[0][0] in ("재미쇼츠", "재미쇼츠·유미의 세포들 시즌3")
+
+
 def test_within_days_filters_old_scenes():
     today = dt.date(2026, 8, 5)
     assert up.within_days("2026-08-05T01:00:00", 1, today) is True
