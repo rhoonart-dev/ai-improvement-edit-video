@@ -33,6 +33,8 @@ main{flex:1;min-width:0;padding:0 26px 60px}
 .page{max-width:1280px;margin:0 auto}
 .topbar{display:flex;align-items:baseline;gap:14px;padding:22px 0 14px;flex-wrap:wrap}
 .topbar h2{font-size:19px;margin:0}.topbar .sub{color:var(--ink2);font-size:13px}
+.rfbtn{font:inherit;font-size:11.5px;padding:4px 12px;border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--ink2);cursor:pointer;margin-left:auto}
+.rfbtn:hover{border-color:var(--accent);color:var(--ink)}.rfbtn:disabled{opacity:.55;cursor:default}
 .filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
 .chip{font-size:12px;border:1px solid var(--line);padding:3px 11px;border-radius:20px;color:var(--ink2);background:var(--panel);cursor:pointer;user-select:none;position:relative}
 .tbadge{position:absolute;top:-8px;right:-7px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--bad);color:#fff;font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:var(--mono)}
@@ -121,7 +123,8 @@ details.tail summary{cursor:pointer;font-size:11.5px;color:var(--ink2)}
 .drow-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .drow-sub{color:var(--ink3);font-size:11px}
 .drow-when{flex:none;color:var(--ink3);font-size:11px}
-.drow-note{margin:4px 0 0 2px;color:var(--ink2);font-size:11.5px;line-height:1.65;white-space:pre-wrap;word-break:break-word}
+.drow-note{position:relative;margin:9px 0 3px 6px;padding:8px 13px;background:var(--ground);border:1px solid var(--line);border-radius:10px;color:var(--ink2);font-size:11.5px;line-height:1.65;white-space:pre-wrap;word-break:break-word;max-width:760px;width:fit-content}
+.drow-note::before{content:"";position:absolute;top:-6px;left:18px;width:10px;height:10px;background:var(--ground);border-left:1px solid var(--line);border-top:1px solid var(--line);transform:rotate(45deg)}
 .decided-row:last-child{border-bottom:none}
 .dpill{font-size:11px;font-weight:600;padding:1px 8px;border-radius:10px}
 .dpill.approved{background:var(--okbg);color:var(--ok)}.dpill.rejected{background:var(--badbg);color:var(--bad)}
@@ -178,6 +181,13 @@ const ago = (iso, now) => {
   if (h < 48) return `${Math.round(h)}시간 전`;
   return `${Math.round(h / 24)}일 전`;
 };
+const fmtDT = (iso) => {  // 로컬(한국) 시각 MM-DD HH:mm — UTC 문자열 slice 는 9시간 어긋난다(2026-08-05 발견)
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d)) return String(iso).slice(5, 16).replace("T", " ");
+  const p = (n) => String(n).padStart(2, "0");
+  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+};
 const PILL = { public: ["pub", "공개"], unlisted: ["unl", "일부공개"], private: ["gone", "비공개"], gone: ["gone", "반려/삭제"] };
 const RESULT = {
   generated: ["✓ 생성", "ok"], paused_pending: ["⏸ 대기 가득 — 검수 필요", "warn"],
@@ -217,6 +227,15 @@ function StatusPill({ st }) {
 }
 
 // ── 홈 · 검수함 ──
+// ── 공통: 페이지 데이터 새로고침 버튼 (사이트 리로드 없이 API 만 다시) ──
+function RefreshBtn({ onRefresh }) {
+  const [busy, setBusy] = useState(false);
+  return html`<button class="rfbtn" disabled=${busy} onClick=${async () => {
+    setBusy(true);
+    try { await onRefresh(); } finally { setBusy(false); }
+  }}>${busy ? "⟳ 갱신 중…" : "⟳ 새로고침"}</button>`;
+}
+
 // ── 홈: 채널 칩 (아이콘 + 이름 → 유튜브 채널로 이동) ──
 function ChannelChip({ name, chmap, avatars }) {
   const id = chmap?.[name]?.id;
@@ -290,7 +309,6 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed }) {
   };
   const statusOf = genStatus;  // 자동 펼침 등 기존 소비자용 별칭
   const chansOf = (mac) => Object.keys(chmap || {}).filter((c) => chmap[c].mac === mac);
-  const fmtDT = (iso) => iso ? String(iso).slice(5, 16).replace("T", " ") : "";
   // 항목은 하루치가 아니라 누적 — 대기는 결정까지, 결정은 최근 2건, 발행은 회차 진행 중 유지.
   // 그래서 줄마다 생성 시각(발행분은 장면 확정 시각)을 왼쪽에 붙인다(2026-08-05 운영자 요청).
   const rowsOf = (ch, m) => {
@@ -356,33 +374,38 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed }) {
   </div>`;
 }
 
-function HomePage({ machines, queue, yt, now, review, chmap, avatars, feed }) {
-  // 검수 대상: stale 아님 + (미업로드 || 업로드됐는데 아직 public 아님)
-  const items = queue.filter((q) => !q.stale && !q.unknown).map((q) => {
-    const st = q.video_id ? yt[q.video_id]?.privacy : null;
-    return { ...q, yt: st };
-  });
-  const needUpload = items.filter((q) => !q.video_id);
-  const needPublic = items.filter((q) => q.video_id && q.yt && q.yt !== "public" && q.yt !== "gone");
+function HomePage({ machines, queue, yt, now, review, chmap, avatars, feed, refresh }) {
+  // 검수 대기 = 검수함 큐(review_decisions 기준) — 스냅샷의 미발행 장면 수로 세면 결정이
+  // 나도 발행 전까지 계속 '대기'로 남는다(2026-08-05 운영자 발견: 검수 끝냈는데 9건 표시).
+  // 공개 전환 대기(구 흐름 일부공개 잔량)만 스냅샷 × YouTube 상태로 센다.
+  const rq = review?.queue ?? [];
+  const needPublic = queue.filter((q) => !q.stale && !q.unknown && q.video_id
+    && yt[q.video_id] && !["public", "gone"].includes(yt[q.video_id].privacy));
   const braked = machines.flatMap((m) => (m.beat?.channels ?? []).filter((c) => c.result === "paused_pending").map((c) => ({ ...c, mac: m.mac })));
   const failed = machines.flatMap((m) => (m.beat?.channels ?? []).filter((c) => c.result === "failed").map((c) => ({ ...c, mac: m.mac })));
   const beatsOk = machines.filter((m) => m.beat).length;
-  // 채널×회차로 묶기
+  // 채널×회차로 묶기 — 검수 대기(검수함 큐)와 공개 전환 대기(스냅샷)를 한 표로
   const groups = {};
-  for (const q of [...needPublic, ...needUpload]) {
+  for (const i of rq) {
+    const k = `${i.channel}|${i.episode}`;
+    (groups[k] ??= { channel: i.channel, work: i.work, episode: i.episode, mac: i.mac, up: [], pub: [] });
+    groups[k].up.push(i);
+  }
+  for (const q of needPublic) {
     const k = `${q.channel}|${q.episode}`;
     (groups[k] ??= { channel: q.channel, work: q.work, episode: q.episode, mac: q.mac, up: [], pub: [] });
-    (q.video_id ? groups[k].pub : groups[k].up).push(q);
+    groups[k].pub.push(q);
   }
   const brakedSet = new Set(braked.map((b) => b.channel));
   const rows = Object.values(groups).sort((a, b) => (brakedSet.has(b.channel) ? 1 : 0) - (brakedSet.has(a.channel) ? 1 : 0));
   return html`<div class="page">
     <div class="topbar"><h2>오늘, 무엇부터 하면 되나</h2>
-      <span class="sub">${new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" })}</span></div>
+      <span class="sub">${new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" })}</span>
+      <${RefreshBtn} onRefresh=${refresh} /></div>
     <div class="kpis">
-      <div class=${"kpi" + (needUpload.length + needPublic.length ? " bad" : " ok")}><div class="lab">검수 대기</div>
-        <div class="val">${needUpload.length + needPublic.length}<small> 건</small></div>
-        <div class="hint">업로드 대기 ${needUpload.length} · 공개 대기 ${needPublic.length}</div></div>
+      <div class=${"kpi" + (rq.length || needPublic.length ? " bad" : " ok")}><div class="lab">검수 대기</div>
+        <div class="val">${rq.length}<small> 건</small></div>
+        <div class="hint">${needPublic.length ? `+ 공개 전환 대기 ${needPublic.length}건 (아래 대기함 → Studio)` : "공개 전환 대기 없음"}</div></div>
       <div class=${"kpi" + (braked.length ? " bad" : " ok")}><div class="lab">브레이크 발동</div>
         <div class="val">${braked.length}<small> 채널</small></div><div class="hint">대기 가득 → 생성 정지</div></div>
       <div class=${"kpi" + (failed.length ? " warn" : " ok")}><div class="lab">최근 실행 실패</div>
@@ -401,7 +424,7 @@ function HomePage({ machines, queue, yt, now, review, chmap, avatars, feed }) {
             <span style=${{ flex: 1 }}><b>${g.channel}</b> EP${g.episode}
               <span style=${{ fontSize: "11px", color: "var(--ink3)" }}> · ${g.work || ""}</span><br/>
               <span style=${{ fontSize: "11.5px", color: "var(--ink2)" }}>
-                ${g.up.length ? `업로드 대기 ${g.up.length}건` : ""}${g.up.length && g.pub.length ? " · " : ""}${g.pub.length ? `공개 대기 ${g.pub.length}건` : ""}
+                ${g.up.length ? `검수 대기 ${g.up.length}건` : ""}${g.up.length && g.pub.length ? " · " : ""}${g.pub.length ? `공개 전환 대기 ${g.pub.length}건` : ""}
               </span></span>
             <span class="mac">${g.mac}</span>
             ${brakedSet.has(g.channel) ? html`<span class="brake">생성 정지</span>` : html`<span class="gauge">진행 중</span>`}
@@ -429,7 +452,7 @@ function HomePage({ machines, queue, yt, now, review, chmap, avatars, feed }) {
 }
 
 // ── 영상 피드 ──
-function FeedPage({ feed, yt, ytConfigured }) {
+function FeedPage({ feed, yt, ytConfigured, refresh }) {
   const [filter, setFilter] = useState("전체");
   const [showGone, setShowGone] = useState(false);
   const macs = ["전체", "맥1", "맥2", "맥3", "맥4", "맥5", "맥6"];
@@ -440,7 +463,8 @@ function FeedPage({ feed, yt, ytConfigured }) {
   const goneCount = uploaded.filter(isGone).length;
   const items = uploaded.filter((x) => (filter === "전체" || x.mac === filter) && (showGone || !isGone(x)));
   return html`<div class="page">
-    <div class="topbar"><h2>영상 피드</h2><span class="sub">유튜브에 올라간 클립 — 최신순 · 활성 ${uploaded.length - goneCount}건</span></div>
+    <div class="topbar"><h2>영상 피드</h2><span class="sub">유튜브에 올라간 클립 — 최신순 · 활성 ${uploaded.length - goneCount}건</span>
+      <${RefreshBtn} onRefresh=${refresh} /></div>
     ${!ytConfigured ? html`<p class="note">공개/일부공개 배지는 YOUTUBE_API_KEY 시크릿을 설정하면 켜집니다.</p>` : null}
     <div class="filters">${macs.map((m) => html`
       <span key=${m} class=${"chip" + (m === filter ? " on" : "")} onClick=${() => setFilter(m)}>${m}</span>`)}
@@ -479,7 +503,8 @@ function PerfPage() {
   const [days, setDays] = useState(7);
   const [data, setData] = useState(null); const [err, setErr] = useState(null);
   const [drill, setDrill] = useState(null); const [videos, setVideos] = useState(null);
-  useEffect(() => { setData(null); api("/api/perf?days=" + days).then(setData).catch((e) => setErr(String(e))); }, [days]);
+  const reload = () => { setErr(null); setData(null); return api("/api/perf?days=" + days).then(setData).catch((e) => setErr(String(e))); };
+  useEffect(() => { reload(); }, [days]);
   const openDrill = async (ch) => {
     setDrill(ch); setVideos(null);
     const d = await api("/api/videos?channel_id=" + ch.channel_id + "&days=28");
@@ -488,6 +513,7 @@ function PerfPage() {
   const max = Math.max(...(data?.channels ?? []).map((c) => c.views), 1);
   return html`<div class="page">
     <div class="topbar"><h2>채널 성과</h2><span class="sub">laeebly 스튜디오 데이터 · 일 단위</span>
+      <${RefreshBtn} onRefresh=${reload} />
       <span class="filters" style=${{ marginLeft: "auto", marginBottom: 0 }}>
         ${[7, 28].map((d) => html`<span key=${d} class=${"chip" + (d === days ? " on" : "")} onClick=${() => setDays(d)}>${d}일</span>`)}
       </span></div>
@@ -553,7 +579,7 @@ function ReviewCard({ item, onDecide, chmap, avatars }) {
         <span class="k">작품</span> ${item.work || "?"}${item.episode != null ? " · " + item.episode + "회차" : ""}<br/>
         <span class="k">구간</span> ${Number(item.start).toFixed(1)} → ${Number(item.end).toFixed(1)}초
           (${Number(item.duration).toFixed(1)}초)<br/>
-        <span class="k">생성</span> ${(item.created_at || "").slice(5, 16).replace("T", " ")}
+        <span class="k">생성</span> ${fmtDT(item.created_at)}
       </div>
       ${item.judge?.rubric_scores?.hallucination_flag ? html`
         <div class="hallu">⚠ 환각 의심 — 합격해도 발행 게이트에서 자동 차단됩니다</div>` : null}
@@ -582,7 +608,7 @@ function ReviewCard({ item, onDecide, chmap, avatars }) {
   </div>`;
 }
 
-function ReviewPage({ review, reload, chmap, avatars }) {
+function ReviewPage({ review, reload, chmap, avatars }) {  // reload: App 의 검수함 재조회
   const [name, setName] = useState(localStorage.getItem("ves_name") || "");
   const [msg, setMsg] = useState(null);
   const [tab, setTab] = useState("전체");
@@ -607,7 +633,8 @@ function ReviewPage({ review, reload, chmap, avatars }) {
   return html`<div class="page">
     <div class="topbar"><h2>검수함</h2>
       <span class="sub">보고 → 누르면 끝. 결정은 DB(review_decisions)에 기록됩니다</span>
-      <span style=${{ marginLeft: "auto", display: "flex", gap: "8px", alignItems: "center", fontSize: "12px", color: "var(--ink3)" }}>
+      <${RefreshBtn} onRefresh=${reload} />
+      <span style=${{ display: "flex", gap: "8px", alignItems: "center", fontSize: "12px", color: "var(--ink3)" }}>
         검수자 <input class="namebox" placeholder="이름(결정에 기록)" value=${name}
           onChange=${(e) => { setName(e.target.value); localStorage.setItem("ves_name", e.target.value); }} /></span>
     </div>
@@ -624,18 +651,19 @@ function ReviewPage({ review, reload, chmap, avatars }) {
           <span class=${"dpill " + d.decision.decision}>${d.decision.decision === "approved" ? "합격"
             : d.decision.reject_type === "production" ? "반려·제작" : "반려·장면"}</span>
           <span class="drow-title">${d.title || d.clip_id} <span class="drow-sub">· ${d.channel || ""}${d.episode != null ? " " + d.episode + "회차" : ""}${d.published ? " · 발행됨" : ""}</span></span>
-          <span class="drow-when">${(d.decision.decided_at || "").slice(5, 16).replace("T", " ")}${d.decision.decided_by ? " · " + d.decision.decided_by : ""}</span>
+          <span class="drow-when">${fmtDT(d.decision.decided_at)}${d.decision.decided_by ? " · " + d.decision.decided_by : ""}</span>
         </div>
-        ${d.decision.note ? html`<div class="drow-note">"${d.decision.note}"</div>` : null}
+        ${d.decision.note ? html`<div class="drow-note">${d.decision.note}</div>` : null}
       </div>`)}
     </div>` : null}
   </div>`;
 }
 
 // ── 머신 로그 ──
-function MachinesPage({ machines, now, anomalies }) {
+function MachinesPage({ machines, now, anomalies, refresh }) {
   return html`<div class="page">
-    <div class="topbar"><h2>머신 로그</h2><span class="sub">최근 실행의 채널별 결과 · 실패 상세 · 무보고 경보</span></div>
+    <div class="topbar"><h2>머신 로그</h2><span class="sub">최근 실행의 채널별 결과 · 실패 상세 · 무보고 경보</span>
+      <${RefreshBtn} onRefresh=${refresh} /></div>
     ${anomalies?.length ? html`<div class="panel"><h3>⚠ 상태 파일 이상 — 정본과 어긋난 채널명</h3>
       <p class="note">아래 항목은 <b>검수함에서 제외</b>됩니다(추측하지 않음). 각 머신의 <code>results/scene_loop_state.json</code> 키를 <code>config/channels.json</code> 이름으로 교정하면 정상 집계됩니다.</p>
       ${anomalies.map((a, i) => html`<div class="runline" key=${i}>
@@ -675,7 +703,7 @@ function MachinesPage({ machines, now, anomalies }) {
 }
 
 // ── 커밋 · 배포 ──
-function DeployPage({ machines, commits }) {
+function DeployPage({ machines, commits, refresh }) {
   // 기준 SHA: GitHub 최신(head) — 토큰 없으면 머신들 SHA 상호 비교(최다수)
   const heads = {};
   for (const key of ["brain", "aivideo"]) {
@@ -694,7 +722,8 @@ function DeployPage({ machines, commits }) {
     return ["✗ 불일치", "old"];
   };
   return html`<div class="page">
-    <div class="topbar"><h2>커밋 · 배포</h2><span class="sub">레포 최신 커밋 + 6대 pull 매트릭스</span></div>
+    <div class="topbar"><h2>커밋 · 배포</h2><span class="sub">레포 최신 커밋 + 6대 pull 매트릭스</span>
+      <${RefreshBtn} onRefresh=${refresh} /></div>
     ${commits?.configured === false ? html`<p class="note">GITHUB_TOKEN 시크릿이 없어 커밋 목록은 비활성 — pull 매트릭스는 머신 간 상호 비교(다수결 SHA)로 동작 중입니다.</p>` : null}
     ${commits?.configured ? html`<div class="two-col">
       ${["brain", "aivideo"].map((key) => { const r = commits.repos[key]; return html`
@@ -803,13 +832,13 @@ function App() {
     </aside>
     <main>
       ${page === "home" ? html`<${HomePage} machines=${machines} queue=${queue} yt=${yt} now=${mx?.now}
-        review=${review} chmap=${mx?.channels ?? {}} avatars=${avatars} feed=${feed} />` : null}
+        review=${review} chmap=${mx?.channels ?? {}} avatars=${avatars} feed=${feed} refresh=${load} />` : null}
       ${page === "review" ? html`<${ReviewPage} review=${review} chmap=${mx?.channels ?? {}} avatars=${avatars}
         reload=${() => api("/api/review").then(setReview).catch(() => null)} />` : null}
-      ${page === "feed" ? html`<${FeedPage} feed=${feed} yt=${yt} ytConfigured=${ytConfigured} />` : null}
+      ${page === "feed" ? html`<${FeedPage} feed=${feed} yt=${yt} ytConfigured=${ytConfigured} refresh=${load} />` : null}
       ${page === "perf" ? html`<${PerfPage} />` : null}
-      ${page === "machines" ? html`<${MachinesPage} machines=${machines} now=${mx?.now} anomalies=${mx?.anomalies ?? []} />` : null}
-      ${page === "deploy" ? html`<${DeployPage} machines=${machines} commits=${commits} />` : null}
+      ${page === "machines" ? html`<${MachinesPage} machines=${machines} now=${mx?.now} anomalies=${mx?.anomalies ?? []} refresh=${load} />` : null}
+      ${page === "deploy" ? html`<${DeployPage} machines=${machines} commits=${commits} refresh=${load} />` : null}
     </main>
   </div>`;
 }

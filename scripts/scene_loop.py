@@ -912,6 +912,25 @@ def channel_plan(cfg, ch, state, conn, api_key, scan_roots, gen_py=None, log=lam
 
 # ─────────────────────────── 채널 1회 처리 ───────────────────────────
 
+def quick_review_upload(log):
+    """방금 확정된 장면을 즉시 검수함에 올린다 (업로드 전용 — judge 는 실행 끝 일괄 패스 담당).
+
+    2026-08-05 운영자 요청: 실행 끝(전 채널 완료, 새벽 4~7시)까지 기다리면 낮 테스트
+    재생성분이 검수함에 안 보인다. 업로더는 멱등이라 실행 끝의 본 패스와 겹쳐도 안전하고,
+    여기서 실패해도 본 패스가 재시도한다 — 생성 루프를 절대 막지 않는다(예외 무시, 10분 제한).
+    judge 를 빼는 이유: 편당 수 분이라 다음 채널 생성 시작을 그만큼 늦춘다.
+    """
+    try:
+        r = subprocess.run(
+            [sys.executable, str(Path(__file__).resolve().parent / "upload_review_clips.py"),
+             "--no-judge"],
+            capture_output=True, text=True, timeout=600)
+        tail = (r.stdout + r.stderr).strip().splitlines()
+        log(f"   ⇪ 검수함 즉시 업로드: {tail[-1] if tail else f'rc={r.returncode}'}")
+    except Exception as e:  # noqa: BLE001
+        log(f"   ⚠ 검수함 즉시 업로드 실패(무시 — 실행 끝 본 패스가 재시도): {type(e).__name__}: {e}")
+
+
 def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_root, dry_run, log,
                     sources_root=None):
     sources_root = sources_root or registry.default_sources_root()
@@ -1015,6 +1034,7 @@ def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_ro
         save_state(state)
         log(f"{tag}   ✓ 새 장면 확정(미공개) {span} (run={run_id}) — 공개 {info['public']}/{quota} 유지."
             f" 공개 처리하면 회차 카운트 반영")
+        quick_review_upload(log)
         return
     log(f"{tag}   ⚠ {attempts}회 모두 이전과 같은 장면 → 보류(미확정). 다음날 재시도. 수동 확인 권장 (EP{ep_num})")
 

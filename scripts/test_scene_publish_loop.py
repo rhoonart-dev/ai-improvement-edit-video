@@ -76,11 +76,20 @@ def test_next_publish_slot_advances_per_day():
     assert second.date().isoformat() == "2026-07-31" and second.hour == 19
 
 
-def test_next_publish_slot_skips_past_times_today():
-    """오늘 슬롯 시각이 이미 지났으면 오늘로 잡지 않는다(과거 예약은 유튜브가 거부한다)."""
+def test_next_publish_slot_fills_today_when_late():
+    """오늘 몫이 비었는데 슬롯 시각만 지났으면 내일로 밀지 않고 지금+5분(사실상 즉시 공개).
+
+    2026-08-05 운영자 결정 — 종전 동작(무조건 내일로)은 저녁 검수분이 하루를 통째로
+    잃었다. 오늘 몫이 이미 잡혀 있으면 종전대로 내일 슬롯이다(하루 상한 유지)."""
+    from datetime import timedelta
     now = datetime.fromisoformat("2026-07-30T21:00:00+09:00")
     slot = pl.next_publish_slot({"publish_times": ["19:00"]}, {"scenes": {}}, "채널1", now=now)
-    assert slot.date().isoformat() == "2026-07-31"
+    assert slot == now + timedelta(minutes=5)
+
+    taken = {"scenes": {"r1": {"channel": "채널1",
+                               "scheduled_publish_at": "2026-07-30T19:00:00+09:00"}}}
+    slot2 = pl.next_publish_slot({"publish_times": ["19:00"]}, taken, "채널1", now=now)
+    assert slot2.date().isoformat() == "2026-07-31" and slot2.hour == 19
 
 
 def test_publish_config_channel_record_overrides_policy():
