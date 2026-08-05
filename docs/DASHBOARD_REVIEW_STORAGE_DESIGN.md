@@ -48,7 +48,7 @@ scene_loop 렌더 확정
 |---|---|---|
 | 버킷 | `review-clips` (fdidiqd) | 기존 `laeebly-shorts-video`(시장 쇼츠 아카이브)와 용도 분리 |
 | 공개 여부 | **private** | 재생은 대시보드 API 가 발급하는 **서명 URL**(만료 1시간)로만 |
-| 경로 규약 | `<machine_id>/<run_id>.mp4` (예 `macmini-luna4/김부장_30.mp4`) | run_id 는 job id 라 머신 내 유일. 머신 프리픽스로 충돌·추적 모두 해결 |
+| 경로 규약 | `<machine_id>/<clip_id>.mp4` (예 `macmini-luna4/333fbf38-….mp4`) | ⚠️ run_id 는 한글이라 못 쓴다 — Storage 가 키의 한글을 InvalidKey 로 거부(2026-08-05 실측, percent-encode 로도 불가). clip_id(uuid)는 ASCII 확정 + 전역 유일. run_id 추적은 clips.storage_path·clip_metadata 로 |
 | 용량 | 편당 ~30MB × 6대 × 최대 4편/일 ≈ **월 ~22GB 유입** | 보존 정리(§6) 없이는 계속 자람 — 요금 주의 |
 
 정책: anon/authenticated 접근 없음. 쓰기는 각 맥이 service key 로(PostgREST Storage API),
@@ -82,7 +82,7 @@ CREATE TABLE review_decisions (
   decided_by text,          -- 대시보드 접속자 표시명. 소급 입력은 'backfill:…' 로 구분
   note       text           -- 반려 사유(선택) — 쌓이면 생성 품질의 관측 신호
 );
-ALTER TABLE clips ADD COLUMN storage_path text;  -- 'review-clips/<machine_id>/<run_id>.mp4'
+ALTER TABLE clips ADD COLUMN storage_path text;  -- 'review-clips/<machine_id>/<clip_id>.mp4'
 ```
 
 - `decision` 은 스펙대로 2값. 과거 삭제분 백필은 별도 논의(`deleted` 는 `lifecycle_status` 축).

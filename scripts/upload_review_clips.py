@@ -33,6 +33,7 @@ import pathlib
 import subprocess
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -71,9 +72,16 @@ def within_days(accepted_at, since_days, today=None):
     return ((today or dt.date.today()) - d).days < since_days
 
 
-def object_path(machine_id, run_id):
-    """버킷 내 객체 경로. run_id 의 '/' 는 경로 붕괴 방지로 치환(실측상 없음 — 방어)."""
-    return f"{machine_id}/{run_id.replace('/', '_')}.mp4"
+def object_path(machine_id, clip_id):
+    """버킷 내 객체 경로 — **clip_id(uuid)** 로 명명한다.
+
+    run_id 를 못 쓰는 이유: Supabase Storage 는 오브젝트 키에 한글을 거부한다
+    (InvalidKey, 2026-08-05 맥1 실측 — percent-encode 해도 서버가 키 문자 자체를 검사한다).
+    run_id 는 전 작품이 한글이므로 ASCII 확정인 clip_id 를 쓴다. 업로드 시점엔 ①(ingest)이
+    끝나 clip_id 가 항상 있고, 대시보드·정리는 clips.storage_path 를 읽으므로 키 형식 무관.
+    '/' 치환은 경로 붕괴 방지(uuid 엔 없음 — 방어).
+    """
+    return f"{machine_id}/{str(clip_id).replace('/', '_')}.mp4"
 
 
 def decide(clip_row):
@@ -135,8 +143,11 @@ def set_storage_path(conn, clip_id, value):
 
 
 def storage_request(url, key, method, path, data=None, content_type=None):
+    # run_id 가 한글이라 경로를 percent-encode 해야 한다 — urllib 은 non-ASCII 요청라인을
+    # UnicodeEncodeError 로 거부하고, 그 예외가 스캔 전체를 죽인다(2026-08-05 맥1 실측).
+    quoted = urllib.parse.quote(path, safe="/")
     req = urllib.request.Request(
-        f"{url}/storage/v1/object/{path}", data=data, method=method,
+        f"{url}/storage/v1/object/{quoted}", data=data, method=method,
         headers={"authorization": f"Bearer {key}", "apikey": key,
                  **({"content-type": content_type} if content_type else {}),
                  **({"x-upsert": "true"} if method == "POST" else {})})
@@ -235,7 +246,7 @@ def _run(args):
                         print(f"[review-upload] ✗ mp4 없음 {rid} ({job_dir})")
                         continue
                     mp4 = cands[0]
-                opath = f"{BUCKET}/{object_path(machine_id, rid)}"
+                opath = f"{BUCKET}/{object_path(machine_id, row[0])}"
                 if args.dry_run:
                     print(f"[review-upload] (dry) upload {ch} EP{ep} {rid} ← {mp4.name}")
                     n["upload"] += 1
