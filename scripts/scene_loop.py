@@ -798,6 +798,23 @@ def count_public_scenes(scenes, conn, channel, api_key, publish_records=None):
 
 # ─────────────────────────── 생성 (ai-video 그대로 호출) ───────────────────────────
 
+def dedup_spans(scenes, publish_records):
+    """중복 회피 대상 구간 — **제작 반려**(reject_type='production') 장면은 제외한다(0009).
+
+    장면 반려(scene, 기본)는 회피 유지: 같은 구간을 다시 만들면 비슷한 결과가 또 반려된다.
+    제작 반려는 장면은 좋은데 만듦새(TTS·자막 등) 문제 — 원인이 코드에서 고쳐지면 같은 구간
+    재시도가 합격할 수 있으므로 회피에서 뺀다(2026-08-05 운영자 결정, 첫 실반려가 이 사례였다).
+    """
+    recs = publish_records or {}
+    out = []
+    for sc in scenes:
+        rids = sc.get("run_ids") or ([sc["run_id"]] if sc.get("run_id") else [])
+        if rids and all((recs.get(r) or {}).get("reject_type") == "production" for r in rids):
+            continue
+        out.append(sc["span"])
+    return out
+
+
 def build_cmd(gen_py, work_title, video_path, outdir, gen_flags, ep_num=None, subtitle=None):
     """소스가 URL 이면 --youtube-url(ai-video 가 직접 받아 씀), 아니면 --video. 순수.
 
@@ -929,7 +946,8 @@ def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_ro
 
     iou_th, ctol = cfg["dup_iou_threshold"], cfg["dup_center_tolerance_sec"]
     attempts = 1 + cfg["max_retries"]
-    prior_spans = [sc["span"] for sc in info["scenes"]]
+    # 제작 반려(reject_type=production) 구간은 회피에서 제외 — 같은 장면 재시도 허용(0009)
+    prior_spans = dedup_spans(info["scenes"], load_publish_records())
     # 생성 플래그는 작품별이 우선 — 자막 유무가 작품마다 달라 전역 플래그로는 공존할 수 없다
     gen_flags = ch.get("gen_flags") or cfg.get("gen_flags") or cfg.get("gen_flags_base") or []
 

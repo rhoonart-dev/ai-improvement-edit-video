@@ -174,7 +174,7 @@ def review_gate(decision):
 
 
 def fetch_review_decisions(run_ids):
-    """{run_id: (decision, decided_at_iso, note)} — review_decisions 를 run_id 로 조회.
+    """{run_id: (decision, decided_at_iso, note, reject_type)} — review_decisions 를 run_id 로 조회.
 
     실패 시 예외를 그대로 올린다 — 결정을 못 읽는 상태에서 발행하면 미검수분이 올라간다
     (seed_published_from_db 와 같은 '안전 방향으로만 실패' 원칙).
@@ -188,14 +188,14 @@ def fetch_review_decisions(run_ids):
     with pg.connect(os.environ["PIPELINE_DB_URL"], connect_timeout=10) as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """SELECT m.ai_video_run_id, r.decision, r.decided_at, r.note
+                """SELECT m.ai_video_run_id, r.decision, r.decided_at, r.note, r.reject_type
                    FROM public.review_decisions r
                    JOIN public.clips c ON c.id = r.clip_id
                    JOIN public.clip_metadata m ON m.clip_id = c.id
                    WHERE m.ai_video_run_id = ANY(%s)
                      AND c.source = 'auto_edit' AND c.episode = 'shorts_1'""",
                 (list(run_ids),))
-            return {r[0]: (r[1], r[2].isoformat() if r[2] else None, r[3])
+            return {r[0]: (r[1], r[2].isoformat() if r[2] else None, r[3], r[4])
                     for r in cur.fetchall()}
 
 
@@ -454,8 +454,11 @@ def main():
                     if not rec.get("rejected_at"):
                         # rejected_at 은 scene_loop classify_scenes 가 최우선으로 읽는 필드 —
                         # 다음 생성 실행에서 유튜브 조회 없이 즉시 슬롯이 해제된다(8/4 훅 재사용).
+                        # reject_type 은 scene_loop.dedup_spans 가 읽는다 — production 이면
+                        # 그 구간을 중복 회피에서 빼 같은 장면 재시도를 허용한다(0009).
                         rec.update(stage="review_rejected", rejected_at=d[1],
-                                   review_note=d[2] or None)
+                                   review_note=d[2] or None,
+                                   reject_type=(d[3] or "scene"))
                         if not a.dry_run:
                             save_pub_state(pub_state)
                         log(f"  ❌ [{ch_name} EP{ep_num} run={rid[:12]}] 검수 반려 → 발행 안 함"

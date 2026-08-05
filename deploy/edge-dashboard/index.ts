@@ -293,7 +293,7 @@ async function apiReview() {
   const ids = (clips ?? []).map((c: Record<string, unknown>) => c.id);
   const [metas, decisions, chs, wks, judges] = await Promise.all([
     sb.from("clip_metadata").select("clip_id,title:edit_plan->layout->>top_title").in("clip_id", ids),
-    sb.from("review_decisions").select("clip_id,decision,decided_at,decided_by,note").in("clip_id", ids),
+    sb.from("review_decisions").select("clip_id,decision,decided_at,decided_by,note,reject_type").in("clip_id", ids),
     sb.from("channels").select("id,name"),
     sb.from("works").select("id,title"),
     sb.from("judge_runs").select("clip_id,quality_score,created_at").in("clip_id", ids)
@@ -343,9 +343,12 @@ async function apiDecision(req: Request) {
   if (!clipId || !["approved", "rejected"].includes(decision)) {
     return json({ error: "clip_id 와 decision(approved|rejected) 필요" }, 400);
   }
+  // 반려 유형(0009): scene=장면 반려(기본, 구간 재생성 금지) · production=제작 반려(재시도 허용)
+  const rejectType = decision === "rejected"
+    ? (body.reject_type === "production" ? "production" : "scene") : null;
   const sb = createClient(SB_URL, SB_KEY);
   const { error } = await sb.from("review_decisions").upsert({
-    clip_id: clipId, decision,
+    clip_id: clipId, decision, reject_type: rejectType,
     note: body.note ? String(body.note).slice(0, 500) : null,
     decided_by: body.decided_by ? String(body.decided_by).slice(0, 80) : null,
     decided_at: new Date().toISOString(),

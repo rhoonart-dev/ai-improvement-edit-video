@@ -351,6 +351,7 @@ function PerfPage() {
 function ReviewCard({ item, onDecide }) {
   const [url, setUrl] = useState(null);
   const [note, setNote] = useState("");
+  const [prodReject, setProdReject] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     let alive = true;
@@ -360,7 +361,8 @@ function ReviewCard({ item, onDecide }) {
   }, [item.clip_id]);
   const decide = async (decision) => {
     setBusy(true);
-    try { await onDecide(item, decision, note); } finally { setBusy(false); }
+    try { await onDecide(item, decision, note, prodReject ? "production" : "scene"); }
+    finally { setBusy(false); }
   };
   return html`<div class="rcard">
     <div class="player">${url ? html`<video controls preload="metadata" src=${url}></video>`
@@ -377,6 +379,10 @@ function ReviewCard({ item, onDecide }) {
       </div>
       <input class="reason" placeholder="반려 사유 (선택) — 쌓이면 개선 신호가 됩니다"
         value=${note} onChange=${(e) => setNote(e.target.value)} />
+      <label style=${{ fontSize: "11.5px", color: "var(--ink2)", display: "flex", gap: "6px", alignItems: "center", cursor: "pointer" }}>
+        <input type="checkbox" checked=${prodReject} onChange=${(e) => setProdReject(e.target.checked)} />
+        제작 결함 (장면은 좋음 — 같은 구간 재시도 허용: TTS·자막·오디오 등)
+      </label>
       <div class="acts">
         <button class="btn pass" disabled=${busy} onClick=${() => decide("approved")}>✅ 합격</button>
         <button class="btn rej" disabled=${busy} onClick=${() => decide("rejected")}>❌ 반려</button>
@@ -388,11 +394,12 @@ function ReviewCard({ item, onDecide }) {
 function ReviewPage({ review, reload }) {
   const [name, setName] = useState(localStorage.getItem("ves_name") || "");
   const [msg, setMsg] = useState(null);
-  const onDecide = async (item, decision, note) => {
+  const onDecide = async (item, decision, note, rejectType) => {
     const r = await fetch(BASE + "/api/decision", {
       method: "POST",
       headers: { "x-ves-key": encodeURIComponent(KEY()), "content-type": "application/json" },
-      body: JSON.stringify({ clip_id: item.clip_id, decision, note: note || null, decided_by: name || null }),
+      body: JSON.stringify({ clip_id: item.clip_id, decision, note: note || null,
+        decided_by: name || null, reject_type: decision === "rejected" ? rejectType : null }),
     });
     const d = await r.json();
     if (!r.ok || d.error) { setMsg("기록 실패: " + (d.error || r.status)); return; }
@@ -416,7 +423,8 @@ function ReviewPage({ review, reload }) {
     ${decided.length ? html`<div class="panel" style=${{ marginTop: "20px" }}>
       <h3>최근 결정 ${decided.length}건</h3>
       ${decided.map((d) => html`<div class="decided-row" key=${d.clip_id}>
-        <span class=${"dpill " + d.decision.decision}>${d.decision.decision === "approved" ? "합격" : "반려"}</span>
+        <span class=${"dpill " + d.decision.decision}>${d.decision.decision === "approved" ? "합격"
+          : d.decision.reject_type === "production" ? "반려·제작" : "반려·장면"}</span>
         <span style=${{ flex: 1 }}>${d.title || d.clip_id} <span style=${{ color: "var(--ink3)", fontSize: "11px" }}>· ${d.channel || ""}</span></span>
         ${d.decision.note ? html`<span style=${{ color: "var(--ink3)", fontSize: "11px" }}>"${d.decision.note}"</span>` : null}
         <span style=${{ color: "var(--ink3)", fontSize: "11px" }}>${(d.decision.decided_at || "").slice(5, 16).replace("T", " ")}${d.decision.decided_by ? " · " + d.decision.decided_by : ""}</span>
