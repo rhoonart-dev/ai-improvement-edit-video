@@ -1,4 +1,4 @@
-// VES 운영 대시보드 — v3.6 API (v3.5 + 홈 6대 보드: /api/machines 에 채널 정본 맵 동봉 · /api/chavatars 채널 아바타)
+// VES 운영 대시보드 — v3.8 API (v3.7 + ytstatus 에 publishedAt — 홈 보드 "오늘 공개" 판정용)
 // 배포: Supabase Edge Function `dashboard` (프로젝트 fdidiqdhcyctdbogxkdu, verify_jwt=false)
 // 화면: https://rhoonart-da.github.io/ves-ops-dashboard/ (GitHub Pages, React 단일 파일) — 이 함수는 API 전용.
 //   슈파베이스 기본 도메인은 text/html 을 text/plain 으로 강제해 HTML 서빙이 불가하다.
@@ -89,11 +89,13 @@ async function apiFeed(url: URL) {
   if (e1) return json({ error: e1.message }, 500);
   const ids = (metas ?? []).map((m: Record<string, unknown>) => m.clip_id);
   const { data: clips, error: e2 } = await sb.from("clips")
-    .select("id,channel_id,episode,video_external_id,published_at").in("id", ids);
+    .select("id,channel_id,work_id,source_episode,episode,video_external_id,published_at").in("id", ids);
   if (e2) return json({ error: e2.message }, 500);
   const chIds = [...new Set((clips ?? []).map((c: Record<string, unknown>) => c.channel_id).filter(Boolean))];
   const { data: chs } = await sb.from("channels").select("id,name").in("id", chIds);
   const chName = new Map((chs ?? []).map((c: Record<string, unknown>) => [c.id, c.name]));
+  const { data: wks } = await sb.from("works").select("id,title");
+  const wkName = new Map((wks ?? []).map((w: Record<string, unknown>) => [w.id, w.title]));
   const byClip = new Map((clips ?? []).map((c: Record<string, unknown>) => [c.id, c]));
   const items = (metas ?? []).map((m: Record<string, unknown>) => {
     const c = (byClip.get(m.clip_id) ?? {}) as Record<string, unknown>;
@@ -104,6 +106,8 @@ async function apiFeed(url: URL) {
       title: (snip.title as string) ?? null,
       channel: chName.get(c.channel_id) ?? null,
       episode: c.episode ?? null,
+      work: wkName.get(c.work_id) ?? null,
+      episode_no: c.source_episode ?? null,  // 원작 회차(0010) — episode 는 쇼츠 라벨
       mac: macOfHost(m.host as string),
       created_at: m.created_at,
       published_at: c.published_at ?? null,
@@ -117,12 +121,14 @@ async function apiYtStatus(url: URL) {
   if (!YT_KEY) return json({ configured: false, statuses: {} });
   const ids = (url.searchParams.get("ids") ?? "").split(",").filter(Boolean).slice(0, 50);
   if (!ids.length) return json({ configured: true, statuses: {} });
-  const r = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=status,statistics&id=${ids.join(",")}&key=${YT_KEY}`);
+  // snippet.publishedAt: 예약공개가 실제 공개되면 공개 시각으로 갱신된다 — "오늘 공개" 판정의 근거
+  const r = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=status,statistics,snippet&id=${ids.join(",")}&key=${YT_KEY}`);
   if (!r.ok) return json({ configured: true, error: `yt api ${r.status}`, statuses: {} });
   const data = await r.json();
-  const statuses: Record<string, { privacy: string; views?: number }> = {};
+  const statuses: Record<string, { privacy: string; views?: number; published_at?: string | null }> = {};
   for (const it of data.items ?? []) {
-    statuses[it.id] = { privacy: it.status?.privacyStatus ?? "unknown", views: Number(it.statistics?.viewCount ?? 0) };
+    statuses[it.id] = { privacy: it.status?.privacyStatus ?? "unknown", views: Number(it.statistics?.viewCount ?? 0),
+      published_at: it.snippet?.publishedAt ?? null };
   }
   for (const id of ids) if (!statuses[id]) statuses[id] = { privacy: "gone" }; // 조회 불가 = 비공개/삭제(반려)
   return json({ configured: true, statuses });

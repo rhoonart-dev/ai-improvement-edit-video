@@ -34,7 +34,8 @@ main{flex:1;min-width:0;padding:0 26px 60px}
 .topbar{display:flex;align-items:baseline;gap:14px;padding:22px 0 14px;flex-wrap:wrap}
 .topbar h2{font-size:19px;margin:0}.topbar .sub{color:var(--ink2);font-size:13px}
 .filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
-.chip{font-size:12px;border:1px solid var(--line);padding:3px 11px;border-radius:20px;color:var(--ink2);background:var(--panel);cursor:pointer;user-select:none}
+.chip{font-size:12px;border:1px solid var(--line);padding:3px 11px;border-radius:20px;color:var(--ink2);background:var(--panel);cursor:pointer;user-select:none;position:relative}
+.tbadge{position:absolute;top:-8px;right:-7px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--bad);color:#fff;font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:var(--mono)}
 .chip.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);font-weight:600}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
 .card{background:var(--panel);border:1px solid var(--soft)}
@@ -99,6 +100,9 @@ tr.rowlink{cursor:pointer}tr.rowlink:hover td{background:var(--accent-soft)}
 details.tail summary{cursor:pointer;font-size:11.5px;color:var(--ink2)}
 .rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
 .rcard{background:var(--panel);border:1px solid var(--soft);display:flex;flex-direction:column}
+.rchan{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13.5px;margin:0 0 8px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.rchan .chavatar{width:24px;height:24px}
+.rchan .mac{margin-left:auto}
 .player{aspect-ratio:9/16;max-height:340px;background:#000;display:flex;align-items:center;justify-content:center}
 .player video{width:100%;height:100%;object-fit:contain}
 .player .skel{color:#888}
@@ -130,8 +134,9 @@ details.tail summary{cursor:pointer;font-size:11.5px;color:var(--ink2)}
 .macbox.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .macbox h4{margin:0 0 6px;font-size:13px}.macbox h4 small{color:var(--ink3);font-weight:400}
 .chrow{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:12.5px;min-width:0}
+.chhead{justify-content:flex-end;gap:9px;color:var(--ink3);font-size:10px;padding:0 0 2px}
+.dotpair{display:flex;gap:9px;margin-left:auto;flex:none}
 .chdot{width:11px;height:11px;border-radius:50%;flex:none}
-.chrow .chdot{margin-left:auto}
 .chdot.ok{background:var(--ok)}.chdot.warn{background:var(--dotwarn,var(--warn))}.chdot.bad{background:var(--bad)}.chdot.idle{background:var(--line)}
 .chdot.rej{background:transparent;border:3px solid var(--bad);width:9px;height:9px}
 .chlink{display:flex;align-items:center;gap:6px;color:inherit;text-decoration:none;min-width:0}
@@ -221,9 +226,12 @@ function ChannelChip({ name, chmap, avatars }) {
 
 // ── 홈: 6대 상태 보드 + 드릴다운 ──
 // 점 규칙: **오늘 일어난 일만** 반영한다(운영자 규칙 2026-08-05 — "신호등은 무조건 오늘 기준").
-// 우선순위: 생성 실패 > 검수·공개 대기 > 반려됨 > 통과(합격·발행) > 오늘 신호 없음.
+// 채널당 점 2개 — 하나로는 "오늘 몫은 예약으로 채웠지만 오늘 생성은 실패"(2026-08-05 이불 속
+// 극장 실사례)를 표현할 수 없다:
+//   생성(공급): 오늘 파이프라인이 새 영상을 만들었나 — 실패 > 검수 대기 > 반려 > 합격 > 없음
+//   공개(배포): 오늘 이 채널에 1편 공개가 나갔나 — 오늘 공개 확인(초록) > 전환 대기(노랑) > 없음
+// 예약공개는 API 로 미리 안 보인다(비공개와 동일) — 실제 공개되는 순간 publishedAt 으로 잡힌다.
 // 지난 이력은 드릴다운(시각 표기)이 담당 — 어제의 초록이 오늘의 문제를 가리면 안 된다.
-// '생성 성공'만으로는 초록을 주지 않는다(반려 채널이 통과로 보였던 버그 재발 방지).
 // 드릴다운은 카드 클릭 토글이되, 실패가 있는 맥은 자동으로 펼친다(문제가 먼저 보이게).
 function MacBoard({ machines, queue, review, chmap, avatars, yt, feed }) {
   const [manual, setManual] = useState({});   // machine_id → 수동 열림/닫힘 (자동값 덮어씀)
@@ -238,7 +246,7 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed }) {
   for (const m of machines) for (const c of m.beat?.channels ?? []) {
     if (c.result === "failed" && isToday(m.beat?.run_started_at)) failed.add(c.channel);
   }
-  const pend = {}, dec = {}, pub = {}, waitPublic = {};
+  const pend = {}, dec = {}, waitPublic = {};
   for (const i of review?.queue ?? []) (pend[i.channel] ??= []).push(i);
   for (const i of review?.decided ?? []) (dec[i.channel] ??= []).push(i);
   for (const q of queue) {
@@ -247,20 +255,35 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed }) {
     // 미전환분을 초록으로 칠하면 밀린 일이 숨는다(2026-08-05 운영자 발견: 여운 보관소).
     const p = yt?.[q.video_id]?.privacy;
     if (p && p !== "public" && p !== "gone") (waitPublic[q.channel] ??= []).push(q);
-    else (pub[q.channel] ??= []).push(q);
   }
   for (const ch of Object.keys(dec)) dec[ch].sort((a, b) => (b.decision.decided_at || "").localeCompare(a.decision.decided_at || ""));
-  const pubToday = {};  // 오늘 발행분(clips.published_at) — 스냅샷·검수함이 못 보는 구간을 피드가 메꾼다
-  const snapVids = new Set(queue.map((q) => q.video_id).filter(Boolean));
+  // 발행 이력의 정본은 피드(clips.published_at, DB 영구 기록) — 하트비트 스냅샷은 다음 비트에
+  // 갱신되며 지난 기록이 빠진다(2026-08-05 맥4 실측). 드릴다운에는 최근 7일: 하루 1편 리듬에서
+  // 채널당 ≤7줄로 카드가 안 터지고, 회차 하나(장면 3개 ≈ 3일)의 생애를 항상 통째로 담는다.
+  const PUB_WINDOW_DAYS = 7;
+  const pubWin = {}, pubToday = {};
   for (const f of feed ?? []) {
-    if (f.channel && f.video_id && isToday(f.published_at)) (pubToday[f.channel] ??= []).push(f);
+    if (!f.channel || !f.video_id || !f.published_at) continue;
+    const age = Date.now() - new Date(f.published_at).getTime();
+    if (!isNaN(age) && age < PUB_WINDOW_DAYS * 864e5) (pubWin[f.channel] ??= []).push(f);
+    if (isToday(f.published_at)) (pubToday[f.channel] ??= []).push(f);
   }
   const todayDec = (ch) => (dec[ch] ?? []).find((i) => isToday(i.decision.decided_at));
-  const statusOf = (ch) => failed.has(ch) ? "bad"
-    : ((pend[ch]?.some((i) => isToday(i.created_at)) || waitPublic[ch]?.some((q) => isToday(q.accepted_at))) ? "warn"
+  const genStatus = (ch) => failed.has(ch) ? "bad"
+    : (pend[ch]?.some((i) => isToday(i.created_at)) ? "warn"
     : todayDec(ch)?.decision.decision === "rejected" ? "rej"
-    : (todayDec(ch)?.decision.decision === "approved" || pubToday[ch]?.length
-       || pub[ch]?.some((q) => isToday(q.accepted_at))) ? "ok" : "idle");
+    : (todayDec(ch)?.decision.decision === "approved" || pubToday[ch]?.length) ? "ok" : "idle");
+  const chVids = {};  // 채널 → 아는 video_id 전부 (피드 + 스냅샷)
+  for (const f of feed ?? []) if (f.channel && f.video_id) (chVids[f.channel] ??= new Set()).add(f.video_id);
+  for (const q of queue) if (q.channel && q.video_id) (chVids[q.channel] ??= new Set()).add(q.video_id);
+  const pubStatus = (ch) => {
+    for (const v of chVids[ch] ?? []) {
+      const s = yt?.[v];
+      if (s?.privacy === "public" && isToday(s.published_at)) return "ok";
+    }
+    return waitPublic[ch]?.length ? "warn" : "idle";
+  };
+  const statusOf = genStatus;  // 자동 펼침 등 기존 소비자용 별칭
   const chansOf = (mac) => Object.keys(chmap || {}).filter((c) => chmap[c].mac === mac);
   const fmtDT = (iso) => iso ? String(iso).slice(5, 16).replace("T", " ") : "";
   // 항목은 하루치가 아니라 누적 — 대기는 결정까지, 결정은 최근 2건, 발행은 회차 진행 중 유지.
@@ -280,12 +303,8 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed }) {
     }
     for (const q of waitPublic[ch] ?? []) items.push(["warn",
       `${q.work || "?"}${q.episode != null ? " " + q.episode + "회차" : ""} — 공개 전환 대기 (${q.privacy_at_publish || "일부공개"})`, q.video_id, q.accepted_at]);
-    for (const q of (pub[ch] ?? []).slice(0, 2)) items.push(["ok",
-      `${q.work || "?"}${q.episode != null ? " " + q.episode + "회차" : ""} — 발행됨`, q.video_id, q.accepted_at]);
-    for (const f of pubToday[ch] ?? []) {
-      if (snapVids.has(f.video_id)) continue;  // 스냅샷과 중복 방지
-      items.push(["ok", `${(f.title || "").slice(0, 24) || "?"} — 오늘 발행됨`, f.video_id, f.published_at]);
-    }
+    for (const f of pubWin[ch] ?? []) items.push(["ok",
+      `${f.work || "?"}${f.episode_no != null ? " " + f.episode_no + "회차" : ""} — 발행됨`, f.video_id, f.published_at]);
     if (!items.length) items.push(["skip", "최근 신호 없음", null, null]);
     items.sort((a, b) => String(b[3] || "").localeCompare(String(a[3] || "")));  // 최신이 위로
     return items;
@@ -295,20 +314,26 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed }) {
   const toggle = (m) => setManual((p) => ({ ...p, [m.machine_id]: !isOpen(m) }));
   return html`<div>
     <div class="boardlegend">
+      <b style=${{ color: "var(--ink2)" }}>생성</b>
       <span class="lg"><span class="chdot ok"></span>검수 통과</span>
-      <span class="lg"><span class="chdot warn"></span>검수 대기중</span>
-      <span class="lg"><span class="chdot rej"></span>반려됨</span>
-      <span class="lg"><span class="chdot bad"></span>생성 실패</span>
-      <span class="lg"><span class="chdot idle"></span>오늘 신호 없음</span>
-      <span style=${{ color: "var(--ink3)" }}>· 기준: 오늘</span>
+      <span class="lg"><span class="chdot warn"></span>검수 대기</span>
+      <span class="lg"><span class="chdot rej"></span>반려</span>
+      <span class="lg"><span class="chdot bad"></span>실패</span>
+      <b style=${{ color: "var(--ink2)", marginLeft: "8px" }}>공개</b>
+      <span class="lg"><span class="chdot ok"></span>오늘 공개됨</span>
+      <span class="lg"><span class="chdot warn"></span>전환 대기</span>
+      <span class="lg"><span class="chdot idle"></span>없음</span>
+      <span style=${{ color: "var(--ink3)" }}>· 기준: 오늘 · 예약공개는 공개되는 순간 반영</span>
       <span style=${{ marginLeft: "auto", color: "var(--ink3)" }}>카드를 누르면 상세 — 실패가 있는 맥은 자동으로 펼쳐집니다</span>
     </div>
     <div class="macboard">
       ${machines.map((m) => html`<div key=${m.machine_id} class=${"macbox" + (isOpen(m) ? " sel" : "")} onClick=${() => toggle(m)}>
         <h4>${m.mac} <small>· ${m.label}</small>${hasBad(m) ? html`<span class="st bad"> ⛔</span>` : ""}</h4>
+        ${chansOf(m.mac).length ? html`<div class="chrow chhead"><span>생성</span><span>공개</span></div>` : null}
         ${chansOf(m.mac).map((ch) => html`<div class="chrow" key=${ch}>
           <${ChannelChip} name=${ch} chmap=${chmap} avatars=${avatars} />
-          <span class=${"chdot " + statusOf(ch)}></span></div>`)}
+          <span class="dotpair"><span class=${"chdot " + genStatus(ch)} title="오늘 생성"></span>
+            <span class=${"chdot " + pubStatus(ch)} title="오늘 공개"></span></span></div>`)}
         ${chansOf(m.mac).length === 0 ? html`<div class="chrow" style=${{ color: "var(--ink3)" }}>담당 채널 없음</div>` : null}
       </div>`)}
     </div>
@@ -496,7 +521,7 @@ function PerfPage() {
 }
 
 // ── 검수함 (스펙 1급 데이터: review_decisions) ──
-function ReviewCard({ item, onDecide }) {
+function ReviewCard({ item, onDecide, chmap, avatars }) {
   const [url, setUrl] = useState(null);
   const [note, setNote] = useState("");
   const [prodReject, setProdReject] = useState(false);
@@ -516,9 +541,10 @@ function ReviewCard({ item, onDecide }) {
     <div class="player">${url ? html`<video controls preload="metadata" src=${url}></video>`
       : html`<span class="skel">영상 URL 발급 중…</span>`}</div>
     <div class="rbody">
+      <div class="rchan"><${ChannelChip} name=${item.channel || "?"} chmap=${chmap} avatars=${avatars} />
+        <span class="mac">${item.mac || "?"}</span></div>
       <p class="rtitle">${item.title || "(제목 미기록)"}</p>
       <div class="rmeta">
-        <span class="k">채널</span> ${item.channel || "?"} · <span class="mac">${item.mac || "?"}</span><br/>
         <span class="k">작품</span> ${item.work || "?"}${item.episode != null ? " · " + item.episode + "회차" : ""}<br/>
         <span class="k">구간</span> ${Number(item.start).toFixed(1)} → ${Number(item.end).toFixed(1)}초
           (${Number(item.duration).toFixed(1)}초)<br/>
@@ -551,9 +577,10 @@ function ReviewCard({ item, onDecide }) {
   </div>`;
 }
 
-function ReviewPage({ review, reload }) {
+function ReviewPage({ review, reload, chmap, avatars }) {
   const [name, setName] = useState(localStorage.getItem("ves_name") || "");
   const [msg, setMsg] = useState(null);
+  const [tab, setTab] = useState("전체");
   const onDecide = async (item, decision, note, rejectType) => {
     const r = await fetch(BASE + "/api/decision", {
       method: "POST",
@@ -567,8 +594,11 @@ function ReviewPage({ review, reload }) {
       (decision === "approved" ? " · 10분 내 발행 픽업 예정(4단계 적용 후)" : " · 대기 슬롯 해제"));
     reload();
   };
-  const queue = review?.queue ?? [];
-  const decided = review?.decided ?? [];
+  const allQueue = review?.queue ?? [];
+  const macs = ["전체", "맥1", "맥2", "맥3", "맥4", "맥5", "맥6"];
+  const cntOf = (m) => allQueue.filter((i) => m === "전체" || i.mac === m).length;
+  const queue = allQueue.filter((i) => tab === "전체" || i.mac === tab);
+  const decided = (review?.decided ?? []).filter((i) => tab === "전체" || i.mac === tab);
   return html`<div class="page">
     <div class="topbar"><h2>검수함</h2>
       <span class="sub">보고 → 누르면 끝. 결정은 DB(review_decisions)에 기록됩니다</span>
@@ -577,9 +607,11 @@ function ReviewPage({ review, reload }) {
           onChange=${(e) => { setName(e.target.value); localStorage.setItem("ves_name", e.target.value); }} /></span>
     </div>
     ${msg ? html`<p class="note">${msg}</p>` : null}
+    <div class="filters">${macs.map((m) => html`
+      <span key=${m} class=${"chip" + (m === tab ? " on" : "")} onClick=${() => setTab(m)}>${m}${cntOf(m) ? html`<span class="tbadge">${cntOf(m)}</span>` : null}</span>`)}</div>
     ${!review ? html`<div class="skel">불러오는 중…</div>`
-      : queue.length === 0 ? html`<p class="note">검수 대기 중인 클립이 없습니다 — 밤 생성 후 자동으로 올라옵니다.</p>`
-      : html`<div class="rgrid">${queue.map((i) => html`<${ReviewCard} key=${i.clip_id} item=${i} onDecide=${onDecide} />`)}</div>`}
+      : queue.length === 0 ? html`<p class="note">${tab === "전체" ? "검수 대기 중인 클립이 없습니다 — 밤 생성 후 자동으로 올라옵니다." : tab + " 담당분은 검수 대기가 없습니다."}</p>`
+      : html`<div class="rgrid">${queue.map((i) => html`<${ReviewCard} key=${i.clip_id} item=${i} onDecide=${onDecide} chmap=${chmap} avatars=${avatars} />`)}</div>`}
     ${decided.length ? html`<div class="panel" style=${{ marginTop: "20px" }}>
       <h3>최근 결정 ${decided.length}건</h3>
       ${decided.map((d) => html`<div class="decided-row" key=${d.clip_id}>
@@ -765,7 +797,8 @@ function App() {
     <main>
       ${page === "home" ? html`<${HomePage} machines=${machines} queue=${queue} yt=${yt} now=${mx?.now}
         review=${review} chmap=${mx?.channels ?? {}} avatars=${avatars} feed=${feed} />` : null}
-      ${page === "review" ? html`<${ReviewPage} review=${review} reload=${() => api("/api/review").then(setReview).catch(() => null)} />` : null}
+      ${page === "review" ? html`<${ReviewPage} review=${review} chmap=${mx?.channels ?? {}} avatars=${avatars}
+        reload=${() => api("/api/review").then(setReview).catch(() => null)} />` : null}
       ${page === "feed" ? html`<${FeedPage} feed=${feed} yt=${yt} ytConfigured=${ytConfigured} />` : null}
       ${page === "perf" ? html`<${PerfPage} />` : null}
       ${page === "machines" ? html`<${MachinesPage} machines=${machines} now=${mx?.now} anomalies=${mx?.anomalies ?? []} />` : null}
