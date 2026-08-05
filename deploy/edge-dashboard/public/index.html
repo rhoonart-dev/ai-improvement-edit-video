@@ -123,7 +123,8 @@ details.tail summary{cursor:pointer;font-size:11.5px;color:var(--ink2)}
 .drow-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .drow-sub{color:var(--ink3);font-size:11px}
 .drow-when{flex:none;color:var(--ink3);font-size:11px}
-.drow-note{margin:4px 0 0 2px;color:var(--ink2);font-size:11.5px;line-height:1.65;white-space:pre-wrap;word-break:break-word}
+.drow-note{position:relative;margin:9px 0 3px 6px;padding:8px 13px;background:var(--ground);border:1px solid var(--line);border-radius:10px;color:var(--ink2);font-size:11.5px;line-height:1.65;white-space:pre-wrap;word-break:break-word;max-width:760px;width:fit-content}
+.drow-note::before{content:"";position:absolute;top:-6px;left:18px;width:10px;height:10px;background:var(--ground);border-left:1px solid var(--line);border-top:1px solid var(--line);transform:rotate(45deg)}
 .decided-row:last-child{border-bottom:none}
 .dpill{font-size:11px;font-weight:600;padding:1px 8px;border-radius:10px}
 .dpill.approved{background:var(--okbg);color:var(--ok)}.dpill.rejected{background:var(--badbg);color:var(--bad)}
@@ -179,6 +180,13 @@ const ago = (iso, now) => {
   if (h < 1) return `${Math.round(h * 60)}분 전`;
   if (h < 48) return `${Math.round(h)}시간 전`;
   return `${Math.round(h / 24)}일 전`;
+};
+const fmtDT = (iso) => {  // 로컬(한국) 시각 MM-DD HH:mm — UTC 문자열 slice 는 9시간 어긋난다(2026-08-05 발견)
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d)) return String(iso).slice(5, 16).replace("T", " ");
+  const p = (n) => String(n).padStart(2, "0");
+  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 };
 const PILL = { public: ["pub", "공개"], unlisted: ["unl", "일부공개"], private: ["gone", "비공개"], gone: ["gone", "반려/삭제"] };
 const RESULT = {
@@ -301,7 +309,6 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed }) {
   };
   const statusOf = genStatus;  // 자동 펼침 등 기존 소비자용 별칭
   const chansOf = (mac) => Object.keys(chmap || {}).filter((c) => chmap[c].mac === mac);
-  const fmtDT = (iso) => iso ? String(iso).slice(5, 16).replace("T", " ") : "";
   // 항목은 하루치가 아니라 누적 — 대기는 결정까지, 결정은 최근 2건, 발행은 회차 진행 중 유지.
   // 그래서 줄마다 생성 시각(발행분은 장면 확정 시각)을 왼쪽에 붙인다(2026-08-05 운영자 요청).
   const rowsOf = (ch, m) => {
@@ -572,7 +579,7 @@ function ReviewCard({ item, onDecide, chmap, avatars }) {
         <span class="k">작품</span> ${item.work || "?"}${item.episode != null ? " · " + item.episode + "회차" : ""}<br/>
         <span class="k">구간</span> ${Number(item.start).toFixed(1)} → ${Number(item.end).toFixed(1)}초
           (${Number(item.duration).toFixed(1)}초)<br/>
-        <span class="k">생성</span> ${(item.created_at || "").slice(5, 16).replace("T", " ")}
+        <span class="k">생성</span> ${fmtDT(item.created_at)}
       </div>
       ${item.judge?.rubric_scores?.hallucination_flag ? html`
         <div class="hallu">⚠ 환각 의심 — 합격해도 발행 게이트에서 자동 차단됩니다</div>` : null}
@@ -644,9 +651,9 @@ function ReviewPage({ review, reload, chmap, avatars }) {  // reload: App 의 �
           <span class=${"dpill " + d.decision.decision}>${d.decision.decision === "approved" ? "합격"
             : d.decision.reject_type === "production" ? "반려·제작" : "반려·장면"}</span>
           <span class="drow-title">${d.title || d.clip_id} <span class="drow-sub">· ${d.channel || ""}${d.episode != null ? " " + d.episode + "회차" : ""}${d.published ? " · 발행됨" : ""}</span></span>
-          <span class="drow-when">${(d.decision.decided_at || "").slice(5, 16).replace("T", " ")}${d.decision.decided_by ? " · " + d.decision.decided_by : ""}</span>
+          <span class="drow-when">${fmtDT(d.decision.decided_at)}${d.decision.decided_by ? " · " + d.decision.decided_by : ""}</span>
         </div>
-        ${d.decision.note ? html`<div class="drow-note">"${d.decision.note}"</div>` : null}
+        ${d.decision.note ? html`<div class="drow-note">${d.decision.note}</div>` : null}
       </div>`)}
     </div>` : null}
   </div>`;
