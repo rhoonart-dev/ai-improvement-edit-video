@@ -101,3 +101,11 @@ def _run():
 
 if __name__ == "__main__":
     _run()
+
+
+def test_review_gate_routes_all_cases():
+    """4단계(2026-08-05): 합격작만 발행. 결정 없음=보류, 반려=해제 — 발행은 approved 뿐이다."""
+    import scene_publish_loop as spl
+    assert spl.review_gate(None) == spl.REVIEW_GATE_HOLD                       # 미검수 → 보류
+    assert spl.review_gate(("approved", "2026-08-05T00:00:00", None)) == spl.REVIEW_GATE_PUBLISH
+    assert spl.review_gate(("rejected", "2026-08-05T00:00:00", "TTS 안 맞음")) == spl.REVIEW_GATE_REJECT

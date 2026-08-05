@@ -117,6 +117,10 @@ details.tail summary{cursor:pointer;font-size:11.5px;color:var(--ink2)}
 .dpill{font-size:11px;font-weight:600;padding:1px 8px;border-radius:10px}
 .dpill.approved{background:var(--okbg);color:var(--ok)}.dpill.rejected{background:var(--badbg);color:var(--bad)}
 .namebox{padding:5px 9px;font:inherit;font-size:12px;border:1px solid var(--line);background:var(--panel);color:var(--ink);width:130px}
+.judgebox{font-size:11.5px;color:var(--ink2);background:var(--ground);border:1px dashed var(--line);padding:8px 10px;line-height:1.7}
+.judgebox .q{font-weight:600;color:var(--ink)}
+.judgebox details{margin-top:4px}.judgebox summary{cursor:pointer;color:var(--ink3);font-size:11px}
+.hallu{background:var(--badbg);color:var(--bad);border:1px solid var(--bad);padding:6px 9px;font-size:11.5px;font-weight:600}
 @media(max-width:760px){.shell{flex-direction:column}aside{width:100%;height:auto;position:static}
 aside nav{flex-direction:row;overflow-x:auto;padding:0}aside nav a{border-left:none;border-bottom:3px solid transparent}
 aside nav a.on{border-left-color:transparent;border-bottom-color:#e8b04b}.side-foot{display:none}main{padding:0 14px 40px}}
@@ -253,13 +257,23 @@ function HomePage({ machines, queue, yt, now }) {
 // ── 영상 피드 ──
 function FeedPage({ feed, yt, ytConfigured }) {
   const [filter, setFilter] = useState("전체");
+  const [showGone, setShowGone] = useState(false);
   const macs = ["전체", "맥1", "맥2", "맥3", "맥4", "맥5", "맥6"];
-  const items = feed.filter((x) => filter === "전체" || x.mac === filter);
+  // 피드 = 유튜브에 있는 것. 미업로드(검수 전)는 검수함 전담이라 여기서 뺀다.
+  // 반려/삭제(gone·private)는 기본 숨김 — 활성 영상 사이에서 자리만 차지한다는 운영 피드백(8/5).
+  const uploaded = feed.filter((x) => x.video_id);
+  const isGone = (x) => { const p = yt[x.video_id]?.privacy; return p === "gone" || p === "private"; };
+  const goneCount = uploaded.filter(isGone).length;
+  const items = uploaded.filter((x) => (filter === "전체" || x.mac === filter) && (showGone || !isGone(x)));
   return html`<div class="page">
-    <div class="topbar"><h2>영상 피드</h2><span class="sub">생성 파이프라인이 발행한 클립 — 최신순 · ${feed.length}건</span></div>
+    <div class="topbar"><h2>영상 피드</h2><span class="sub">유튜브에 올라간 클립 — 최신순 · 활성 ${uploaded.length - goneCount}건</span></div>
     ${!ytConfigured ? html`<p class="note">공개/일부공개 배지는 YOUTUBE_API_KEY 시크릿을 설정하면 켜집니다.</p>` : null}
     <div class="filters">${macs.map((m) => html`
-      <span key=${m} class=${"chip" + (m === filter ? " on" : "")} onClick=${() => setFilter(m)}>${m}</span>`)}</div>
+      <span key=${m} class=${"chip" + (m === filter ? " on" : "")} onClick=${() => setFilter(m)}>${m}</span>`)}
+      <span style=${{ width: "12px" }}></span>
+      ${goneCount ? html`<span class=${"chip" + (showGone ? " on" : "")}
+        onClick=${() => setShowGone(!showGone)}>반려·삭제 ${goneCount}건 ${showGone ? "숨기기" : "보기"}</span>` : null}
+    </div>
     ${items.length === 0 ? html`<div class="skel">표시할 클립이 없습니다.</div>` : html`
     <div class="grid">${items.map((x) => html`
       <div class="card" key=${x.clip_id}>
@@ -271,10 +285,8 @@ function FeedPage({ feed, yt, ytConfigured }) {
         <div class="body">
           <p class="title">${x.title || "(제목 미기록)"}</p>
           <p class="meta">${x.channel || "?"} · <span class="mac">${x.mac || "?"}</span> · ${(x.created_at || "").slice(5, 16).replace("T", " ")}</p>
-          ${x.video_id ? html`
-            <a class="lnk" href=${"https://www.youtube.com/shorts/" + x.video_id} target="_blank" rel="noopener">▶ 보기</a>
-            <a class="lnk" href=${"https://studio.youtube.com/video/" + x.video_id + "/edit"} target="_blank" rel="noopener">Studio</a>` : html`
-            <span class="gauge">미업로드 (검수 전)</span>`}
+          <a class="lnk" href=${"https://www.youtube.com/shorts/" + x.video_id} target="_blank" rel="noopener">▶ 보기</a>
+          <a class="lnk" href=${"https://studio.youtube.com/video/" + x.video_id + "/edit"} target="_blank" rel="noopener">Studio</a>
         </div>
       </div>`)}</div>`}
   </div>`;
@@ -343,6 +355,7 @@ function PerfPage() {
 function ReviewCard({ item, onDecide }) {
   const [url, setUrl] = useState(null);
   const [note, setNote] = useState("");
+  const [prodReject, setProdReject] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     let alive = true;
@@ -352,7 +365,8 @@ function ReviewCard({ item, onDecide }) {
   }, [item.clip_id]);
   const decide = async (decision) => {
     setBusy(true);
-    try { await onDecide(item, decision, note); } finally { setBusy(false); }
+    try { await onDecide(item, decision, note, prodReject ? "production" : "scene"); }
+    finally { setBusy(false); }
   };
   return html`<div class="rcard">
     <div class="player">${url ? html`<video controls preload="metadata" src=${url}></video>`
@@ -361,14 +375,30 @@ function ReviewCard({ item, onDecide }) {
       <p class="rtitle">${item.title || "(제목 미기록)"}</p>
       <div class="rmeta">
         <span class="k">채널</span> ${item.channel || "?"} · <span class="mac">${item.mac || "?"}</span><br/>
-        <span class="k">작품</span> ${item.work || "?"}<br/>
+        <span class="k">작품</span> ${item.work || "?"}${item.episode != null ? " · " + item.episode + "회차" : ""}<br/>
         <span class="k">구간</span> ${Number(item.start).toFixed(1)} → ${Number(item.end).toFixed(1)}초
           (${Number(item.duration).toFixed(1)}초)<br/>
-        <span class="k">judge</span> ${item.judge_quality != null ? "품질 " + Number(item.judge_quality).toFixed(2) : "미실행"}
-          · <span class="k">생성</span> ${(item.created_at || "").slice(5, 16).replace("T", " ")}
+        <span class="k">생성</span> ${(item.created_at || "").slice(5, 16).replace("T", " ")}
       </div>
+      ${item.judge?.rubric_scores?.hallucination_flag ? html`
+        <div class="hallu">⚠ 환각 의심 — 합격해도 발행 게이트에서 자동 차단됩니다</div>` : null}
+      ${item.judge ? html`<div class="judgebox">
+        <span class="q">judge 품질 ${Number(item.judge.quality_score).toFixed(2)}</span>
+        ${item.judge.confidence != null ? " · 신뢰도 " + Number(item.judge.confidence).toFixed(2) : ""}<br/>
+        ${["hook_3s", "visual_hook", "pacing", "completion_pull"].map((k) =>
+          item.judge.rubric_scores?.[k] != null
+            ? ({ hook_3s: "훅3초", visual_hook: "비주얼", pacing: "페이싱", completion_pull: "완주유도" })[k]
+              + " " + Number(item.judge.rubric_scores[k]).toFixed(2) + "  "
+            : null)}
+        ${item.judge.rubric_scores?.rationale ? html`<details><summary>judge 사유 보기</summary>
+          ${item.judge.rubric_scores.rationale}</details>` : null}
+      </div>` : html`<div class="judgebox" style=${{ color: "var(--ink3)" }}>judge 대기중 — 결정은 그대로 가능합니다</div>`}
       <input class="reason" placeholder="반려 사유 (선택) — 쌓이면 개선 신호가 됩니다"
         value=${note} onChange=${(e) => setNote(e.target.value)} />
+      <label style=${{ fontSize: "11.5px", color: "var(--ink2)", display: "flex", gap: "6px", alignItems: "center", cursor: "pointer" }}>
+        <input type="checkbox" checked=${prodReject} onChange=${(e) => setProdReject(e.target.checked)} />
+        제작 결함 (장면은 좋음 — 같은 구간 재시도 허용: TTS·자막·오디오 등)
+      </label>
       <div class="acts">
         <button class="btn pass" disabled=${busy} onClick=${() => decide("approved")}>✅ 합격</button>
         <button class="btn rej" disabled=${busy} onClick=${() => decide("rejected")}>❌ 반려</button>
@@ -380,11 +410,12 @@ function ReviewCard({ item, onDecide }) {
 function ReviewPage({ review, reload }) {
   const [name, setName] = useState(localStorage.getItem("ves_name") || "");
   const [msg, setMsg] = useState(null);
-  const onDecide = async (item, decision, note) => {
+  const onDecide = async (item, decision, note, rejectType) => {
     const r = await fetch(BASE + "/api/decision", {
       method: "POST",
       headers: { "x-ves-key": encodeURIComponent(KEY()), "content-type": "application/json" },
-      body: JSON.stringify({ clip_id: item.clip_id, decision, note: note || null, decided_by: name || null }),
+      body: JSON.stringify({ clip_id: item.clip_id, decision, note: note || null,
+        decided_by: name || null, reject_type: decision === "rejected" ? rejectType : null }),
     });
     const d = await r.json();
     if (!r.ok || d.error) { setMsg("기록 실패: " + (d.error || r.status)); return; }
@@ -408,8 +439,9 @@ function ReviewPage({ review, reload }) {
     ${decided.length ? html`<div class="panel" style=${{ marginTop: "20px" }}>
       <h3>최근 결정 ${decided.length}건</h3>
       ${decided.map((d) => html`<div class="decided-row" key=${d.clip_id}>
-        <span class=${"dpill " + d.decision.decision}>${d.decision.decision === "approved" ? "합격" : "반려"}</span>
-        <span style=${{ flex: 1 }}>${d.title || d.clip_id} <span style=${{ color: "var(--ink3)", fontSize: "11px" }}>· ${d.channel || ""}</span></span>
+        <span class=${"dpill " + d.decision.decision}>${d.decision.decision === "approved" ? "합격"
+          : d.decision.reject_type === "production" ? "반려·제작" : "반려·장면"}</span>
+        <span style=${{ flex: 1 }}>${d.title || d.clip_id} <span style=${{ color: "var(--ink3)", fontSize: "11px" }}>· ${d.channel || ""}${d.episode != null ? " " + d.episode + "회차" : ""}</span></span>
         ${d.decision.note ? html`<span style=${{ color: "var(--ink3)", fontSize: "11px" }}>"${d.decision.note}"</span>` : null}
         <span style=${{ color: "var(--ink3)", fontSize: "11px" }}>${(d.decision.decided_at || "").slice(5, 16).replace("T", " ")}${d.decision.decided_by ? " · " + d.decision.decided_by : ""}</span>
       </div>`)}

@@ -797,6 +797,32 @@ def count_public_scenes(scenes, conn, channel, api_key, publish_records=None):
 
 
 # ─────────────────────────── 생성 (ai-video 그대로 호출) ───────────────────────────
+#
+# 🛑 같은 회차 재실행에서 분석(프록시·전사·Gemini 청크)을 **의도적으로 재사용하지 않는다**
+#    (2026-08-05 운영자 결정 — --job-id/--from-step 캐시를 쓰지 않는 것은 누락이 아니다):
+#    ① 매 실행이 새로 분석해야 Gemini 가 다른 후보 장면을 뽑는다 — 이 다양성이 중복 회피
+#       재시도의 전제다. 캐시된 후보에서 story 만 다시 짜면 같은 1등 장면이 반복된다.
+#    ② 같은 타임스탬프 재사용에는 그 외의 문제도 있다(운영자 실측).
+#    ③ ai-video 코드 수정(TTS 등)이 다음 실행에 즉시 반영되는 것도 전체 재실행이라서다.
+#    분석 비용(롱폼 ~60분/실행)은 이 선택의 수용된 대가다 — "절감하자"는 제안은 이 주석을
+#    먼저 반박할 것.
+
+def dedup_spans(scenes, publish_records):
+    """중복 회피 대상 구간 — **제작 반려**(reject_type='production') 장면은 제외한다(0009).
+
+    장면 반려(scene, 기본)는 회피 유지: 같은 구간을 다시 만들면 비슷한 결과가 또 반려된다.
+    제작 반려는 장면은 좋은데 만듦새(TTS·자막 등) 문제 — 원인이 코드에서 고쳐지면 같은 구간
+    재시도가 합격할 수 있으므로 회피에서 뺀다(2026-08-05 운영자 결정, 첫 실반려가 이 사례였다).
+    """
+    recs = publish_records or {}
+    out = []
+    for sc in scenes:
+        rids = sc.get("run_ids") or ([sc["run_id"]] if sc.get("run_id") else [])
+        if rids and all((recs.get(r) or {}).get("reject_type") == "production" for r in rids):
+            continue
+        out.append(sc["span"])
+    return out
+
 
 def build_cmd(gen_py, work_title, video_path, outdir, gen_flags, ep_num=None, subtitle=None):
     """소스가 URL 이면 --youtube-url(ai-video 가 직접 받아 씀), 아니면 --video. 순수.
@@ -929,7 +955,8 @@ def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_ro
 
     iou_th, ctol = cfg["dup_iou_threshold"], cfg["dup_center_tolerance_sec"]
     attempts = 1 + cfg["max_retries"]
-    prior_spans = [sc["span"] for sc in info["scenes"]]
+    # 제작 반려(reject_type=production) 구간은 회피에서 제외 — 같은 장면 재시도 허용(0009)
+    prior_spans = dedup_spans(info["scenes"], load_publish_records())
     # 생성 플래그는 작품별이 우선 — 자막 유무가 작품마다 달라 전역 플래그로는 공존할 수 없다
     gen_flags = ch.get("gen_flags") or cfg.get("gen_flags") or cfg.get("gen_flags_base") or []
 

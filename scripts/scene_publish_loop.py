@@ -157,6 +157,60 @@ def pending_scenes(gen_state, pub_state):
     return out
 
 
+REVIEW_GATE_PUBLISH = "publish"
+REVIEW_GATE_HOLD = "hold"          # 결정 없음 — 검수 대기, 발행 보류
+REVIEW_GATE_REJECT = "reject"      # 반려 — 발행 안 함 + 슬롯 즉시 해제
+
+
+def review_gate(decision):
+    """검수 결정 → 발행 게이트 (4단계, 2026-08-05 부터 '합격작만 발행').
+
+    decision: fetch_review_decisions 의 행 (decision, decided_at, note) 또는 None.
+    설계(DASHBOARD_REVIEW_STORAGE_DESIGN §6): approved→발행 · rejected→해제 · 없음→보류.
+    """
+    if decision is None:
+        return REVIEW_GATE_HOLD
+    return REVIEW_GATE_PUBLISH if decision[0] == "approved" else REVIEW_GATE_REJECT
+
+
+def fetch_review_decisions(run_ids):
+    """{run_id: (decision, decided_at_iso, note, reject_type)} — review_decisions 를 run_id 로 조회.
+
+    실패 시 예외를 그대로 올린다 — 결정을 못 읽는 상태에서 발행하면 미검수분이 올라간다
+    (seed_published_from_db 와 같은 '안전 방향으로만 실패' 원칙).
+    """
+    if not run_ids:
+        return {}
+    try:
+        import psycopg as pg
+    except ModuleNotFoundError:
+        import psycopg2 as pg
+    with pg.connect(os.environ["PIPELINE_DB_URL"], connect_timeout=10) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT m.ai_video_run_id, r.decision, r.decided_at, r.note, r.reject_type
+                   FROM public.review_decisions r
+                   JOIN public.clips c ON c.id = r.clip_id
+                   JOIN public.clip_metadata m ON m.clip_id = c.id
+                   WHERE m.ai_video_run_id = ANY(%s)
+                     AND c.source = 'auto_edit' AND c.episode = 'shorts_1'""",
+                (list(run_ids),))
+            return {r[0]: (r[1], r[2].isoformat() if r[2] else None, r[3], r[4])
+                    for r in cur.fetchall()}
+
+
+def judge_run_exists(clip_id):
+    """이 clip 에 judge_runs 행이 있는가 — 야간 선실행분 감지(재실행 = Gemini 비용 중복)."""
+    try:
+        import psycopg as pg
+    except ModuleNotFoundError:
+        import psycopg2 as pg
+    with pg.connect(os.environ["PIPELINE_DB_URL"], connect_timeout=10) as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM public.judge_runs WHERE clip_id = %s LIMIT 1", (clip_id,))
+            return cur.fetchone() is not None
+
+
 def find_video(job_dir):
     """job_dir → 최종 쇼츠 mp4. ai-video 규약은 shorts.mp4, 폴백은 가장 큰 mp4."""
     p = Path(job_dir) / "shorts.mp4"
@@ -251,15 +305,25 @@ def publish_scene(ch_name, ep_num, sc, rec, log, dry_run, ch_cfg=None, pub_state
         rec["clip_id"] = m.group(1)
         log(f"  ✓ {tag} ingest → clip {rec['clip_id'][:8]}…")
 
-    # 안전 judge (발행 게이트 전제조건)
+    # 안전 judge (발행 게이트 전제조건). 2026-08-05 부터 야간 업로더가 검수 전에 선실행하므로
+    # DB 에 이미 있으면 생략한다 — rec['stage'] 는 이 머신 상태 파일이라 선실행을 모른다.
     if rec.get("stage") not in ("judged", "published") :
-        rc, out = sh([PY, "scripts/run_judge.py", "--clip-id", rec["clip_id"], "--video", video],
-                     timeout=1800)
-        if rc != 0:
-            log(f"  ✗ {tag} judge 실패 rc={rc}: {out[-300:]}")
-            return rec
-        rec["stage"] = "judged"
-        log(f"  ✓ {tag} judge 완료")
+        already = False
+        try:
+            already = judge_run_exists(rec["clip_id"])
+        except Exception as e:  # noqa: BLE001 — 조회 실패면 안전 방향 = 재실행
+            log(f"  ⚠ {tag} judge 존재 조회 실패({type(e).__name__}) → 재실행으로 진행")
+        if already:
+            rec["stage"] = "judged"
+            log(f"  ✓ {tag} judge 있음(검수 전 선실행분) → 재실행 생략")
+        else:
+            rc, out = sh([PY, "scripts/run_judge.py", "--clip-id", rec["clip_id"], "--video", video],
+                         timeout=1800)
+            if rc != 0:
+                log(f"  ✗ {tag} judge 실패 rc={rc}: {out[-300:]}")
+                return rec
+            rec["stage"] = "judged"
+            log(f"  ✓ {tag} judge 완료")
 
     # 업로드 (publish_youtube 가 안전게이트·오채널·지오블락 게이트 수행)
     cmd = [PY, "scripts/publish_youtube.py", "--clip-id", rec["clip_id"], "--video", video,
@@ -334,6 +398,8 @@ def main():
     ap.add_argument("--machine", default=None, help="배정 정본에서 쓸 머신 id(기본: 자동 감지)")
     # 아래 둘은 시험 발행용 — 자동 실행에는 쓰지 않는다(설정이 정본이어야 한다)
     ap.add_argument("--run-id", default=None, help="이 run_id 장면 하나만 발행(시험용)")
+    ap.add_argument("--ignore-review", action="store_true",
+                    help="검수 게이트 무시(시험·비상용) — 자동 실행에는 절대 쓰지 않는다")
     ap.add_argument("--privacy", default=None, choices=["private", "unlisted"],
                     help="예약 공개 대신 이 상태로만 올린다(시험용). 설정의 publish_privacy 를 덮는다")
     a = ap.parse_args()
@@ -373,6 +439,16 @@ def main():
             if not todo:
                 sys.exit(f"run_id '{a.run_id}' 가 미발행 목록에 없습니다(이미 발행됐거나 오타)")
         log(f"[발행] 미발행 장면 {len(todo)}건" + (f" (--run-id {a.run_id} 로 한정)" if a.run_id else ""))
+        # ── 검수 게이트 (4단계, 2026-08-05): 합격작만 발행한다 ──
+        # 결정을 못 읽으면 발행 자체를 멈춘다(미검수분이 올라가는 사고 방지 — 안전 방향 실패).
+        if a.ignore_review:
+            decisions = None
+            log("⚠ --ignore-review: 검수 게이트 생략(시험용)")
+        else:
+            try:
+                decisions = fetch_review_decisions([t[3]["run_id"] for t in todo])
+            except Exception as e:  # noqa: BLE001
+                sys.exit(f"⛔ 검수 결정 조회 실패({type(e).__name__}: {e}) — 미검수분 발행 위험으로 중단")
         # 설정은 슬롯으로 찾는다(같은 채널에 작품이 둘이면 채널명만으론 항목이 겹친다).
         # 발행 파라미터(--channel·공개 슬롯)는 항상 실제 채널명을 쓴다.
         ch_cfgs = {slot_key(c): c for c in cfg["channels"]}
@@ -390,6 +466,31 @@ def main():
             rec = pub_state["scenes"].setdefault(rid, {"channel": ch_name, "slot": slot,
                                                        "episode": ep_num})
             rec.setdefault("channel", ch_name)
+            if decisions is not None:
+                gate = review_gate(decisions.get(rid))
+                if gate == REVIEW_GATE_HOLD:
+                    log(f"  ⏸ [{ch_name} EP{ep_num} run={rid[:12]}] 검수 대기(결정 없음) → 발행 보류")
+                    continue
+                if gate == REVIEW_GATE_REJECT:
+                    d = decisions[rid]
+                    if not rec.get("rejected_at"):
+                        # rejected_at 은 scene_loop classify_scenes 가 최우선으로 읽는 필드 —
+                        # 다음 생성 실행에서 유튜브 조회 없이 즉시 슬롯이 해제된다(8/4 훅 재사용).
+                        # reject_type 은 scene_loop.dedup_spans 가 읽는다 — production 이면
+                        # 그 구간을 중복 회피에서 빼 같은 장면 재시도를 허용한다(0009).
+                        rec.update(stage="review_rejected", rejected_at=d[1],
+                                   review_note=d[2] or None,
+                                   reject_type=(d[3] or "scene"))
+                        if not a.dry_run:
+                            save_pub_state(pub_state)
+                        log(f"  ❌ [{ch_name} EP{ep_num} run={rid[:12]}] 검수 반려 → 발행 안 함"
+                            f"·슬롯 해제{' — ' + d[2] if d[2] else ''}")
+                    continue
+                if rec.get("stage") == "review_rejected":
+                    # 반려였다가 재검수로 합격된 경우 — 반려 표식을 걷어야 발행이 진행된다
+                    rec.pop("rejected_at", None)
+                    rec["stage"] = None
+                    log(f"  ↻ [{ch_name} EP{ep_num} run={rid[:12]}] 반려→합격 재결정 감지, 발행 재개")
             publish_scene(ch_name, ep_num, sc, rec, log, a.dry_run, ch_cfg, pub_state)
             if not a.dry_run:
                 save_pub_state(pub_state)

@@ -233,7 +233,14 @@ async function apiMachines() {
     if (b) {
       const st = (b.state_snapshot ?? {}) as { channels?: Record<string, { work_title?: string; episodes?: Record<string, { scenes?: { run_id?: string; accepted_at?: string }[] }> }> };
       const pub = ((b.publish_snapshot ?? {}) as { scenes?: Record<string, { video_id?: string; privacy?: string; clip_id?: string }> }).scenes ?? {};
-      for (const [ch, cdata] of Object.entries(st.channels ?? {})) {
+      for (const [slot, cdata] of Object.entries(st.channels ?? {})) {
+        // 다작품 슬롯('재미쇼츠·유미의 세포들 시즌3') 채널명 복원 — brain fec2d81/498c0ae 와 동일 규칙:
+        // 슬롯의 'channel' 필드가 정본, 없으면(구 상태) '·' 앞부분을 정본 채널명과 대조.
+        let ch = ((cdata as Record<string, unknown>).channel as string) ?? slot;
+        if (!CHANNELS[ch] && ch.includes("\u00b7")) {
+          const head = ch.split("\u00b7")[0].trim();
+          if (CHANNELS[head]) ch = head;
+        }
         const chMac = CHANNELS[ch]?.mac ?? null;
         // 상태 파일 키가 정본(channels.json)과 어긋나는 두 경우를 구분해 걸러낸다(2026-08-04 실측):
         //   stale   = 정본에 있으나 지금은 다른 맥 담당 → 재배정 이전 잔재
@@ -284,29 +291,46 @@ async function apiReview() {
     .order("created_at", { ascending: false }).limit(200);
   if (e1) return json({ error: e1.message }, 500);
   const ids = (clips ?? []).map((c: Record<string, unknown>) => c.id);
-  const [metas, decisions, chs, wks, judges] = await Promise.all([
-    sb.from("clip_metadata").select("clip_id,title:edit_plan->layout->>top_title").in("clip_id", ids),
-    sb.from("review_decisions").select("clip_id,decision,decided_at,decided_by,note").in("clip_id", ids),
+  const [metas, decisions, chs, wks, judges, beats] = await Promise.all([
+    sb.from("clip_metadata").select("clip_id,ai_video_run_id,title:edit_plan->layout->>top_title").in("clip_id", ids),
+    sb.from("review_decisions").select("clip_id,decision,decided_at,decided_by,note,reject_type").in("clip_id", ids),
     sb.from("channels").select("id,name"),
     sb.from("works").select("id,title"),
-    sb.from("judge_runs").select("clip_id,quality_score,created_at").in("clip_id", ids)
+    sb.from("judge_runs").select("clip_id,quality_score,confidence,rubric_scores,created_at").in("clip_id", ids)
       .order("created_at", { ascending: false }),
+    sb.from("machine_heartbeats").select("state_snapshot,run_started_at")
+      .order("run_started_at", { ascending: false }).limit(30),
   ]);
   const title = new Map((metas.data ?? []).map((m: Record<string, unknown>) => [m.clip_id, m.title]));
+  const runOf = new Map((metas.data ?? []).map((m: Record<string, unknown>) => [m.clip_id, m.ai_video_run_id]));
   const dec = new Map((decisions.data ?? []).map((d: Record<string, unknown>) => [d.clip_id, d]));
   const chName = new Map((chs.data ?? []).map((c: Record<string, unknown>) => [c.id, c.name]));
   const wkName = new Map((wks.data ?? []).map((w: Record<string, unknown>) => [w.id, w.title]));
-  const judge = new Map<unknown, unknown>();
-  for (const j of judges.data ?? []) if (!judge.has(j.clip_id)) judge.set(j.clip_id, j.quality_score);
+  const judge = new Map<unknown, unknown>();  // clip_id → 최신 judge 행 (§5 표시 전용)
+  for (const j of judges.data ?? []) if (!judge.has(j.clip_id)) judge.set(j.clip_id, j);
+  // 회차는 DB 에 없다(clips.episode 는 'shorts_1' 라벨) — 하트비트 state_snapshot 의
+  // run_id→회차를 역참조한다. 종료 비트가 업로드와 같은 실행이라 항상 업로드보다 앞선다.
+  const epi = new Map<string, { episode: number; work: string | null }>();
+  for (const b of beats.data ?? []) {
+    const st = (b.state_snapshot ?? {}) as { channels?: Record<string, { work_title?: string; episodes?: Record<string, { scenes?: { run_id?: string }[] }> }> };
+    for (const cdata of Object.values(st.channels ?? {})) {
+      for (const [ep, edata] of Object.entries(cdata.episodes ?? {})) {
+        for (const sc of edata.scenes ?? []) {
+          if (sc.run_id && !epi.has(sc.run_id)) epi.set(sc.run_id, { episode: Number(ep), work: cdata.work_title ?? null });
+        }
+      }
+    }
+  }
   const items = (clips ?? []).map((c: Record<string, unknown>) => ({
     clip_id: c.id,
     title: (title.get(c.id) as string | null)?.replace(/\n/g, " ") ?? null,
     channel: chName.get(c.channel_id) ?? null,
-    work: wkName.get(c.work_id) ?? null,
+    work: wkName.get(c.work_id) ?? epi.get(runOf.get(c.id) as string)?.work ?? null,
+    episode: epi.get(runOf.get(c.id) as string)?.episode ?? null,
     mac: macOfStorage(c.storage_path as string),
     start: c.origin_start_sec, end: c.origin_end_sec, duration: c.duration_sec,
     published: c.video_external_id != null,
-    judge_quality: judge.get(c.id) ?? null,
+    judge: judge.get(c.id) ?? null,
     created_at: c.created_at,
     decision: dec.get(c.id) ?? null,
   }));
@@ -336,9 +360,12 @@ async function apiDecision(req: Request) {
   if (!clipId || !["approved", "rejected"].includes(decision)) {
     return json({ error: "clip_id 와 decision(approved|rejected) 필요" }, 400);
   }
+  // 반려 유형(0009): scene=장면 반려(기본, 구간 재생성 금지) · production=제작 반려(재시도 허용)
+  const rejectType = decision === "rejected"
+    ? (body.reject_type === "production" ? "production" : "scene") : null;
   const sb = createClient(SB_URL, SB_KEY);
   const { error } = await sb.from("review_decisions").upsert({
-    clip_id: clipId, decision,
+    clip_id: clipId, decision, reject_type: rejectType,
     note: body.note ? String(body.note).slice(0, 500) : null,
     decided_by: body.decided_by ? String(body.decided_by).slice(0, 80) : null,
     decided_at: new Date().toISOString(),

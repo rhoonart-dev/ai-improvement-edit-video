@@ -593,3 +593,20 @@ def test_save_gen_output_accepts_bytes_and_none():
     with tempfile.TemporaryDirectory() as outdir:
         path = sl.save_gen_output(outdir, ["py"], "timeout", b"\xed\x95\x9c\xea\xb8\x80", None)
         assert "한글" in Path(path).read_text(encoding="utf-8")
+
+
+def test_dedup_spans_excludes_production_rejects():
+    """0009: 제작 반려(reject_type=production) 구간만 회피에서 빠진다 — 장면 반려·무결정은 유지."""
+    import scene_loop as sl
+    scenes = [
+        {"span": [10, 60], "run_ids": ["r_prod"]},     # 제작 반려 → 재시도 허용(회피 제외)
+        {"span": [100, 150], "run_ids": ["r_scene"]},  # 장면 반려 → 회피 유지
+        {"span": [200, 250], "run_ids": ["r_none"]},   # 결정 없음 → 회피 유지
+        {"span": [300, 350], "run_ids": ["r_prod", "r_scene"]},  # 혼합(재렌더 겹침) → 보수적으로 유지
+    ]
+    recs = {"r_prod": {"reject_type": "production", "rejected_at": "t"},
+            "r_scene": {"reject_type": "scene", "rejected_at": "t"}}
+    spans = sl.dedup_spans(scenes, recs)
+    assert [10, 60] not in spans
+    assert [100, 150] in spans and [200, 250] in spans and [300, 350] in spans
+    assert sl.dedup_spans(scenes, None) == [s["span"] for s in scenes]  # 기록 없으면 전부 유지

@@ -123,3 +123,35 @@ DB 를 읽어 같은 필드를 채우면 된다.
 | 채널 상수 | 대시보드의 CHANNELS 하드코딩은 정본(`config/channels.json`) 스냅샷이다 — 채널 추가 시 갱신 필요(드리프트 주의) |
 | 인증 | 현행 접속 코드(DASHBOARD_PASSWORD) 방식 유지. 결정 API 도 같은 인증 뒤에 둘 것 — 결정은 쓰기 작업이다 |
 | 삭제 | 대시보드는 어떤 것도 삭제하지 않는다. DB 정리는 `DB_CLEANUP_LEDGER.md` 절차(사람 수동)만 |
+
+## 추가 §5 — 검수함에 judge 결과 표시 (2026-08-05, 표시 전용)
+
+배경: judge(LLM 안전·품질 평가)가 검수 **전** 야간에 선실행되도록 바뀌었다(맥 쪽 완료).
+검수함 카드에 그 결과를 **표시만** 한다. 자동 합격/반려·기본 필터링 금지 — 결정은 100% 사람.
+
+### 데이터 (fdidiqd `judge_runs`, clip_id 로 최신 1행)
+
+```sql
+SELECT DISTINCT ON (clip_id) clip_id, quality_score, confidence, judge_model,
+       rubric_scores, created_at
+FROM judge_runs ORDER BY clip_id, created_at DESC
+```
+
+`rubric_scores` jsonb: `hook_3s`·`visual_hook`·`pacing`·`completion_pull`(0~1) ·
+`rationale`(사유 텍스트) · `hallucination_flag`(bool) · `hashtags_ok`(bool)
+
+### 표시 요구
+
+1. 검수함 카드에: quality 종합점수 + 세부 4점수 + `rationale` 전문 + confidence.
+2. `hallucination_flag=true` 면 눈에 띄는 경고 배지 — 문구 예: "⚠ 환각 의심 — 합격해도
+   발행 게이트에서 자동 차단됨". (발행 차단은 기존 안전게이트가 하며 대시보드 일이 아님)
+3. judge 행이 없으면 "judge 대기중" 표기 — **결정 버튼은 그래도 활성**이어야 한다
+   (선실행 실패·지연이 검수를 막으면 안 된다).
+4. ⛔ 하지 않는 것: judge 점수로 자동 결정·정렬 기본값 강제·발행 트리거. quality 는
+   성과 예측이 아니다(CLAUDE.md §7) — 참고 정보로만.
+
+### 선택(나중): 사람-LLM 판단 비교 뷰
+
+`review_decisions` × `judge_runs` 를 clip_id 로 조인하면 사람 결정(approved/rejected + note)과
+judge 점수·사유가 짝으로 나온다. 일치율·불일치 사례 테이블 하나면 충분하다. 용도는 검수 보조와
+judge 개선(결함 유형 발견)이며, ⛔ 성과 판정·승격에는 쓰지 않는다.
