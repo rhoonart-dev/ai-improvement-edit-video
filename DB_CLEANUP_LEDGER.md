@@ -341,6 +341,52 @@ WHERE cl.id IN ('85ff8a6e-0a9a-47fd-a3ac-cb33a6750183',
 
 ---
 
+### 9. 참교육 — 운영자 폐기분 1편 (쇼츠션샤인 EP1, 유튜브 영상은 이미 삭제됨)
+
+| 항목 | 값 |
+|---|---|
+| clip_id | `d5498d4a-1ae4-46c2-bb3f-398455c00deb` (`참교육_d4`) |
+| 작품/채널 | 참교육 / 쇼츠션샤인 (EP1, 소스 구간 1317.1~2214.4초, dur 49.8) |
+| 이유 | **운영자 판단으로 폐기**(2026-08-05 의도 확인). 2026-08-04 unlisted 발행분 12건 검수 중 폐기 결정 |
+| YouTube | `wlGkFBRu53I` — **운영자가 Studio 에서 이미 삭제**(2026-08-05 채널 OAuth 조회에서 '응답에 없음' 확인). 다른 항목과 달리 유튜브 쪽은 처리 완료 |
+| 자식 행 | `judge_runs` 1 · `clip_metadata` 1 — `clip_features`/`clip_performance`/`golden_human_labels`/`improvement_directives`/`reward_scores`/`review_decisions` 는 0건 확인(2026-08-05) |
+| 상태 | ⏳ 미처리 (자동 DELETE 차단됨 → 수동) |
+
+> ✅ `results/scene_loop_state.json` 의 장면은 **일부러 남겨뒀다**(8번과 반대) — 남기면 루프가
+> 그 구간을 피해 다니고(삭제=반려 분류, 대기 점유 없음), 같은 장면이 다시 만들어지지 않는다.
+> 운영자가 내용 자체를 버린 폐기라 구간 차단이 맞다. 같은 구간을 다시 만들고 싶어지면 §6-4 절차로
+> 상태에서 빼면 된다. 산출물 job_dir 도 같은 이유로 스캔 경로에 그대로 둔다.
+>
+> ⚠️ `results/scene_publish_state.json` 의 `참교육_d4` 기록(stage=published)은 **지우지 말 것** —
+> DB clips 행까지 지운 뒤에 이 기록마저 없으면 scene_publish_loop 가 미발행 장면으로 보고
+> 재업로드한다(발행 이력이 이중 방어선이다).
+
+확인:
+```sql
+SELECT w.title, c.id, c.duration_sec, c.video_external_id
+FROM clips c LEFT JOIN works w ON w.id = c.work_id
+WHERE c.id = 'd5498d4a-1ae4-46c2-bb3f-398455c00deb';
+-- 기대: 참교육 | d5498d4a… | 49.84 | wlGkFBRu53I (유튜브에선 이미 삭제된 링크)
+```
+
+삭제:
+```sql
+BEGIN;
+DELETE FROM judge_runs    WHERE clip_id = 'd5498d4a-1ae4-46c2-bb3f-398455c00deb';  -- 1행
+DELETE FROM clip_metadata WHERE clip_id = 'd5498d4a-1ae4-46c2-bb3f-398455c00deb';  -- 1행
+DELETE FROM clips         WHERE id      = 'd5498d4a-1ae4-46c2-bb3f-398455c00deb';  -- 1행
+COMMIT;
+```
+
+검증:
+```sql
+SELECT c.id, c.video_external_id FROM clips c
+WHERE c.video_external_id = 'wlGkFBRu53I';
+-- 기대: 0행
+```
+
+---
+
 ## 완료 항목
 
 _(없음 — 처리 후 여기로 이동)_
