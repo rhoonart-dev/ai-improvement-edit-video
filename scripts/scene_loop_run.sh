@@ -55,6 +55,11 @@ echo "===== $(date '+%Y-%m-%d %H:%M:%S') scene_loop 시작 =====" >> "$LOG"
 rc=$?
 echo "===== $(date '+%Y-%m-%d %H:%M:%S') scene_loop 종료 (rc=$rc) =====" >> "$LOG"
 
+# ── 검수 사본 업로드 — 렌더 확정분을 Storage(review-clips)+DB 로 (멱등 스캔) ──
+# 대시보드 검수함의 재생 원본. 발행 확인분의 사본 자동 정리도 여기서 한다.
+# `|| true` 필수 — 하트비트와 같은 원칙(생성/러너를 절대 막지 않는다).
+"$PY" scripts/upload_review_clips.py >> "$LOG" 2>&1 || true
+
 # ── 하트비트(종료) — 채널별 결과·로그 구간·실패 꼬리·스냅샷 2종·SHA·디스크 ──
 "$PY" scripts/send_heartbeat.py --phase end --rc "$rc" --trigger "$HB_TRIGGER" >> "$LOG" 2>&1 || true
 exit $rc
