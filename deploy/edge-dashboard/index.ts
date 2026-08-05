@@ -1,4 +1,4 @@
-// VES 운영 대시보드 — v3.8 API (v3.7 + ytstatus 에 publishedAt — 홈 보드 "오늘 공개" 판정용)
+// VES 운영 대시보드 — v3.9 API (v3.8 + 최근 결정은 review_decisions 기준 — 발행·정리된 합격작도 로그에 남게)
 // 배포: Supabase Edge Function `dashboard` (프로젝트 fdidiqdhcyctdbogxkdu, verify_jwt=false)
 // 화면: https://rhoonart-da.github.io/ves-ops-dashboard/ (GitHub Pages, React 단일 파일) — 이 함수는 API 전용.
 //   슈파베이스 기본 도메인은 text/html 을 text/plain 으로 강제해 HTML 서빙이 불가하다.
@@ -309,10 +309,23 @@ async function apiReview() {
     .eq("source", "auto_edit").not("storage_path", "is", null)
     .order("created_at", { ascending: false }).limit(200);
   if (e1) return json({ error: e1.message }, 500);
+  // 최근 결정의 기준은 결정 테이블 — 합격작은 발행되면 사본이 정리돼(storage_path NULL) 위
+  // clips 목록에서 빠지고, 그러면 "합격했는데 로그에 없다"가 된다(2026-08-05 운영자 발견).
+  // 결정 최근 30건의 클립을 별도로 당겨 합친다.
+  const { data: decRows } = await sb.from("review_decisions")
+    .select("clip_id,decision,decided_at,decided_by,note,reject_type")
+    .order("decided_at", { ascending: false }).limit(30);
+  const have = new Set((clips ?? []).map((c: Record<string, unknown>) => c.id));
+  const missing = (decRows ?? []).map((d: Record<string, unknown>) => d.clip_id).filter((id) => !have.has(id));
+  if (missing.length) {
+    const { data: extra } = await sb.from("clips")
+      .select("id,channel_id,work_id,source_episode,origin_start_sec,origin_end_sec,duration_sec,video_external_id,storage_path,created_at")
+      .in("id", missing);
+    for (const c of extra ?? []) (clips ?? []).push(c);
+  }
   const ids = (clips ?? []).map((c: Record<string, unknown>) => c.id);
-  const [metas, decisions, chs, wks, judges, beats] = await Promise.all([
+  const [metas, chs, wks, judges, beats] = await Promise.all([
     sb.from("clip_metadata").select("clip_id,ai_video_run_id,title:edit_plan->layout->>top_title").in("clip_id", ids),
-    sb.from("review_decisions").select("clip_id,decision,decided_at,decided_by,note,reject_type").in("clip_id", ids),
     sb.from("channels").select("id,name"),
     sb.from("works").select("id,title"),
     sb.from("judge_runs").select("clip_id,quality_score,confidence,rubric_scores,created_at").in("clip_id", ids)
@@ -322,7 +335,7 @@ async function apiReview() {
   ]);
   const title = new Map((metas.data ?? []).map((m: Record<string, unknown>) => [m.clip_id, m.title]));
   const runOf = new Map((metas.data ?? []).map((m: Record<string, unknown>) => [m.clip_id, m.ai_video_run_id]));
-  const dec = new Map((decisions.data ?? []).map((d: Record<string, unknown>) => [d.clip_id, d]));
+  const dec = new Map((decRows ?? []).map((d: Record<string, unknown>) => [d.clip_id, d]));
   const chName = new Map((chs.data ?? []).map((c: Record<string, unknown>) => [c.id, c.name]));
   const wkName = new Map((wks.data ?? []).map((w: Record<string, unknown>) => [w.id, w.title]));
   const judge = new Map<unknown, unknown>();  // clip_id → 최신 judge 행 (§5 표시 전용)
@@ -346,7 +359,8 @@ async function apiReview() {
     channel: chName.get(c.channel_id) ?? null,
     work: wkName.get(c.work_id) ?? epi.get(runOf.get(c.id) as string)?.work ?? null,
     episode: (c.source_episode as number | null) ?? epi.get(runOf.get(c.id) as string)?.episode ?? null,
-    mac: macOfStorage(c.storage_path as string),
+    // 사본 정리 후엔 storage 경로가 없다 → 채널 정본으로 담당 맥 복원
+    mac: macOfStorage(c.storage_path as string) ?? CHANNELS[chName.get(c.channel_id) as string]?.mac ?? null,
     start: c.origin_start_sec, end: c.origin_end_sec, duration: c.duration_sec,
     published: c.video_external_id != null,
     judge: judge.get(c.id) ?? null,
@@ -355,7 +369,9 @@ async function apiReview() {
   }));
   return json({
     queue: items.filter((i) => !i.decision && !i.published),
-    decided: items.filter((i) => i.decision).slice(0, 30),
+    decided: items.filter((i) => i.decision)
+      .sort((a, b) => String((b.decision as Record<string, unknown>).decided_at ?? "")
+        .localeCompare(String((a.decision as Record<string, unknown>).decided_at ?? ""))).slice(0, 30),
   });
 }
 
