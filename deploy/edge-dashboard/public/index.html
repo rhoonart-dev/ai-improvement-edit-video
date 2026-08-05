@@ -9,11 +9,11 @@
 <style>
 :root{--ground:#eef1f4;--panel:#fff;--side:#1e2833;--side-ink:#aebbc7;--side-on:#fff;
 --ink:#232830;--ink2:#5c6570;--ink3:#8b939d;--line:#c9d0d8;--soft:#dde2e8;
---accent:#20586e;--accent-soft:#e3edf2;--ok:#1d7a46;--okbg:#e2f1e8;--warn:#a06008;--warnbg:#f7ecd8;
+--accent:#20586e;--accent-soft:#e3edf2;--ok:#1d7a46;--okbg:#e2f1e8;--warn:#a06008;--warnbg:#f7ecd8;--dotwarn:#f0ad00;
 --bad:#a33131;--badbg:#f6e4e4;--mono:ui-monospace,"SF Mono",Menlo,monospace}
 @media(prefers-color-scheme:dark){:root{--ground:#15181c;--panel:#1f242a;--side:#11161b;--side-ink:#7e8a95;
 --side-on:#e8edf2;--ink:#e3e7ec;--ink2:#9aa3ad;--ink3:#6d757f;--line:#3c434c;--soft:#2e343b;
---accent:#7db3c9;--accent-soft:#243440;--ok:#5cb884;--okbg:#22352b;--warn:#d9a458;--warnbg:#3a3222;
+--accent:#7db3c9;--accent-soft:#243440;--ok:#5cb884;--okbg:#22352b;--warn:#d9a458;--warnbg:#3a3222;--dotwarn:#eab84f;
 --bad:#d97e7e;--badbg:#3c2727}}
 *{box-sizing:border-box}html,body{margin:0}
 body{background:var(--ground);color:var(--ink);font:14.5px/1.5 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Segoe UI",sans-serif}
@@ -132,7 +132,7 @@ details.tail summary{cursor:pointer;font-size:11.5px;color:var(--ink2)}
 .chrow{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:12.5px;min-width:0}
 .chdot{width:11px;height:11px;border-radius:50%;flex:none}
 .chrow .chdot{margin-left:auto}
-.chdot.ok{background:var(--ok)}.chdot.warn{background:var(--warn)}.chdot.bad{background:var(--bad)}.chdot.idle{background:var(--line)}
+.chdot.ok{background:var(--ok)}.chdot.warn{background:var(--dotwarn,var(--warn))}.chdot.bad{background:var(--bad)}.chdot.idle{background:var(--line)}
 .chdot.rej{background:transparent;border:3px solid var(--bad);width:9px;height:9px}
 .chlink{display:flex;align-items:center;gap:6px;color:inherit;text-decoration:none;min-width:0}
 .chlink span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -220,25 +220,47 @@ function ChannelChip({ name, chmap, avatars }) {
 }
 
 // ── 홈: 6대 상태 보드 + 드릴다운 ──
-// 점 규칙(우선순위): 생성 실패 > 검수 대기중 > 반려됨(최근 결정) > 검수 통과(합격·발행) > 신호 없음.
-// '생성 성공'만으로는 초록을 주지 않는다 — 반려된 채널이 생성 이력 때문에 통과로 보였던
-// 버그(2026-08-05 운영자 발견)의 재발 방지. 통과는 사람 결정(합격)이나 발행 사실로만.
+// 점 규칙: **오늘 일어난 일만** 반영한다(운영자 규칙 2026-08-05 — "신호등은 무조건 오늘 기준").
+// 우선순위: 생성 실패 > 검수·공개 대기 > 반려됨 > 통과(합격·발행) > 오늘 신호 없음.
+// 지난 이력은 드릴다운(시각 표기)이 담당 — 어제의 초록이 오늘의 문제를 가리면 안 된다.
+// '생성 성공'만으로는 초록을 주지 않는다(반려 채널이 통과로 보였던 버그 재발 방지).
 // 드릴다운은 카드 클릭 토글이되, 실패가 있는 맥은 자동으로 펼친다(문제가 먼저 보이게).
-function MacBoard({ machines, queue, review, chmap, avatars }) {
+function MacBoard({ machines, queue, review, chmap, avatars, yt, feed }) {
   const [manual, setManual] = useState({});   // machine_id → 수동 열림/닫힘 (자동값 덮어씀)
+  // accepted_at(맥 로컬시각, 오프셋 없음)과 created_at(UTC 오프셋 포함)이 섞인다 —
+  // Date 파싱이 둘 다 브라우저 로컬(KST)로 맞춰주므로 날짜 비교는 toDateString 으로.
+  const isToday = (iso) => {
+    if (!iso) return false;
+    const d = new Date(iso);
+    return !isNaN(d) && d.toDateString() === new Date().toDateString();
+  };
   const failed = new Set();
   for (const m of machines) for (const c of m.beat?.channels ?? []) {
-    if (c.result === "failed") failed.add(c.channel);
+    if (c.result === "failed" && isToday(m.beat?.run_started_at)) failed.add(c.channel);
   }
-  const pend = {}, dec = {}, pub = {};
+  const pend = {}, dec = {}, pub = {}, waitPublic = {};
   for (const i of review?.queue ?? []) (pend[i.channel] ??= []).push(i);
   for (const i of review?.decided ?? []) (dec[i.channel] ??= []).push(i);
-  for (const q of queue) if (q.video_id && !q.stale && !q.unknown) (pub[q.channel] ??= []).push(q);
+  for (const q of queue) {
+    if (!q.video_id || q.stale || q.unknown) continue;
+    // 발행 이력이라도 실제 공개 상태를 본다 — 구 흐름(일부공개 업로드 후 사람이 공개 전환)의
+    // 미전환분을 초록으로 칠하면 밀린 일이 숨는다(2026-08-05 운영자 발견: 여운 보관소).
+    const p = yt?.[q.video_id]?.privacy;
+    if (p && p !== "public" && p !== "gone") (waitPublic[q.channel] ??= []).push(q);
+    else (pub[q.channel] ??= []).push(q);
+  }
   for (const ch of Object.keys(dec)) dec[ch].sort((a, b) => (b.decision.decided_at || "").localeCompare(a.decision.decided_at || ""));
+  const pubToday = {};  // 오늘 발행분(clips.published_at) — 스냅샷·검수함이 못 보는 구간을 피드가 메꾼다
+  const snapVids = new Set(queue.map((q) => q.video_id).filter(Boolean));
+  for (const f of feed ?? []) {
+    if (f.channel && f.video_id && isToday(f.published_at)) (pubToday[f.channel] ??= []).push(f);
+  }
+  const todayDec = (ch) => (dec[ch] ?? []).find((i) => isToday(i.decision.decided_at));
   const statusOf = (ch) => failed.has(ch) ? "bad"
-    : (pend[ch]?.length ? "warn"
-    : dec[ch]?.[0]?.decision.decision === "rejected" ? "rej"
-    : (dec[ch]?.[0]?.decision.decision === "approved" || pub[ch]?.length) ? "ok" : "idle");
+    : ((pend[ch]?.some((i) => isToday(i.created_at)) || waitPublic[ch]?.some((q) => isToday(q.accepted_at))) ? "warn"
+    : todayDec(ch)?.decision.decision === "rejected" ? "rej"
+    : (todayDec(ch)?.decision.decision === "approved" || pubToday[ch]?.length
+       || pub[ch]?.some((q) => isToday(q.accepted_at))) ? "ok" : "idle");
   const chansOf = (mac) => Object.keys(chmap || {}).filter((c) => chmap[c].mac === mac);
   const fmtDT = (iso) => iso ? String(iso).slice(5, 16).replace("T", " ") : "";
   // 항목은 하루치가 아니라 누적 — 대기는 결정까지, 결정은 최근 2건, 발행은 회차 진행 중 유지.
@@ -256,8 +278,14 @@ function MacBoard({ machines, queue, review, chmap, avatars }) {
         (d.decision === "approved" ? (i.published ? "합격 · 발행됨" : "합격 · 발행 대기")
           : (d.reject_type === "production" ? "반려 · 제작 (같은 구간 재시도 예정)" : "반려 · 장면 (대체 장면 생성 예정)")), null, i.created_at]);
     }
+    for (const q of waitPublic[ch] ?? []) items.push(["warn",
+      `${q.work || "?"}${q.episode != null ? " " + q.episode + "회차" : ""} — 공개 전환 대기 (${q.privacy_at_publish || "일부공개"})`, q.video_id, q.accepted_at]);
     for (const q of (pub[ch] ?? []).slice(0, 2)) items.push(["ok",
       `${q.work || "?"}${q.episode != null ? " " + q.episode + "회차" : ""} — 발행됨`, q.video_id, q.accepted_at]);
+    for (const f of pubToday[ch] ?? []) {
+      if (snapVids.has(f.video_id)) continue;  // 스냅샷과 중복 방지
+      items.push(["ok", `${(f.title || "").slice(0, 24) || "?"} — 오늘 발행됨`, f.video_id, f.published_at]);
+    }
     if (!items.length) items.push(["skip", "최근 신호 없음", null, null]);
     items.sort((a, b) => String(b[3] || "").localeCompare(String(a[3] || "")));  // 최신이 위로
     return items;
@@ -271,7 +299,8 @@ function MacBoard({ machines, queue, review, chmap, avatars }) {
       <span class="lg"><span class="chdot warn"></span>검수 대기중</span>
       <span class="lg"><span class="chdot rej"></span>반려됨</span>
       <span class="lg"><span class="chdot bad"></span>생성 실패</span>
-      <span class="lg"><span class="chdot idle"></span>신호 없음</span>
+      <span class="lg"><span class="chdot idle"></span>오늘 신호 없음</span>
+      <span style=${{ color: "var(--ink3)" }}>· 기준: 오늘</span>
       <span style=${{ marginLeft: "auto", color: "var(--ink3)" }}>카드를 누르면 상세 — 실패가 있는 맥은 자동으로 펼쳐집니다</span>
     </div>
     <div class="macboard">
@@ -297,7 +326,7 @@ function MacBoard({ machines, queue, review, chmap, avatars }) {
   </div>`;
 }
 
-function HomePage({ machines, queue, yt, now, review, chmap, avatars }) {
+function HomePage({ machines, queue, yt, now, review, chmap, avatars, feed }) {
   // 검수 대상: stale 아님 + (미업로드 || 업로드됐는데 아직 public 아님)
   const items = queue.filter((q) => !q.stale && !q.unknown).map((q) => {
     const st = q.video_id ? yt[q.video_id]?.privacy : null;
@@ -333,7 +362,7 @@ function HomePage({ machines, queue, yt, now, review, chmap, avatars }) {
         <div class="val">${beatsOk}<small> / ${machines.length} 대</small></div>
         <div class="hint">${machines.filter((m) => !m.beat).map((m) => m.mac).join(", ") || "전원 수신"}${machines.some((m) => !m.beat) ? " 무보고" : ""}</div></div>
     </div>
-    <${MacBoard} machines=${machines} queue=${queue} review=${review} chmap=${chmap} avatars=${avatars} />
+    <${MacBoard} machines=${machines} queue=${queue} review=${review} chmap=${chmap} avatars=${avatars} yt=${yt} feed=${feed} />
     <div class="two-col">
       <div class="panel"><h3>검수 대기함 — 채널 × 회차</h3>
         ${braked.length ? html`<p class="note err">⚠ ${braked.length}개 채널이 검수 지연으로 생성 정지 중 — 공개 전환하면 다음 실행부터 다시 생산됩니다</p>` : null}
@@ -735,7 +764,7 @@ function App() {
     </aside>
     <main>
       ${page === "home" ? html`<${HomePage} machines=${machines} queue=${queue} yt=${yt} now=${mx?.now}
-        review=${review} chmap=${mx?.channels ?? {}} avatars=${avatars} />` : null}
+        review=${review} chmap=${mx?.channels ?? {}} avatars=${avatars} feed=${feed} />` : null}
       ${page === "review" ? html`<${ReviewPage} review=${review} reload=${() => api("/api/review").then(setReview).catch(() => null)} />` : null}
       ${page === "feed" ? html`<${FeedPage} feed=${feed} yt=${yt} ytConfigured=${ytConfigured} />` : null}
       ${page === "perf" ? html`<${PerfPage} />` : null}
