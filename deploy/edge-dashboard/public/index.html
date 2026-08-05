@@ -253,13 +253,23 @@ function HomePage({ machines, queue, yt, now }) {
 // ── 영상 피드 ──
 function FeedPage({ feed, yt, ytConfigured }) {
   const [filter, setFilter] = useState("전체");
+  const [showGone, setShowGone] = useState(false);
   const macs = ["전체", "맥1", "맥2", "맥3", "맥4", "맥5", "맥6"];
-  const items = feed.filter((x) => filter === "전체" || x.mac === filter);
+  // 피드 = 유튜브에 있는 것. 미업로드(검수 전)는 검수함 전담이라 여기서 뺀다.
+  // 반려/삭제(gone·private)는 기본 숨김 — 활성 영상 사이에서 자리만 차지한다는 운영 피드백(8/5).
+  const uploaded = feed.filter((x) => x.video_id);
+  const isGone = (x) => { const p = yt[x.video_id]?.privacy; return p === "gone" || p === "private"; };
+  const goneCount = uploaded.filter(isGone).length;
+  const items = uploaded.filter((x) => (filter === "전체" || x.mac === filter) && (showGone || !isGone(x)));
   return html`<div class="page">
-    <div class="topbar"><h2>영상 피드</h2><span class="sub">생성 파이프라인이 발행한 클립 — 최신순 · ${feed.length}건</span></div>
+    <div class="topbar"><h2>영상 피드</h2><span class="sub">유튜브에 올라간 클립 — 최신순 · 활성 ${uploaded.length - goneCount}건</span></div>
     ${!ytConfigured ? html`<p class="note">공개/일부공개 배지는 YOUTUBE_API_KEY 시크릿을 설정하면 켜집니다.</p>` : null}
     <div class="filters">${macs.map((m) => html`
-      <span key=${m} class=${"chip" + (m === filter ? " on" : "")} onClick=${() => setFilter(m)}>${m}</span>`)}</div>
+      <span key=${m} class=${"chip" + (m === filter ? " on" : "")} onClick=${() => setFilter(m)}>${m}</span>`)}
+      <span style=${{ width: "12px" }}></span>
+      ${goneCount ? html`<span class=${"chip" + (showGone ? " on" : "")}
+        onClick=${() => setShowGone(!showGone)}>반려·삭제 ${goneCount}건 ${showGone ? "숨기기" : "보기"}</span>` : null}
+    </div>
     ${items.length === 0 ? html`<div class="skel">표시할 클립이 없습니다.</div>` : html`
     <div class="grid">${items.map((x) => html`
       <div class="card" key=${x.clip_id}>
@@ -271,10 +281,8 @@ function FeedPage({ feed, yt, ytConfigured }) {
         <div class="body">
           <p class="title">${x.title || "(제목 미기록)"}</p>
           <p class="meta">${x.channel || "?"} · <span class="mac">${x.mac || "?"}</span> · ${(x.created_at || "").slice(5, 16).replace("T", " ")}</p>
-          ${x.video_id ? html`
-            <a class="lnk" href=${"https://www.youtube.com/shorts/" + x.video_id} target="_blank" rel="noopener">▶ 보기</a>
-            <a class="lnk" href=${"https://studio.youtube.com/video/" + x.video_id + "/edit"} target="_blank" rel="noopener">Studio</a>` : html`
-            <span class="gauge">미업로드 (검수 전)</span>`}
+          <a class="lnk" href=${"https://www.youtube.com/shorts/" + x.video_id} target="_blank" rel="noopener">▶ 보기</a>
+          <a class="lnk" href=${"https://studio.youtube.com/video/" + x.video_id + "/edit"} target="_blank" rel="noopener">Studio</a>
         </div>
       </div>`)}</div>`}
   </div>`;
