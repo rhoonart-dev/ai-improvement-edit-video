@@ -493,6 +493,16 @@
    "rejected_at": "2026-08-05T13:21:32.049000+00:00",
    "review_note": "이미 올라온 장면과 중복임.",
    "reject_type": "scene"
+  },
+  "커리어데이_2c": {
+   "channel": "커리어데이 숏츠",
+   "slot": "커리어데이 숏츠",
+   "episode": 2,
+   "clip_id": "0ec9cf47-60d8-446f-bd38-4705e83060d1",
+   "stage": "published",
+   "video_id": "uv_H3bfnMjc",
+   "privacy": "unlisted",
+   "published_at": "2026-08-04T19:45:19"
   }
  },
  "publicized": {
