@@ -396,9 +396,9 @@ function HomePage({ machines, queue, yt, now, review, chmap, avatars, feed, refr
       <span class="sub">${new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" })}</span>
       <${RefreshBtn} onRefresh=${refresh} /></div>
     <div class="kpis">
-      <div class=${"kpi" + (rq.length + needPublic.length ? " bad" : " ok")}><div class="lab">검수 대기</div>
-        <div class="val">${rq.length + needPublic.length}<small> 건</small></div>
-        <div class="hint">영상 검수 ${rq.length} · 공개 전환 ${needPublic.length}</div></div>
+      <div class=${"kpi" + (rq.length || needPublic.length ? " bad" : " ok")}><div class="lab">검수 대기</div>
+        <div class="val">${rq.length}<small> 건</small></div>
+        <div class="hint">${needPublic.length ? `+ 공개 전환 대기 ${needPublic.length}건 (아래 대기함 → Studio)` : "공개 전환 대기 없음"}</div></div>
       <div class=${"kpi" + (braked.length ? " bad" : " ok")}><div class="lab">브레이크 발동</div>
         <div class="val">${braked.length}<small> 채널</small></div><div class="hint">대기 가득 → 생성 정지</div></div>
       <div class=${"kpi" + (failed.length ? " warn" : " ok")}><div class="lab">최근 실행 실패</div>
