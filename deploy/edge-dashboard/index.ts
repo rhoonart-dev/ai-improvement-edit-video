@@ -296,15 +296,15 @@ async function apiReview() {
     sb.from("review_decisions").select("clip_id,decision,decided_at,decided_by,note,reject_type").in("clip_id", ids),
     sb.from("channels").select("id,name"),
     sb.from("works").select("id,title"),
-    sb.from("judge_runs").select("clip_id,quality_score,created_at").in("clip_id", ids)
+    sb.from("judge_runs").select("clip_id,quality_score,confidence,rubric_scores,created_at").in("clip_id", ids)
       .order("created_at", { ascending: false }),
   ]);
   const title = new Map((metas.data ?? []).map((m: Record<string, unknown>) => [m.clip_id, m.title]));
   const dec = new Map((decisions.data ?? []).map((d: Record<string, unknown>) => [d.clip_id, d]));
   const chName = new Map((chs.data ?? []).map((c: Record<string, unknown>) => [c.id, c.name]));
   const wkName = new Map((wks.data ?? []).map((w: Record<string, unknown>) => [w.id, w.title]));
-  const judge = new Map<unknown, unknown>();
-  for (const j of judges.data ?? []) if (!judge.has(j.clip_id)) judge.set(j.clip_id, j.quality_score);
+  const judge = new Map<unknown, unknown>();  // clip_id → 최신 judge 행 (§5 표시 전용)
+  for (const j of judges.data ?? []) if (!judge.has(j.clip_id)) judge.set(j.clip_id, j);
   const items = (clips ?? []).map((c: Record<string, unknown>) => ({
     clip_id: c.id,
     title: (title.get(c.id) as string | null)?.replace(/\n/g, " ") ?? null,
@@ -313,7 +313,7 @@ async function apiReview() {
     mac: macOfStorage(c.storage_path as string),
     start: c.origin_start_sec, end: c.origin_end_sec, duration: c.duration_sec,
     published: c.video_external_id != null,
-    judge_quality: judge.get(c.id) ?? null,
+    judge: judge.get(c.id) ?? null,
     created_at: c.created_at,
     decision: dec.get(c.id) ?? null,
   }));
