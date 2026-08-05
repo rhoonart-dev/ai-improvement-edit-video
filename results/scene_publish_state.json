@@ -103,6 +103,133 @@
    "video_id": "0VcKkec1UqA",
    "privacy": "unlisted",
    "published_at": "2026-07-31T16:48:28"
+  },
+  "김부장_30": {
+   "channel": "이거보고자",
+   "slot": "이거보고자",
+   "stage": "published",
+   "video_id": "tP162GwThPQ",
+   "source": "db-reconciled"
+  },
+  "참교육_d4": {
+   "channel": "쇼츠션샤인",
+   "slot": "쇼츠션샤인",
+   "episode": 1,
+   "clip_id": "d5498d4a-1ae4-46c2-bb3f-398455c00deb",
+   "stage": "published",
+   "video_id": "wlGkFBRu53I",
+   "privacy": "unlisted",
+   "published_at": "2026-08-04T18:39:27"
+  },
+  "하트시그널_시즌5_a7": {
+   "channel": "엔딩순삭",
+   "slot": "엔딩순삭",
+   "episode": 1,
+   "clip_id": "c7a4521a-b370-4835-94ec-a5d9df60db2f",
+   "stage": "published",
+   "video_id": "gB9YMZB_vHE",
+   "privacy": "unlisted",
+   "published_at": "2026-08-04T18:39:56"
+  },
+  "유재석_캠프_95": {
+   "channel": "이불 속 극장",
+   "slot": "이불 속 극장",
+   "episode": 1,
+   "clip_id": "4721e52f-a984-4e64-b5c5-7615d86ad47c",
+   "stage": "published",
+   "video_id": "tyZEF95PYiE",
+   "privacy": "unlisted",
+   "published_at": "2026-08-04T18:40:24"
+  },
+  "참교육_fa": {
+   "channel": "쇼츠션샤인",
+   "slot": "쇼츠션샤인",
+   "episode": 1,
+   "clip_id": "06409c21-7bfd-4ace-980e-bb476657674c",
+   "stage": "published",
+   "video_id": "9ggT9Svt-_w",
+   "privacy": "unlisted",
+   "published_at": "2026-08-04T18:40:51"
+  },
+  "하트시그널_시즌5_22": {
+   "channel": "엔딩순삭",
+   "slot": "엔딩순삭",
+   "episode": 1,
+   "clip_id": "d50ab391-8665-4ba4-a393-0b77c52b4ccc",
+   "stage": "published",
+   "video_id": "DGNxyeVybZo",
+   "privacy": "unlisted",
+   "published_at": "2026-08-04T18:41:20"
+  },
+  "김부장_d6": {
+   "channel": "이거보고자",
+   "slot": "이거보고자",
+   "episode": 1,
+   "clip_id": "69e5571a-327b-4e0e-8ffc-69a47686c535",
+   "stage": "published",
+   "video_id": "EOxQ9oXTjzE",
+   "privacy": "unlisted",
+   "published_at": "2026-08-04T18:41:49"
+  },
+  "유재석_캠프_13": {
+   "channel": "이불 속 극장",
+   "slot": "이불 속 극장",
+   "episode": 1,
+   "clip_id": "8dfd154b-3e50-429e-be5e-c71dc55bbb72",
+   "stage": "published",
+   "video_id": "5ZAca_mwWzE",
+   "privacy": "unlisted",
+   "published_at": "2026-08-04T18:42:19"
+  },
+  "참교육_d2": {
+   "channel": "쇼츠션샤인",
+   "slot": "쇼츠션샤인",
+   "episode": 1,
+   "clip_id": "b1b53569-c03b-4614-ab87-71ddc3ab55cb",
+   "stage": "published",
+   "video_id": "2xHWoidiL5U",
+   "privacy": "unlisted",
+   "published_at": "2026-08-04T18:42:48"
+  },
+  "하트시그널_시즌5_38": {
+   "channel": "엔딩순삭",
+   "slot": "엔딩순삭",
+   "episode": 1,
+   "clip_id": "ee94640a-e7e0-4b16-ae72-3b1e445e0d33",
+   "stage": "published",
+   "video_id": "FkdgZte1qC4",
+   "privacy": "unlisted",
+   "published_at": "2026-08-04T18:43:21"
+  },
+  "유재석_캠프_6d": {
+   "channel": "이불 속 극장",
+   "slot": "이불 속 극장",
+   "episode": 1,
+   "clip_id": "d40371f6-c29f-48d1-90a0-d378c6311166",
+   "stage": "published",
+   "video_id": "FGhxlORYNzI",
+   "privacy": "unlisted",
+   "published_at": "2026-08-04T18:43:51"
+  },
+  "김부장_d0": {
+   "channel": "이거보고자",
+   "slot": "이거보고자",
+   "episode": 1,
+   "clip_id": "176a0dd9-29ba-45b2-af35-d1c9f9730911",
+   "stage": "published",
+   "video_id": "1HRtWdK1HzI",
+   "privacy": "unlisted",
+   "published_at": "2026-08-04T18:44:22"
+  },
+  "김부장_ad": {
+   "channel": "이거보고자",
+   "slot": "이거보고자",
+   "episode": 1,
+   "clip_id": "8b89f558-68d7-4349-806d-4728444c87b4",
+   "stage": "published",
+   "video_id": "eT6ngu5iqkA",
+   "privacy": "unlisted",
+   "published_at": "2026-08-04T18:44:48"
   }
  },
  "publicized": {
