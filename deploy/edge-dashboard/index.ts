@@ -233,7 +233,14 @@ async function apiMachines() {
     if (b) {
       const st = (b.state_snapshot ?? {}) as { channels?: Record<string, { work_title?: string; episodes?: Record<string, { scenes?: { run_id?: string; accepted_at?: string }[] }> }> };
       const pub = ((b.publish_snapshot ?? {}) as { scenes?: Record<string, { video_id?: string; privacy?: string; clip_id?: string }> }).scenes ?? {};
-      for (const [ch, cdata] of Object.entries(st.channels ?? {})) {
+      for (const [slot, cdata] of Object.entries(st.channels ?? {})) {
+        // 다작품 슬롯('재미쇼츠·유미의 세포들 시즌3') 채널명 복원 — brain fec2d81/498c0ae 와 동일 규칙:
+        // 슬롯의 'channel' 필드가 정본, 없으면(구 상태) '·' 앞부분을 정본 채널명과 대조.
+        let ch = ((cdata as Record<string, unknown>).channel as string) ?? slot;
+        if (!CHANNELS[ch] && ch.includes("\u00b7")) {
+          const head = ch.split("\u00b7")[0].trim();
+          if (CHANNELS[head]) ch = head;
+        }
         const chMac = CHANNELS[ch]?.mac ?? null;
         // 상태 파일 키가 정본(channels.json)과 어긋나는 두 경우를 구분해 걸러낸다(2026-08-04 실측):
         //   stale   = 정본에 있으나 지금은 다른 맥 담당 → 재배정 이전 잔재
