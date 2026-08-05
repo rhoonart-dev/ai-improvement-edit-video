@@ -1,4 +1,4 @@
-// VES 운영 대시보드 — v3 API (v2 + 검수함: review·clip-url·decision — 첫 쓰기 API)
+// VES 운영 대시보드 — v3.5 API (회차 = clips.source_episode(0010) 우선, 하트비트 스냅샷 역참조는 폴백)
 // 배포: Supabase Edge Function `dashboard` (프로젝트 fdidiqdhcyctdbogxkdu, verify_jwt=false)
 // 화면: https://rhoonart-da.github.io/ves-ops-dashboard/ (GitHub Pages, React 단일 파일) — 이 함수는 API 전용.
 //   슈파베이스 기본 도메인은 text/html 을 text/plain 으로 강제해 HTML 서빙이 불가하다.
@@ -286,7 +286,7 @@ const macOfStorage = (p: string | null) => {
 async function apiReview() {
   const sb = createClient(SB_URL, SB_KEY);
   const { data: clips, error: e1 } = await sb.from("clips")
-    .select("id,channel_id,work_id,origin_start_sec,origin_end_sec,duration_sec,video_external_id,storage_path,created_at")
+    .select("id,channel_id,work_id,source_episode,origin_start_sec,origin_end_sec,duration_sec,video_external_id,storage_path,created_at")
     .eq("source", "auto_edit").not("storage_path", "is", null)
     .order("created_at", { ascending: false }).limit(200);
   if (e1) return json({ error: e1.message }, 500);
@@ -326,7 +326,7 @@ async function apiReview() {
     title: (title.get(c.id) as string | null)?.replace(/\n/g, " ") ?? null,
     channel: chName.get(c.channel_id) ?? null,
     work: wkName.get(c.work_id) ?? epi.get(runOf.get(c.id) as string)?.work ?? null,
-    episode: epi.get(runOf.get(c.id) as string)?.episode ?? null,
+    episode: (c.source_episode as number | null) ?? epi.get(runOf.get(c.id) as string)?.episode ?? null,
     mac: macOfStorage(c.storage_path as string),
     start: c.origin_start_sec, end: c.origin_end_sec, duration: c.duration_sec,
     published: c.video_external_id != null,
