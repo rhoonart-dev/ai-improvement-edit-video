@@ -107,6 +107,19 @@ def test_storage_request_percent_encodes_korean_path(monkeypatch):
     assert seen["url"].startswith("https://x.supabase.co/storage/v1/object/review-clips/")
 
 
+def test_episode_pairs_only_known_numeric():
+    scenes = [
+        ("몰입도둑", "1", {"run_id": "SNL_3b"}, True),      # DB 있음 → 스탬프
+        ("몰입도둑", "1", {"run_id": "SNL_0b"}, True),      # DB 없음(미적재) → 제외
+        ("여운 보관소", "1", {"run_id": "샤먼_e1"}, True),   # rows 에 없음 → 제외
+        ("몰입도둑", "x", {"run_id": "SNL_9z"}, True),      # 회차가 숫자 아님 → 제외(방어)
+        ("킥킥극장", "2", {"run_id": "SNL_7c"}, False),     # 배정 밖 → 제외
+    ]
+    rows = {"SNL_3b": ("cid-3b", None, None), "SNL_9z": ("cid-9z", None, None),
+            "SNL_7c": ("cid-7c", None, None)}
+    assert up.episode_pairs(scenes, rows) == [("cid-3b", 1)]
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_"):

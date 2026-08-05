@@ -160,3 +160,11 @@ ALTER TABLE clips ADD COLUMN storage_path text;  -- 'review-clips/<machine_id>/<
 | 업로드 실패로 검수함에 안 보임 | 스캔 방식이라 다음 실행 재시도. 하트비트 채널 결과와 대조하면 "렌더됐는데 검수함에 없음"이 대시보드에서 드러남 |
 | POST 개방(첫 쓰기 API) | 접속 코드 필수 + upsert 대상이 `review_decisions` 한 테이블뿐. 삭제·수정 API 없음 |
 | 회차 진행이 검수 속도에 종속 | 의도된 설계(브레이크 유지). 검수함이 그 속도를 올리는 수단 |
+
+---
+
+## 부록 — 확산 기록
+
+- 2026-08-05: 발행 픽업(4단계) **전 대수 확산 결정·실행**(운영자). 맥1 파일럿이 당일
+  합격 2건 발행 + 사본 자동 정리 + 반려 차단까지 전 분기 실증한 것을 근거로 함.
+  각 맥 설치: `git pull && ./scripts/install_scene_publish_launchd.sh`

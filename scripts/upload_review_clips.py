@@ -121,6 +121,23 @@ def needs_judge(clip_row, clip_id_judged, clip_id_decided):
             and clip_id not in clip_id_decided)
 
 
+def episode_pairs(scenes, rows):
+    """[(clip_id, 회차 int)] — DB 에 클립이 있는 배정 내 장면만. 회차가 숫자가 아니면 건너뜀.
+
+    회차(원작 에피소드 번호)는 상태파일 episodes 키에만 있다 — clips.episode 는 쇼츠
+    라벨(shorts_1)이라 회차가 아니다. 이 짝을 clips.source_episode 로 스탬프한다(0010)."""
+    out = []
+    for _ch, ep, sc, mine in scenes:
+        row = rows.get(sc.get("run_id")) if mine else None
+        if not row:
+            continue
+        try:
+            out.append((row[0], int(ep)))
+        except (TypeError, ValueError):
+            pass
+    return out
+
+
 def resolve_job_dir(job_dir, ai_video_root):
     p = pathlib.Path(job_dir)
     return p if p.is_absolute() else pathlib.Path(ai_video_root) / p
@@ -157,6 +174,18 @@ def clip_rows(conn, run_ids):
 def set_storage_path(conn, clip_id, value):
     with conn.cursor() as cur:
         cur.execute("UPDATE public.clips SET storage_path = %s WHERE id = %s", (value, clip_id))
+    conn.commit()
+
+
+def stamp_source_episode(conn, pairs):
+    """clips.source_episode 스탬프 — 비어 있는 행만(멱등). 회차는 run 에 대해 불변이다."""
+    if not pairs:
+        return
+    with conn.cursor() as cur:
+        for clip_id, ep in pairs:
+            cur.execute(
+                "UPDATE public.clips SET source_episode = %s WHERE id = %s AND source_episode IS NULL",
+                (ep, clip_id))
     conn.commit()
 
 
@@ -325,12 +354,15 @@ def _run(args):
 
             else:
                 n["skip"] += 1
+        # ── 회차 스탬프 (2026-08-05, 0010): 회차는 상태파일에만 있다 — DB 일급 컬럼으로 ──
+        rows2 = clip_rows(conn, [sc["run_id"] for _, _, sc, mine in scenes if mine])
+        if not args.dry_run:
+            stamp_source_episode(conn, episode_pairs(scenes, rows2))
         # ── judge 선실행 (2026-08-05): 검수함에 점수·사유가 함께 보이게 ──
         # 업로드 뒤에 도는 이유: 사람이 볼 수 있는 상태(사본 존재)를 먼저 만든다 — judge 는
         # 편당 수 분이라, 먼저 돌리면 그동안 검수함이 빈다. 실패는 다음 실행이 재시도.
         n["judge"] = 0
         if not args.no_judge:
-            rows2 = clip_rows(conn, [sc["run_id"] for _, _, sc, mine in scenes if mine])
             all_ids = [r[0] for r in rows2.values()]
             judged = judged_clip_ids(conn, all_ids)
             decided = decided_clip_ids(conn, all_ids)

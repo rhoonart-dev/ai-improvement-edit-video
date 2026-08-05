@@ -1,4 +1,4 @@
-// VES 운영 대시보드 — v3 API (v2 + 검수함: review·clip-url·decision — 첫 쓰기 API)
+// VES 운영 대시보드 — v3.9 API (v3.8 + 최근 결정은 review_decisions 기준 — 발행·정리된 합격작도 로그에 남게)
 // 배포: Supabase Edge Function `dashboard` (프로젝트 fdidiqdhcyctdbogxkdu, verify_jwt=false)
 // 화면: https://rhoonart-da.github.io/ves-ops-dashboard/ (GitHub Pages, React 단일 파일) — 이 함수는 API 전용.
 //   슈파베이스 기본 도메인은 text/html 을 text/plain 으로 강제해 HTML 서빙이 불가하다.
@@ -89,11 +89,13 @@ async function apiFeed(url: URL) {
   if (e1) return json({ error: e1.message }, 500);
   const ids = (metas ?? []).map((m: Record<string, unknown>) => m.clip_id);
   const { data: clips, error: e2 } = await sb.from("clips")
-    .select("id,channel_id,episode,video_external_id,published_at").in("id", ids);
+    .select("id,channel_id,work_id,source_episode,episode,video_external_id,published_at").in("id", ids);
   if (e2) return json({ error: e2.message }, 500);
   const chIds = [...new Set((clips ?? []).map((c: Record<string, unknown>) => c.channel_id).filter(Boolean))];
   const { data: chs } = await sb.from("channels").select("id,name").in("id", chIds);
   const chName = new Map((chs ?? []).map((c: Record<string, unknown>) => [c.id, c.name]));
+  const { data: wks } = await sb.from("works").select("id,title");
+  const wkName = new Map((wks ?? []).map((w: Record<string, unknown>) => [w.id, w.title]));
   const byClip = new Map((clips ?? []).map((c: Record<string, unknown>) => [c.id, c]));
   const items = (metas ?? []).map((m: Record<string, unknown>) => {
     const c = (byClip.get(m.clip_id) ?? {}) as Record<string, unknown>;
@@ -104,6 +106,8 @@ async function apiFeed(url: URL) {
       title: (snip.title as string) ?? null,
       channel: chName.get(c.channel_id) ?? null,
       episode: c.episode ?? null,
+      work: wkName.get(c.work_id) ?? null,
+      episode_no: c.source_episode ?? null,  // 원작 회차(0010) — episode 는 쇼츠 라벨
       mac: macOfHost(m.host as string),
       created_at: m.created_at,
       published_at: c.published_at ?? null,
@@ -117,18 +121,32 @@ async function apiYtStatus(url: URL) {
   if (!YT_KEY) return json({ configured: false, statuses: {} });
   const ids = (url.searchParams.get("ids") ?? "").split(",").filter(Boolean).slice(0, 50);
   if (!ids.length) return json({ configured: true, statuses: {} });
-  const r = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=status,statistics&id=${ids.join(",")}&key=${YT_KEY}`);
+  // snippet.publishedAt: 예약공개가 실제 공개되면 공개 시각으로 갱신된다 — "오늘 공개" 판정의 근거
+  const r = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=status,statistics,snippet&id=${ids.join(",")}&key=${YT_KEY}`);
   if (!r.ok) return json({ configured: true, error: `yt api ${r.status}`, statuses: {} });
   const data = await r.json();
-  const statuses: Record<string, { privacy: string; views?: number }> = {};
+  const statuses: Record<string, { privacy: string; views?: number; published_at?: string | null }> = {};
   for (const it of data.items ?? []) {
-    statuses[it.id] = { privacy: it.status?.privacyStatus ?? "unknown", views: Number(it.statistics?.viewCount ?? 0) };
+    statuses[it.id] = { privacy: it.status?.privacyStatus ?? "unknown", views: Number(it.statistics?.viewCount ?? 0),
+      published_at: it.snippet?.publishedAt ?? null };
   }
   for (const id of ids) if (!statuses[id]) statuses[id] = { privacy: "gone" }; // 조회 불가 = 비공개/삭제(반려)
   return json({ configured: true, statuses });
 }
 
 // ── API: 채널 성과 (laeebly, 읽기전용) ──
+async function apiChAvatars() {
+  // 채널 아바타 — 홈 보드 표시용. 화면이 7일 localStorage 캐시하므로 호출은 드물다.
+  if (!YT_KEY) return json({ configured: false, avatars: {} });
+  const ids = Object.values(CHANNELS).map((c) => c.id);
+  const r = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=snippet&id=${ids.join(",")}&maxResults=50&key=${YT_KEY}`);
+  if (!r.ok) return json({ configured: true, error: `yt api ${r.status}`, avatars: {} });
+  const data = await r.json();
+  const avatars: Record<string, string> = {};
+  for (const it of data.items ?? []) avatars[it.id] = it.snippet?.thumbnails?.default?.url ?? "";
+  return json({ configured: true, avatars });
+}
+
 async function withLaeebly<T>(fn: (sql: ReturnType<typeof postgres>) => Promise<T>): Promise<T> {
   const sql = postgres(LAEEBLY, { max: 1, prepare: false, idle_timeout: 4, connect_timeout: 8, ssl: "require" });
   try {
@@ -273,7 +291,8 @@ async function apiMachines() {
       } : null,
     };
   });
-  return json({ now: new Date().toISOString(), machines, queue, anomalies });
+  // channels: 정본 맵(이름→{id,mac}) 동봉 — 홈 보드가 담당 채널 목록·유튜브 링크에 쓴다
+  return json({ now: new Date().toISOString(), machines, queue, anomalies, channels: CHANNELS });
 }
 
 // ── API: 최신 커밋 (GITHUB_TOKEN 선택 — 없으면 configured:false, pull 매트릭스는 상호 비교로 동작) ──
@@ -286,14 +305,27 @@ const macOfStorage = (p: string | null) => {
 async function apiReview() {
   const sb = createClient(SB_URL, SB_KEY);
   const { data: clips, error: e1 } = await sb.from("clips")
-    .select("id,channel_id,work_id,origin_start_sec,origin_end_sec,duration_sec,video_external_id,storage_path,created_at")
+    .select("id,channel_id,work_id,source_episode,origin_start_sec,origin_end_sec,duration_sec,video_external_id,storage_path,created_at")
     .eq("source", "auto_edit").not("storage_path", "is", null)
     .order("created_at", { ascending: false }).limit(200);
   if (e1) return json({ error: e1.message }, 500);
+  // 최근 결정의 기준은 결정 테이블 — 합격작은 발행되면 사본이 정리돼(storage_path NULL) 위
+  // clips 목록에서 빠지고, 그러면 "합격했는데 로그에 없다"가 된다(2026-08-05 운영자 발견).
+  // 결정 최근 30건의 클립을 별도로 당겨 합친다.
+  const { data: decRows } = await sb.from("review_decisions")
+    .select("clip_id,decision,decided_at,decided_by,note,reject_type")
+    .order("decided_at", { ascending: false }).limit(30);
+  const have = new Set((clips ?? []).map((c: Record<string, unknown>) => c.id));
+  const missing = (decRows ?? []).map((d: Record<string, unknown>) => d.clip_id).filter((id) => !have.has(id));
+  if (missing.length) {
+    const { data: extra } = await sb.from("clips")
+      .select("id,channel_id,work_id,source_episode,origin_start_sec,origin_end_sec,duration_sec,video_external_id,storage_path,created_at")
+      .in("id", missing);
+    for (const c of extra ?? []) (clips ?? []).push(c);
+  }
   const ids = (clips ?? []).map((c: Record<string, unknown>) => c.id);
-  const [metas, decisions, chs, wks, judges, beats] = await Promise.all([
+  const [metas, chs, wks, judges, beats] = await Promise.all([
     sb.from("clip_metadata").select("clip_id,ai_video_run_id,title:edit_plan->layout->>top_title").in("clip_id", ids),
-    sb.from("review_decisions").select("clip_id,decision,decided_at,decided_by,note,reject_type").in("clip_id", ids),
     sb.from("channels").select("id,name"),
     sb.from("works").select("id,title"),
     sb.from("judge_runs").select("clip_id,quality_score,confidence,rubric_scores,created_at").in("clip_id", ids)
@@ -303,7 +335,7 @@ async function apiReview() {
   ]);
   const title = new Map((metas.data ?? []).map((m: Record<string, unknown>) => [m.clip_id, m.title]));
   const runOf = new Map((metas.data ?? []).map((m: Record<string, unknown>) => [m.clip_id, m.ai_video_run_id]));
-  const dec = new Map((decisions.data ?? []).map((d: Record<string, unknown>) => [d.clip_id, d]));
+  const dec = new Map((decRows ?? []).map((d: Record<string, unknown>) => [d.clip_id, d]));
   const chName = new Map((chs.data ?? []).map((c: Record<string, unknown>) => [c.id, c.name]));
   const wkName = new Map((wks.data ?? []).map((w: Record<string, unknown>) => [w.id, w.title]));
   const judge = new Map<unknown, unknown>();  // clip_id → 최신 judge 행 (§5 표시 전용)
@@ -326,8 +358,9 @@ async function apiReview() {
     title: (title.get(c.id) as string | null)?.replace(/\n/g, " ") ?? null,
     channel: chName.get(c.channel_id) ?? null,
     work: wkName.get(c.work_id) ?? epi.get(runOf.get(c.id) as string)?.work ?? null,
-    episode: epi.get(runOf.get(c.id) as string)?.episode ?? null,
-    mac: macOfStorage(c.storage_path as string),
+    episode: (c.source_episode as number | null) ?? epi.get(runOf.get(c.id) as string)?.episode ?? null,
+    // 사본 정리 후엔 storage 경로가 없다 → 채널 정본으로 담당 맥 복원
+    mac: macOfStorage(c.storage_path as string) ?? CHANNELS[chName.get(c.channel_id) as string]?.mac ?? null,
     start: c.origin_start_sec, end: c.origin_end_sec, duration: c.duration_sec,
     published: c.video_external_id != null,
     judge: judge.get(c.id) ?? null,
@@ -336,7 +369,9 @@ async function apiReview() {
   }));
   return json({
     queue: items.filter((i) => !i.decision && !i.published),
-    decided: items.filter((i) => i.decision).slice(0, 30),
+    decided: items.filter((i) => i.decision)
+      .sort((a, b) => String((b.decision as Record<string, unknown>).decided_at ?? "")
+        .localeCompare(String((a.decision as Record<string, unknown>).decided_at ?? ""))).slice(0, 30),
   });
 }
 
@@ -410,7 +445,7 @@ Deno.serve(async (req) => {
   if (!["GET", "HEAD", "POST"].includes(req.method)) return json({ error: "method" }, 405);
   if (req.method === "POST" && path !== "/api/decision") return json({ error: "method" }, 405);
   if (path === "/" || path === "") {
-    return json({ service: "VES OPS API", ui: "https://rhoonart-da.github.io/ves-ops-dashboard/", endpoints: ["/api/health", "/api/feed", "/api/perf", "/api/videos", "/api/ytstatus", "/api/machines", "/api/commits"] });
+    return json({ service: "VES OPS API", ui: "https://rhoonart-da.github.io/ves-ops-dashboard/", endpoints: ["/api/health", "/api/feed", "/api/perf", "/api/videos", "/api/ytstatus", "/api/chavatars", "/api/machines", "/api/commits"] });
   }
   // 설정 진단용 — 어떤 시크릿이 들어있는지만 보고(값은 절대 노출하지 않음). 인증 불필요.
   if (path === "/api/health") {
@@ -420,6 +455,7 @@ Deno.serve(async (req) => {
   if (deny) return deny;
   if (path === "/api/feed") return apiFeed(url);
   if (path === "/api/ytstatus") return apiYtStatus(url);
+  if (path === "/api/chavatars") return apiChAvatars();
   if (path === "/api/perf") return apiPerf(url);
   if (path === "/api/videos") return apiVideos(url);
   if (path === "/api/machines") return apiMachines();
