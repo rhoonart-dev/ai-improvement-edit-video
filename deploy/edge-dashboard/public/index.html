@@ -116,7 +116,12 @@ details.tail summary{cursor:pointer;font-size:11.5px;color:var(--ink2)}
 .btn.rej{border-color:var(--bad);color:var(--bad)}.btn.rej:hover{background:var(--badbg)}
 .btn:disabled{opacity:.5;cursor:wait}
 .reason{width:100%;padding:6px 9px;font:inherit;font-size:12px;border:1px solid var(--line);background:var(--ground);color:var(--ink)}
-.decided-row{display:flex;gap:10px;align-items:center;font-size:12.5px;padding:7px 0;border-bottom:1px solid var(--soft)}
+.decided-row{padding:8px 0;border-top:1px solid var(--line);font-size:12.5px}
+.drow-head{display:flex;gap:8px;align-items:baseline;min-width:0}
+.drow-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drow-sub{color:var(--ink3);font-size:11px}
+.drow-when{flex:none;color:var(--ink3);font-size:11px}
+.drow-note{margin:4px 0 0 2px;color:var(--ink2);font-size:11.5px;line-height:1.65;white-space:pre-wrap;word-break:break-word}
 .decided-row:last-child{border-bottom:none}
 .dpill{font-size:11px;font-weight:600;padding:1px 8px;border-radius:10px}
 .dpill.approved{background:var(--okbg);color:var(--ok)}.dpill.rejected{background:var(--badbg);color:var(--bad)}
@@ -615,11 +620,13 @@ function ReviewPage({ review, reload, chmap, avatars }) {
     ${decided.length ? html`<div class="panel" style=${{ marginTop: "20px" }}>
       <h3>최근 결정 ${decided.length}건</h3>
       ${decided.map((d) => html`<div class="decided-row" key=${d.clip_id}>
-        <span class=${"dpill " + d.decision.decision}>${d.decision.decision === "approved" ? "합격"
-          : d.decision.reject_type === "production" ? "반려·제작" : "반려·장면"}</span>
-        <span style=${{ flex: 1 }}>${d.title || d.clip_id} <span style=${{ color: "var(--ink3)", fontSize: "11px" }}>· ${d.channel || ""}${d.episode != null ? " " + d.episode + "회차" : ""}</span></span>
-        ${d.decision.note ? html`<span style=${{ color: "var(--ink3)", fontSize: "11px" }}>"${d.decision.note}"</span>` : null}
-        <span style=${{ color: "var(--ink3)", fontSize: "11px" }}>${(d.decision.decided_at || "").slice(5, 16).replace("T", " ")}${d.decision.decided_by ? " · " + d.decision.decided_by : ""}</span>
+        <div class="drow-head">
+          <span class=${"dpill " + d.decision.decision}>${d.decision.decision === "approved" ? "합격"
+            : d.decision.reject_type === "production" ? "반려·제작" : "반려·장면"}</span>
+          <span class="drow-title">${d.title || d.clip_id} <span class="drow-sub">· ${d.channel || ""}${d.episode != null ? " " + d.episode + "회차" : ""}${d.published ? " · 발행됨" : ""}</span></span>
+          <span class="drow-when">${(d.decision.decided_at || "").slice(5, 16).replace("T", " ")}${d.decision.decided_by ? " · " + d.decision.decided_by : ""}</span>
+        </div>
+        ${d.decision.note ? html`<div class="drow-note">"${d.decision.note}"</div>` : null}
       </div>`)}
     </div>` : null}
   </div>`;
