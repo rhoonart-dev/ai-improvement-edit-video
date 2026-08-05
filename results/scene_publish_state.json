@@ -503,6 +503,31 @@
    "video_id": "uv_H3bfnMjc",
    "privacy": "unlisted",
    "published_at": "2026-08-04T19:45:19"
+  },
+  "커리어데이_ed": {
+   "channel": "커리어데이 숏츠",
+   "slot": "커리어데이 숏츠",
+   "episode": 2,
+   "clip_id": "106be30f-7e99-4fbf-ac77-177d1a4de408",
+   "stage": "published",
+   "video_id": "UoDKMHuL97g",
+   "privacy": "scheduled",
+   "published_at": "2026-08-05T18:25:18",
+   "scheduled_publish_at": "2026-08-05T19:00:00+09:00"
+  },
+  "유미의_세포들_시즌3_5f": {
+   "channel": "재미쇼츠",
+   "slot": "재미쇼츠·유미의 세포들 시즌3",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-05T13:20:20.706000+00:00",
+   "review_note": "이전에 올린 장면과 같은 장면임.",
+   "reject_type": "scene"
+  },
+  "유미의_세포들_시즌3_e2": {
+   "channel": "재미쇼츠",
+   "slot": "재미쇼츠·유미의 세포들 시즌3",
+   "episode": 1
   }
  },
  "publicized": {
