@@ -66,6 +66,20 @@ def test_object_path_and_job_dir():
     assert up.resolve_job_dir("/abs/path", root) == pathlib.Path("/abs/path")
 
 
+def test_needs_judge_only_for_unpublished_unjudged_undecided():
+    """judge 선실행 대상 = 클립 있음 · 미발행 · judge 없음 · 사람 결정 없음.
+
+    표시용 선실행이므로: 이미 결정된 건 비용 낭비, 이미 발행된 건 구 흐름에서 judge 를
+    거쳤다. 발행 여부 판단(합격/반려)에는 절대 쓰지 않는다 — 100% 사람 몫.
+    """
+    row = ("cid1", None, "review-clips/m/cid1.mp4")   # (clip_id, video_external_id, storage_path)
+    assert up.needs_judge(row, set(), set()) is True
+    assert up.needs_judge(row, {"cid1"}, set()) is False          # 이미 judge 있음
+    assert up.needs_judge(row, set(), {"cid1"}) is False          # 사람이 이미 결정
+    assert up.needs_judge(("cid1", "yt123", None), set(), set()) is False  # 발행됨
+    assert up.needs_judge(None, set(), set()) is False            # 클립 미적재
+
+
 def test_storage_request_percent_encodes_korean_path(monkeypatch):
     """🛑 회귀 방지 — run_id 는 한글이다(전 작품). 경로를 percent-encode 하지 않으면 urllib 이
     요청라인에서 UnicodeEncodeError 를 던지고, 그 예외가 스캔 전체를 죽여 그날 업로드가 통째로

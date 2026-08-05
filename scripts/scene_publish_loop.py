@@ -199,6 +199,18 @@ def fetch_review_decisions(run_ids):
                     for r in cur.fetchall()}
 
 
+def judge_run_exists(clip_id):
+    """이 clip 에 judge_runs 행이 있는가 — 야간 선실행분 감지(재실행 = Gemini 비용 중복)."""
+    try:
+        import psycopg as pg
+    except ModuleNotFoundError:
+        import psycopg2 as pg
+    with pg.connect(os.environ["PIPELINE_DB_URL"], connect_timeout=10) as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM public.judge_runs WHERE clip_id = %s LIMIT 1", (clip_id,))
+            return cur.fetchone() is not None
+
+
 def find_video(job_dir):
     """job_dir → 최종 쇼츠 mp4. ai-video 규약은 shorts.mp4, 폴백은 가장 큰 mp4."""
     p = Path(job_dir) / "shorts.mp4"
@@ -293,15 +305,25 @@ def publish_scene(ch_name, ep_num, sc, rec, log, dry_run, ch_cfg=None, pub_state
         rec["clip_id"] = m.group(1)
         log(f"  ✓ {tag} ingest → clip {rec['clip_id'][:8]}…")
 
-    # 안전 judge (발행 게이트 전제조건)
+    # 안전 judge (발행 게이트 전제조건). 2026-08-05 부터 야간 업로더가 검수 전에 선실행하므로
+    # DB 에 이미 있으면 생략한다 — rec['stage'] 는 이 머신 상태 파일이라 선실행을 모른다.
     if rec.get("stage") not in ("judged", "published") :
-        rc, out = sh([PY, "scripts/run_judge.py", "--clip-id", rec["clip_id"], "--video", video],
-                     timeout=1800)
-        if rc != 0:
-            log(f"  ✗ {tag} judge 실패 rc={rc}: {out[-300:]}")
-            return rec
-        rec["stage"] = "judged"
-        log(f"  ✓ {tag} judge 완료")
+        already = False
+        try:
+            already = judge_run_exists(rec["clip_id"])
+        except Exception as e:  # noqa: BLE001 — 조회 실패면 안전 방향 = 재실행
+            log(f"  ⚠ {tag} judge 존재 조회 실패({type(e).__name__}) → 재실행으로 진행")
+        if already:
+            rec["stage"] = "judged"
+            log(f"  ✓ {tag} judge 있음(검수 전 선실행분) → 재실행 생략")
+        else:
+            rc, out = sh([PY, "scripts/run_judge.py", "--clip-id", rec["clip_id"], "--video", video],
+                         timeout=1800)
+            if rc != 0:
+                log(f"  ✗ {tag} judge 실패 rc={rc}: {out[-300:]}")
+                return rec
+            rec["stage"] = "judged"
+            log(f"  ✓ {tag} judge 완료")
 
     # 업로드 (publish_youtube 가 안전게이트·오채널·지오블락 게이트 수행)
     cmd = [PY, "scripts/publish_youtube.py", "--clip-id", rec["clip_id"], "--video", video,
