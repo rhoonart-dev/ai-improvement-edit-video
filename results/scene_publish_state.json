@@ -366,6 +366,73 @@
    "video_id": "eT6ngu5iqkA",
    "privacy": "unlisted",
    "published_at": "2026-08-04T18:44:48"
+  },
+  "참교육_f0": {
+   "channel": "쇼츠션샤인",
+   "slot": "쇼츠션샤인",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-05T09:33:37.900000+00:00",
+   "review_note": "비정규직 교사 조롱하는 학생과, 처벌을 당하는 학생이 다른 인물이라 장면이 안 이어짐.",
+   "reject_type": "production"
+  },
+  "하트시그널_시즌5_85": {
+   "channel": "엔딩순삭",
+   "slot": "엔딩순삭",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-05T09:34:51.844000+00:00",
+   "review_note": "누가 만든 파스타인지 모르겠고 맛있게 먹어주고 있는 사람이 안나옴 (서원은 맛 없는 게 얼굴에서 티나는 인물임, 패널들도 말하고 있음)",
+   "reject_type": "production"
+  },
+  "김부장_b0": {
+   "channel": "이거보고자",
+   "slot": "이거보고자",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-05T09:31:37.018000+00:00",
+   "review_note": "해당 장면은 좋은데 정작 각성해버리는 장면이 안 나옴. 제목도 TTS도 요원이 각성해버린다고 하고 있는데 스토리 구성 실패인 것 같음.",
+   "reject_type": "production"
+  },
+  "유재석_캠프_e3": {
+   "channel": "이불 속 극장",
+   "slot": "이불 속 극장",
+   "episode": 1,
+   "clip_id": "91010ad8-2989-4817-8f23-1313ceb46371",
+   "stage": "published",
+   "video_id": "WuTVAp3-II0",
+   "privacy": "scheduled",
+   "published_at": "2026-08-05T19:20:58",
+   "scheduled_publish_at": "2026-08-06T19:00:00+09:00"
+  },
+  "참교육_a7": {
+   "channel": "쇼츠션샤인",
+   "slot": "쇼츠션샤인",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-05T13:23:12.872000+00:00",
+   "review_note": "일단 영상이 15초로 너무 짧고, 일진이 교사를 우습게 보는 장면도 짧게 나오고 참교육 선생님에게 처벌받는 학생이 짧게 나옴. 쇼츠만 봐서는 무슨 내용인지 잘 모르겠음.",
+   "reject_type": "scene"
+  },
+  "하트시그널_시즌5_fb": {
+   "channel": "엔딩순삭",
+   "slot": "엔딩순삭",
+   "episode": 1,
+   "clip_id": "6d59d3bc-5cbc-4f97-ae91-9ec9a4670a1c",
+   "stage": "published",
+   "video_id": "ysrN3HlJ4Lc",
+   "privacy": "scheduled",
+   "published_at": "2026-08-05T22:21:14",
+   "scheduled_publish_at": "2026-08-06T19:00:00+09:00"
+  },
+  "김부장_12": {
+   "channel": "이거보고자",
+   "slot": "이거보고자",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-05T13:17:04.960000+00:00",
+   "review_note": "잘못 만들어졌음. 엔딩 크레딧이 잡힘.",
+   "reject_type": "scene"
   }
  },
  "publicized": {
