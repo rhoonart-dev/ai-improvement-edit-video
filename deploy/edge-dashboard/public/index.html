@@ -375,7 +375,7 @@ function ReviewCard({ item, onDecide }) {
       <p class="rtitle">${item.title || "(제목 미기록)"}</p>
       <div class="rmeta">
         <span class="k">채널</span> ${item.channel || "?"} · <span class="mac">${item.mac || "?"}</span><br/>
-        <span class="k">작품</span> ${item.work || "?"}<br/>
+        <span class="k">작품</span> ${item.work || "?"}${item.episode != null ? " · " + item.episode + "회차" : ""}<br/>
         <span class="k">구간</span> ${Number(item.start).toFixed(1)} → ${Number(item.end).toFixed(1)}초
           (${Number(item.duration).toFixed(1)}초)<br/>
         <span class="k">생성</span> ${(item.created_at || "").slice(5, 16).replace("T", " ")}
@@ -441,7 +441,7 @@ function ReviewPage({ review, reload }) {
       ${decided.map((d) => html`<div class="decided-row" key=${d.clip_id}>
         <span class=${"dpill " + d.decision.decision}>${d.decision.decision === "approved" ? "합격"
           : d.decision.reject_type === "production" ? "반려·제작" : "반려·장면"}</span>
-        <span style=${{ flex: 1 }}>${d.title || d.clip_id} <span style=${{ color: "var(--ink3)", fontSize: "11px" }}>· ${d.channel || ""}</span></span>
+        <span style=${{ flex: 1 }}>${d.title || d.clip_id} <span style=${{ color: "var(--ink3)", fontSize: "11px" }}>· ${d.channel || ""}${d.episode != null ? " " + d.episode + "회차" : ""}</span></span>
         ${d.decision.note ? html`<span style=${{ color: "var(--ink3)", fontSize: "11px" }}>"${d.decision.note}"</span>` : null}
         <span style=${{ color: "var(--ink3)", fontSize: "11px" }}>${(d.decision.decided_at || "").slice(5, 16).replace("T", " ")}${d.decision.decided_by ? " · " + d.decision.decided_by : ""}</span>
       </div>`)}
