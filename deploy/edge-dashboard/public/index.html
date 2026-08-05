@@ -259,7 +259,7 @@ function ChannelChip({ name, chmap, avatars }) {
 // 예약공개는 API 로 미리 안 보인다(비공개와 동일) — 실제 공개되는 순간 publishedAt 으로 잡힌다.
 // 지난 이력은 드릴다운(시각 표기)이 담당 — 어제의 초록이 오늘의 문제를 가리면 안 된다.
 // 드릴다운은 카드 클릭 토글이되, 실패가 있는 맥은 자동으로 펼친다(문제가 먼저 보이게).
-function MacBoard({ machines, queue, review, chmap, avatars, yt, feed }) {
+function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl }) {
   const [manual, setManual] = useState({});   // machine_id → 수동 열림/닫힘 (자동값 덮어씀)
   // accepted_at(맥 로컬시각, 오프셋 없음)과 created_at(UTC 오프셋 포함)이 섞인다 —
   // Date 파싱이 둘 다 브라우저 로컬(KST)로 맞춰주므로 날짜 비교는 toDateString 으로.
@@ -339,6 +339,7 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed }) {
   const toggle = (m) => setManual((p) => ({ ...p, [m.machine_id]: !isOpen(m) }));
   return html`<div>
     <div class="boardlegend">
+      ${dateCtl}
       <b style=${{ color: "var(--ink2)" }}>생성</b>
       <span class="lg"><span class="chdot ok"></span>검수 통과</span>
       <span class="lg"><span class="chdot warn"></span>검수 대기</span>
@@ -424,6 +425,9 @@ function HomePage({ machines, queue, yt, now, review, chmap, avatars, feed, refr
       .then((d) => { if (d.payload) { setSnap(d.payload); setSnapState("ok"); } else setSnapState("none"); })
       .catch(() => setSnapState("none"));
   }, [selDate]);
+  // 보드를 지배하는 컨트롤이라 상단바가 아니라 보드 범례 맨 왼쪽에 둔다(2026-08-05 운영자)
+  const dateCtl = html`<input type="date" class="datebox" max=${todayStr} value=${selDate}
+    title="과거 날짜의 마감 기록 보기" onChange=${(e) => setSelDate(e.target.value || todayStr)} />`;
   const rq = review?.queue ?? [];
   const needPublic = queue.filter((q) => !q.stale && !q.unknown && q.video_id
     && yt[q.video_id] && !["public", "gone"].includes(yt[q.video_id].privacy));
@@ -447,9 +451,7 @@ function HomePage({ machines, queue, yt, now, review, chmap, avatars, feed, refr
   return html`<div class="page">
     <div class="topbar"><h2>오늘, 무엇부터 하면 되나</h2>
       <span class="sub">${new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" })}</span>
-      <${RefreshBtn} onRefresh=${refresh} />
-      <input type="date" class="datebox" max=${todayStr} value=${selDate} title="과거 날짜의 마감 기록 보기"
-        onChange=${(e) => setSelDate(e.target.value || todayStr)} /></div>
+      <${RefreshBtn} onRefresh=${refresh} /></div>
     <div class="kpis">
       <div class=${"kpi" + (rq.length || needPublic.length ? " bad" : " ok")}><div class="lab">검수 대기</div>
         <div class="val">${rq.length}<small> 건</small></div>
@@ -464,12 +466,13 @@ function HomePage({ machines, queue, yt, now, review, chmap, avatars, feed, refr
         <div class="hint">${machines.filter((m) => !m.beat).map((m) => m.mac).join(", ") || "전원 수신"}${machines.some((m) => !m.beat) ? " 무보고" : ""}</div></div>
     </div>
     ${snapState === "live"
-      ? html`<${MacBoard} machines=${machines} queue=${queue} review=${review} chmap=${chmap} avatars=${avatars} yt=${yt} feed=${feed} />`
+      ? html`<${MacBoard} machines=${machines} queue=${queue} review=${review} chmap=${chmap} avatars=${avatars} yt=${yt} feed=${feed}
+          dateCtl=${dateCtl} />`
       : snapState === "loading" ? html`<div class="skel">${selDate} 마감 기록 불러오는 중…</div>`
-      : snapState === "none" ? html`<div class="pastnote"><b>${selDate}</b><span>이 날짜의 마감 기록이 없습니다 — 스냅샷은 2026-08-05부터 매일 23:55에 저장됩니다.</span>
+      : snapState === "none" ? html`<div class="pastnote">${dateCtl}<span>이 날짜의 마감 기록이 없습니다 — 스냅샷은 2026-08-05부터 매일 23:55에 저장됩니다.</span>
           <button class="rfbtn" style=${{ margin: 0 }} onClick=${() => setSelDate(todayStr)}>오늘로 돌아가기</button></div>`
       : html`<div>
-          <div class="pastnote"><b>${selDate} 마감 기록</b><span>매일 23:55 저장 — 당시 신호등·현황 그대로 (검수 대기 ${snap.kpis?.review_wait ?? "?"} · 생성 실패 ${snap.kpis?.failed ?? "?"})</span>
+          <div class="pastnote">${dateCtl}<b>마감 기록</b><span>매일 23:55 저장 — 당시 신호등·현황 그대로 (검수 대기 ${snap.kpis?.review_wait ?? "?"} · 생성 실패 ${snap.kpis?.failed ?? "?"})</span>
             <button class="rfbtn" style=${{ margin: 0 }} onClick=${() => setSelDate(todayStr)}>오늘로 돌아가기</button></div>
           <${PastBoard} snap=${snap} chmap=${chmap} avatars=${avatars} />
         </div>`}
