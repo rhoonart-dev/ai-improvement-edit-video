@@ -247,6 +247,12 @@ def next_publish_slot(ch_cfg, pub_state, ch_name, now=None):
             slot = datetime(day.year, day.month, day.day, hh, mm).astimezone()
             if slot > now:
                 return slot
+            if dayoff == 0:
+                # 오늘 몫이 비었는데 슬롯 시각만 지난 경우 — 내일로 밀지 않고 지금 낸다
+                # (2026-08-05 운영자 결정: "저녁 늦게 검수해도 날이 안 지났으면 그 순간 공개").
+                # 과거 시각 예약은 유튜브가 거부하므로 지금+5분 근미래 예약으로 올린다.
+                # 하루 상한은 그대로다 — 이 즉시분도 taken 에 잡혀 다음 합격은 내일로 간다.
+                return now + timedelta(minutes=5)
     return None
 
 
