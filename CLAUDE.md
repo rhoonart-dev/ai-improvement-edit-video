@@ -31,7 +31,8 @@ ai-video(롱폼→쇼츠 추출 솔루션)를 **증거 기반으로 자기개선
    - **brain 레포 루트 `.env`** (envload가 읽음 — publish/loop 스크립트용):
      `GEMINI_API_KEY`, `YT_CLIENT_ID_<PROJECT>`/`YT_CLIENT_SECRET_<PROJECT>`(그 머신이 담당하는
      `gcp_project` 것만 — 2026-07-29 기준 `VES01`·`CJENM`·`VES03`·`VES04`·`SEAN` 중 하나),
-     `YT_REFRESH_TOKEN_{JAEMISHOTS,KIKKIK,TETOCHIP,CINEMAINBED,…}`, `PIPELINE_DB_URL`(fdidiqd), `LAEEBLY_DB_URL`
+     `YT_REFRESH_TOKEN_{JAEMISHOTS,KIKKIK,TETOCHIP,CINEMAINBED,…}`, `PIPELINE_DB_URL`(fdidiqd), `LAEEBLY_DB_URL`,
+     `PIPELINE_URL`·`PIPELINE_SERVICE_KEY`(검수 사본 업로더가 Storage 에 쓸 때 — 2026-08-05 부터 루트가 정본, factory/.env 는 폴백)
    - **`factory/.env`** (factory 스크립트용): `PIPELINE_URL`(=`https://fdidiqdhcyctdbogxkdu.supabase.co`),
      `PIPELINE_SERVICE_KEY`(fdidiqd service_role), `LAEEBLY_DB_URL`, `PIPELINE_DB_URL`
    - **값 얻는 곳**: Supabase 대시보드 → 프로젝트 → Settings→API Keys(service_role) / Connect→Session pooler(DSN).

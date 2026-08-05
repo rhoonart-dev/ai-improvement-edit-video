@@ -64,8 +64,10 @@ scene_loop 렌더 확정
   미변경 원칙과 하트비트 패턴 그대로.
 - **스캔 방식인 이유**: 실행마다 밀린 것을 전부 집으므로 ①업로드 실패가 다음 실행에서 자연
   재시도되고 ②**기존 백로그(미업로드 렌더 ~20건)가 첫 실행 때 자동으로 흡수**된다.
-- 자격증명: `factory/.env` 의 `PIPELINE_URL` + `PIPELINE_SERVICE_KEY` (전 맥 보유,
-  `factory/db.py:storage_upload` 와 같은 경로). 없으면 로그 남기고 skip — 생성을 안 막는다.
+- 자격증명: `PIPELINE_URL` + `PIPELINE_SERVICE_KEY` — **루트 `.env` 가 정본**(2026-08-05
+  결정: factory 는 전 맥용이 아니라 factory/.env 를 강제하지 않는다. 있으면 폴백으로만 읽음).
+  업로드 경로 자체는 `factory/db.py:storage_upload` 와 동일(PostgREST Storage API).
+  없으면 로그 남기고 skip — 생성을 안 막는다.
 - 재배정 잔재(stale)·정본에 없는 채널명은 업로드하지 않고 경고만(대시보드 anomalies 와 동일 규칙).
 
 ## 4. 조각 C — DB (마이그레이션 0008, 적용은 사람 확인 후)

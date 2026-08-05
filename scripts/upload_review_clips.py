@@ -19,8 +19,10 @@ scene_loop_run.sh 가 매 실행 끝(종료 하트비트 직전)에 1회 호출.
   - machine_id 역산 실패 시 추측하지 않고 종료(경로 프리픽스를 못 만든다).
   - 배정 밖 채널(재배정 잔재·정본에 없는 이름)은 올리지 않고 경고만.
 
-자격증명: factory/.env 의 PIPELINE_URL·PIPELINE_SERVICE_KEY (Storage) + 루트 .env 의
-PIPELINE_DB_URL (DB). 없으면 로그 남기고 skip.
+자격증명: PIPELINE_URL·PIPELINE_SERVICE_KEY (Storage) + PIPELINE_DB_URL (DB) — **루트
+.env 가 정본**(2026-08-05 운영자 결정: factory 는 전 맥에서 돌리는 게 아니라 factory/.env
+를 전 맥에 강제하지 않는다). factory/.env 는 있으면 빠진 키만 채우는 폴백. 없으면 로그
+남기고 skip.
 """
 from __future__ import annotations
 
@@ -171,7 +173,7 @@ def _run(args):
     url = (os.environ.get("PIPELINE_URL") or "").rstrip("/")
     key = os.environ.get("PIPELINE_SERVICE_KEY") or ""
     if not url or not key:
-        print("[review-upload] PIPELINE_URL/PIPELINE_SERVICE_KEY 없음(factory/.env) → skip")
+        print("[review-upload] PIPELINE_URL/PIPELINE_SERVICE_KEY 없음(루트 .env 에 추가) → skip")
         return 0
     try:
         machine_id = channel_registry.detect_machine_id()
