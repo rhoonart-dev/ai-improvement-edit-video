@@ -21,7 +21,8 @@
 --     반려 데이터가 개선 신호로 못 쓰인다).
 --   - ⛔ 성과 판정(승격)에 쓰지 않는다 — 검수는 안전·품질 게이트일 뿐(CLAUDE.md §7).
 --
--- clips.storage_path: 검수용 Storage 사본 위치('review-clips/<machine_id>/<run_id>.mp4').
+-- clips.storage_path: 검수용 Storage 사본 위치('review-clips/<machine_id>/<clip_id>.mp4' —
+--   run_id 는 한글이라 Storage 키로 못 쓴다, InvalidKey 2026-08-05 실측).
 --   업로더(scripts/upload_review_clips.py)가 기록, 발행 확인 후 사본 자동 정리 시 NULL 로
 --   되돌린다(2026-08-05 운영자 승인 — 파생 캐시라 정보 손실 없음. 유튜브 발행본·맥 원본·DB
 --   기록은 건드리지 않는다).
