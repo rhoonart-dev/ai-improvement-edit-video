@@ -1,4 +1,4 @@
-// VES 운영 대시보드 — v3.5 API (회차 = clips.source_episode(0010) 우선, 하트비트 스냅샷 역참조는 폴백)
+// VES 운영 대시보드 — v3.6 API (v3.5 + 홈 6대 보드: /api/machines 에 채널 정본 맵 동봉 · /api/chavatars 채널 아바타)
 // 배포: Supabase Edge Function `dashboard` (프로젝트 fdidiqdhcyctdbogxkdu, verify_jwt=false)
 // 화면: https://rhoonart-da.github.io/ves-ops-dashboard/ (GitHub Pages, React 단일 파일) — 이 함수는 API 전용.
 //   슈파베이스 기본 도메인은 text/html 을 text/plain 으로 강제해 HTML 서빙이 불가하다.
@@ -129,6 +129,18 @@ async function apiYtStatus(url: URL) {
 }
 
 // ── API: 채널 성과 (laeebly, 읽기전용) ──
+async function apiChAvatars() {
+  // 채널 아바타 — 홈 보드 표시용. 화면이 7일 localStorage 캐시하므로 호출은 드물다.
+  if (!YT_KEY) return json({ configured: false, avatars: {} });
+  const ids = Object.values(CHANNELS).map((c) => c.id);
+  const r = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=snippet&id=${ids.join(",")}&maxResults=50&key=${YT_KEY}`);
+  if (!r.ok) return json({ configured: true, error: `yt api ${r.status}`, avatars: {} });
+  const data = await r.json();
+  const avatars: Record<string, string> = {};
+  for (const it of data.items ?? []) avatars[it.id] = it.snippet?.thumbnails?.default?.url ?? "";
+  return json({ configured: true, avatars });
+}
+
 async function withLaeebly<T>(fn: (sql: ReturnType<typeof postgres>) => Promise<T>): Promise<T> {
   const sql = postgres(LAEEBLY, { max: 1, prepare: false, idle_timeout: 4, connect_timeout: 8, ssl: "require" });
   try {
@@ -273,7 +285,8 @@ async function apiMachines() {
       } : null,
     };
   });
-  return json({ now: new Date().toISOString(), machines, queue, anomalies });
+  // channels: 정본 맵(이름→{id,mac}) 동봉 — 홈 보드가 담당 채널 목록·유튜브 링크에 쓴다
+  return json({ now: new Date().toISOString(), machines, queue, anomalies, channels: CHANNELS });
 }
 
 // ── API: 최신 커밋 (GITHUB_TOKEN 선택 — 없으면 configured:false, pull 매트릭스는 상호 비교로 동작) ──
@@ -410,7 +423,7 @@ Deno.serve(async (req) => {
   if (!["GET", "HEAD", "POST"].includes(req.method)) return json({ error: "method" }, 405);
   if (req.method === "POST" && path !== "/api/decision") return json({ error: "method" }, 405);
   if (path === "/" || path === "") {
-    return json({ service: "VES OPS API", ui: "https://rhoonart-da.github.io/ves-ops-dashboard/", endpoints: ["/api/health", "/api/feed", "/api/perf", "/api/videos", "/api/ytstatus", "/api/machines", "/api/commits"] });
+    return json({ service: "VES OPS API", ui: "https://rhoonart-da.github.io/ves-ops-dashboard/", endpoints: ["/api/health", "/api/feed", "/api/perf", "/api/videos", "/api/ytstatus", "/api/chavatars", "/api/machines", "/api/commits"] });
   }
   // 설정 진단용 — 어떤 시크릿이 들어있는지만 보고(값은 절대 노출하지 않음). 인증 불필요.
   if (path === "/api/health") {
@@ -420,6 +433,7 @@ Deno.serve(async (req) => {
   if (deny) return deny;
   if (path === "/api/feed") return apiFeed(url);
   if (path === "/api/ytstatus") return apiYtStatus(url);
+  if (path === "/api/chavatars") return apiChAvatars();
   if (path === "/api/perf") return apiPerf(url);
   if (path === "/api/videos") return apiVideos(url);
   if (path === "/api/machines") return apiMachines();
