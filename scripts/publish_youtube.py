@@ -63,17 +63,27 @@ def hashtag_body(text):
     return "_".join(re.sub(r"[^\w\s]", "", text or "", flags=re.UNICODE).split())
 
 
+DEFAULT_SOURCE_LINK_HEADING = "FULL 영상 보러가기"
+
+
 def build_snippet(title, hashtags=None, category=CATEGORY_ENTERTAINMENT,
                   work_title=None, episode=None, work_hashtags=None,
-                  work_display=None, notice_lines=None):
+                  work_display=None, notice_lines=None,
+                  episode_line=True, source_url=None, source_link_heading=None):
     """YouTube snippet — 제목(개행→공백, ≤100자) + 설명 + tags(≤15). 순수.
 
-    설명 = "<작품표기> <N>화" 한 줄 (+ 필수 표기 줄들) + 빈 줄 + 해시태그 줄.
+    설명 = "<작품표기> <N>화" 한 줄 (+ 원본 링크 블록) (+ 필수 표기 줄들) + 빈 줄 + 해시태그 줄.
     - work_display: 첫 줄에서 작품명 대신 쓸 표기. 권리사가 특정 문구를 요구할 때 사용
       (예: 샤먼 → "티빙 오리지널 [샤먼: 미신전]"). 미지정 시 work_title, 그것도 없으면 첫 해시태그.
       ⚠️ 유튜브 설명란은 꺾쇠(<>)를 못 쓰므로 대괄호로 표기한다.
     - notice_lines: 첫 줄 아래에 그대로 넣을 필수 표기 줄들.
     - episode 가 None 이어도 필수 표기는 남아야 하므로 work_display/notice_lines 는 출력된다.
+    - episode_line=False: "<작품> N화" 줄을 쓰지 않는다 — 회차 개념이 없는 단일 영상 채널
+      (커리어데이·B급 등, 서수 회차는 내부 관리용일 뿐 시청자 노출 금지). work_display 가
+      있으면 권리사 표기이므로 그 줄은 유지된다.
+    - source_url + source_link_heading: 원본 영상 링크 블록 두 줄:
+        <heading>
+        🖇️ <url>
     - work_hashtags: 작품 식별코드 등 laeebly 요구 해시태그 — 해시태그 줄 뒤에 붙는다(중복 제거).
       YouTube tags 에는 넣지 않는다(설명란 표기 요구사항이라)."""
     t = " ".join((title or "").split())[:100]
@@ -85,12 +95,17 @@ def build_snippet(title, hashtags=None, category=CATEGORY_ENTERTAINMENT,
             bodies.append(b)
     tag_line = " ".join("#" + b for b in bodies if b)
 
+    if not episode_line:
+        episode = None  # 회차 줄 억제 — 아래 분기가 episode 미상과 동일하게 처리
     lines = []
     work = " ".join((work_display or work_title or (tags[0] if tags else "")).split())
     if episode is not None and work:
         lines.append(f"{work} {episode}화")
-    elif work_display:                 # 회차 미상이어도 권리사 필수 표기는 빠지면 안 된다
+    elif work_display:                 # 회차 미상/회차 줄 억제여도 권리사 필수 표기는 빠지면 안 된다
         lines.append(work)
+    if source_url:
+        lines.append(str(source_link_heading or DEFAULT_SOURCE_LINK_HEADING).strip())
+        lines.append(f"🖇️ {source_url}")
     for ln in (notice_lines or []):
         if str(ln).strip():
             lines.append(str(ln).strip())
@@ -164,6 +179,42 @@ def work_notice(work_title, config=None):
     if isinstance(lines, str):
         lines = [lines]
     return rec.get("work_display"), list(lines)
+
+
+def work_desc_style(work_title, config=None):
+    """작품명 → (episode_line: bool, source_link_heading: str|None). 순수.
+
+    회차 개념이 없는 단일 영상 채널용 설명란 스타일 (2026-08-04 운영자 결정):
+    - episode_line=False 면 "<작품> N화" 줄을 쓰지 않는다 (서수 회차는 내부 관리용).
+    - source_link_heading 이 있으면 원본 영상 링크 블록을 넣는다는 뜻 — 링크는
+      resolve_source_url 로 해석하거나 --source-url 로 받는다."""
+    cfg = config if config is not None else load_notice_config()
+    rec = cfg.get(work_title) or {}
+    return bool(rec.get("episode_line", True)), rec.get("source_link_heading")
+
+
+def resolve_source_url(work_title, episode, sources_root=None):
+    """소스 캐시 meta.json → 원본 영상 단축 링크(https://youtu.be/<id>). 실패 시 None. 순수(FS 조회).
+
+    meta.json 의 video_id 는 **생성 시점에 박제**된 값이라, 채널에서 옛 영상이 지워져
+    서수 회차가 밀려도 링크가 틀어지지 않는다 (scene_loop 서수 모드의 알려진 위험 회피).
+    ?si= 같은 공유 추적 파라미터는 만들지 않는다."""
+    if not work_title or episode is None:
+        return None
+    try:
+        import source_cache
+    except ImportError:
+        return None
+    root = (sources_root
+            or registry.load_machine_local().get("sources_root")
+            or registry.default_sources_root())
+    card = registry.work_card(work_title) or {}
+    slug = source_cache.work_slug(work_title, (card.get("source") or {}).get("dir_slug"))
+    meta = source_cache.read_meta(source_cache.episode_dir(root, slug, episode))
+    vid = meta.get("video_id") or source_cache.youtube_video_id(meta.get("source_url"))
+    if vid:
+        return f"https://youtu.be/{vid}"
+    return meta.get("source_url") or None
 
 
 # 지오블락(대한민국 한정 노출) 필수 여부 — 권리사 가이드 문구로 판정.
@@ -344,6 +395,10 @@ def main():
     ap.add_argument("--work-code", default=None,
                     help="작품 식별코드 해시태그(예: o483K). 미지정 시 laeebly licensed_video 에서 "
                          "작품명 완전일치로 자동 조회")
+    ap.add_argument("--source-url", default=None,
+                    help="설명란 원본 영상 링크 (단일 영상 채널용). 미지정 시 소스 캐시 "
+                         "meta.json 에서 자동 해석 — work_publish_notice.json 에 "
+                         "source_link_heading 이 설정된 작품만 링크 블록이 들어간다")
     ap.add_argument("--hashtags", nargs="*")
     ap.add_argument("--safety-floor", type=float, default=None,
                     help="명백히 깨진 산출물 차단용 안전 바닥. 미지정=judge quality로 안 막음(성과예측 아님)")
@@ -378,9 +433,19 @@ def main():
             print(f"[경고] laeebly 가이드가 설명란 표기를 요구하는 것으로 보이는데 "
                   f"config/work_publish_notice.json 에 {work!r} 설정이 없습니다. "
                   f"가이드를 확인하고 등록한 뒤 발행하세요.")
+        # 단일 영상 채널 스타일 — 회차 줄 억제 + 원본 링크 (2026-08-04)
+        episode_line, link_heading = work_desc_style(work)
+        source_url = a.source_url
+        if link_heading and not source_url:
+            source_url = resolve_source_url(work, episode)
+            if not source_url:
+                print(f"[주의] 원본 링크 자동 해석 실패 (소스 캐시 meta.json 없음?) — "
+                      f"설명란에 링크 블록이 빠집니다. --source-url 로 지정하세요.")
         snip = build_snippet(title, hashtags, work_title=work, episode=episode,
                              work_hashtags=work_tags, work_display=work_display,
-                             notice_lines=notice_lines)
+                             notice_lines=notice_lines,
+                             episode_line=episode_line, source_url=source_url,
+                             source_link_heading=link_heading)
         # 지오블락 게이트 — 스크립트가 대신 못 하는 업로드 설정이라 배정 자체를 막는다(§3-1)
         geo_ok, geo_reason = geoblock_ok(work_guide, a.channel)
         print(f"geoblock: {'PASS' if geo_ok else 'BLOCK'} ({geo_reason})")

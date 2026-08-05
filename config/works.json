@@ -126,7 +126,7 @@
         "subtitles": "none"
       },
       "_guide": "laeebly guide 1. 업로드 가능일 — \"매주 토요일 오후 8시 방영 직후. 원본 소스는 일~월에 공유 예정이지만 크리에이터 스스로 소스를 구해서 제작해도 무관\" / 2. ★영상 내★ 삽입 문구 — \"쿠팡플레이 SNL 코리아 8\"('쿠팡플레이'는 붙여씀) / 3. 쇼핑태그 불가 / 4. 네이버 클립 가능·카카오톡 숏폼 불가 / ※ 필수: '3:1 업로드 비율' 및 프로모션 공지(노션 링크) 확인. 지오블락 요구 없음.",
-      "_note": "⚠️ **가이드가 '영상 내' 삽입 문구를 요구한다** — 현재 파이프라인은 설명란 표기만 가능하고 화면 안 문구 삽입 기능이 없다. 이 작품을 실제로 돌리기 전에 처리 방법을 정해야 한다(미해결). 소스는 권리사 Drive(1dp_eAX2WecPk3GXyrt8eMmwtWxNF_Kj-) 의 'SNL 코리아 시즌 8/N화/' 마스터. 회차는 파일명 _8NN_ (801~810 = 1~10화) — Drive 실파일 3건으로 정규식 검증(2026-07-29). ⚠️ Drive 폴더명에 ' 3화'(선행 공백) 오타가 있으나 파일명 기준이라 무관. 자막 제공 여부가 가이드에 없어 안전측으로 none."
+      "_note": "⚠️ **가이드가 '영상 내' 삽입 문구를 요구한다** — 현재 파이프라인은 설명란 표기만 가능하고 화면 안 문구 삽입 기능이 없다. 2026-07-29 사용자 결정: **일단 이 요구는 지키지 않고 작품명을 그대로 쓴다**(화면 하단 label = 'SNL 코리아 리부트 시즌8'). 되살릴 때 쓸 경로는 조사해 뒀다 — 작품명(--title)은 laeebly licensed_video.title 완전일치 조회 키(publish_youtube.py 의 `where title in`)라 여기에 문구를 넣으면 안 되고, 같은 drawtext 슬롯을 덮어쓰는 DesignConfig.work_value(renderer.py `work_value = getattr(d,'work_value', inputs.work_title)`)를 쓴다. 현재 CLI 노출은 --design-work-image(이미지) 뿐이라 텍스트용 --design-work-text 를 추가하고 이 카드의 constraints 에 문구를 두면 --no-subtitles 와 같은 경로로 gen_flags 에 붙는다. ⚠️ 미준수 상태로 **공개**하는 판단은 사람 몫이다. 소스는 권리사 Drive(1dp_eAX2WecPk3GXyrt8eMmwtWxNF_Kj-) 의 'SNL 코리아 시즌 8/N화/' 마스터. 회차는 파일명 _8NN_ (801~810 = 1~10화) — Drive 실파일 3건으로 정규식 검증(2026-07-29). ⚠️ Drive 폴더명에 ' 3화'(선행 공백) 오타가 있으나 파일명 기준이라 무관. 자막 제공 여부가 가이드에 없어 안전측으로 none."
     },
     "국대: 로드 투 노스 아메리카": {
       "identification_code": "ykLKP",

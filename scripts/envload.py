@@ -4,6 +4,11 @@
 scripts가 .env를 자동 로드하지 않아(외부 export/inline 의존) 생기던 'YT_* 미설정'·'PIPELINE_DB_URL
 없음' 류 문제를 방지. python-dotenv 같은 외부 의존 없이 표준 라이브러리만 사용.
 사용: 엔트리 스크립트 main() 첫 줄에서 `load_env()` 호출. inline(`KEY=.. python ..`)이 항상 우선(override=False).
+
+값 뒤 인라인 주석(`KEY=/path  # 머신마다 다름`)은 잘라낸다. 예전엔 주석이 값에 그대로 붙어
+`AI_VIDEO_ROOT` 가 `/…/ai-video   # 머신마다 다름` 이 되었고, 조립된 python 경로가 존재하지 않아
+scene_loop 이 4채널 전부 FileNotFoundError 로 죽었다(2026-07-30). '#' 이 값 자체에 들어가는 시크릿을
+깨지 않으려고 **공백 뒤의 '#'** 만 주석으로 본다.
 """
 from __future__ import annotations
 
@@ -13,9 +18,28 @@ import re
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 
-# 값 뒤 인라인 주석(` # …`) 제거용. **공백이 앞선 # 만** 주석으로 본다 — DSN 비밀번호나 토큰에
-# 들어간 '#'(앞에 공백 없음)까지 잘라내면 조용히 틀린 자격증명이 된다.
-_INLINE_COMMENT = re.compile(r"\s+#.*$")
+# 값 뒤 인라인 주석 — 공백이 앞에 붙은 '#' 부터 줄 끝까지. 공백을 요구하는 이유는 시크릿에 '#'이
+# 그대로 들어가는 경우(DB 비밀번호 등)를 값의 일부로 남겨야 하기 때문이다.
+_INLINE_COMMENT = re.compile(r"\s#")
+
+
+def _clean_value(raw_value):
+    """값에서 둘러싼 따옴표와 인라인 주석을 떼어낸다.
+
+    인용된 값은 닫는 따옴표까지를 값으로 보고 그 뒤(주석 포함)를 버린다 — ' # ' 를 값에 꼭 넣어야
+    하면 따옴표로 감싸는 것이 탈출구다.
+    """
+    v = raw_value.strip()
+    if v[:1] in ('"', "'"):
+        quote = v[0]
+        end = v.find(quote, 1)
+        if end != -1:
+            return v[1:end]
+        # 닫는 따옴표가 없다 → 예전 동작으로 폴백(아래 공통 처리)
+    m = _INLINE_COMMENT.search(v)
+    if m:
+        v = v[: m.start()]
+    return v.strip().strip('"').strip("'")
 
 
 def load_env(path=None, override=False):
@@ -30,10 +54,7 @@ def load_env(path=None, override=False):
             continue
         k, v = line.split("=", 1)
         k = k.strip()
-        v = v.strip()
-        if not (v.startswith(('"', "'")) and v.endswith(('"', "'")) and len(v) > 1):
-            v = _INLINE_COMMENT.sub("", v)   # 따옴표로 감싼 값은 그대로(주석 기호도 값의 일부)
-        v = v.strip().strip('"').strip("'")
+        v = _clean_value(v)
         if not k:
             continue
         if override or k not in os.environ:
