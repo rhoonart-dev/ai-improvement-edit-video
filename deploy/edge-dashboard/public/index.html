@@ -357,22 +357,26 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed }) {
 }
 
 function HomePage({ machines, queue, yt, now, review, chmap, avatars, feed }) {
-  // 검수 대상: stale 아님 + (미업로드 || 업로드됐는데 아직 public 아님)
-  const items = queue.filter((q) => !q.stale && !q.unknown).map((q) => {
-    const st = q.video_id ? yt[q.video_id]?.privacy : null;
-    return { ...q, yt: st };
-  });
-  const needUpload = items.filter((q) => !q.video_id);
-  const needPublic = items.filter((q) => q.video_id && q.yt && q.yt !== "public" && q.yt !== "gone");
+  // 검수 대기 = 검수함 큐(review_decisions 기준) — 스냅샷의 미발행 장면 수로 세면 결정이
+  // 나도 발행 전까지 계속 '대기'로 남는다(2026-08-05 운영자 발견: 검수 끝냈는데 9건 표시).
+  // 공개 전환 대기(구 흐름 일부공개 잔량)만 스냅샷 × YouTube 상태로 센다.
+  const rq = review?.queue ?? [];
+  const needPublic = queue.filter((q) => !q.stale && !q.unknown && q.video_id
+    && yt[q.video_id] && !["public", "gone"].includes(yt[q.video_id].privacy));
   const braked = machines.flatMap((m) => (m.beat?.channels ?? []).filter((c) => c.result === "paused_pending").map((c) => ({ ...c, mac: m.mac })));
   const failed = machines.flatMap((m) => (m.beat?.channels ?? []).filter((c) => c.result === "failed").map((c) => ({ ...c, mac: m.mac })));
   const beatsOk = machines.filter((m) => m.beat).length;
-  // 채널×회차로 묶기
+  // 채널×회차로 묶기 — 검수 대기(검수함 큐)와 공개 전환 대기(스냅샷)를 한 표로
   const groups = {};
-  for (const q of [...needPublic, ...needUpload]) {
+  for (const i of rq) {
+    const k = `${i.channel}|${i.episode}`;
+    (groups[k] ??= { channel: i.channel, work: i.work, episode: i.episode, mac: i.mac, up: [], pub: [] });
+    groups[k].up.push(i);
+  }
+  for (const q of needPublic) {
     const k = `${q.channel}|${q.episode}`;
     (groups[k] ??= { channel: q.channel, work: q.work, episode: q.episode, mac: q.mac, up: [], pub: [] });
-    (q.video_id ? groups[k].pub : groups[k].up).push(q);
+    groups[k].pub.push(q);
   }
   const brakedSet = new Set(braked.map((b) => b.channel));
   const rows = Object.values(groups).sort((a, b) => (brakedSet.has(b.channel) ? 1 : 0) - (brakedSet.has(a.channel) ? 1 : 0));
@@ -380,9 +384,9 @@ function HomePage({ machines, queue, yt, now, review, chmap, avatars, feed }) {
     <div class="topbar"><h2>오늘, 무엇부터 하면 되나</h2>
       <span class="sub">${new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric", weekday: "short" })}</span></div>
     <div class="kpis">
-      <div class=${"kpi" + (needUpload.length + needPublic.length ? " bad" : " ok")}><div class="lab">검수 대기</div>
-        <div class="val">${needUpload.length + needPublic.length}<small> 건</small></div>
-        <div class="hint">업로드 대기 ${needUpload.length} · 공개 대기 ${needPublic.length}</div></div>
+      <div class=${"kpi" + (rq.length + needPublic.length ? " bad" : " ok")}><div class="lab">검수 대기</div>
+        <div class="val">${rq.length + needPublic.length}<small> 건</small></div>
+        <div class="hint">영상 검수 ${rq.length} · 공개 전환 ${needPublic.length}</div></div>
       <div class=${"kpi" + (braked.length ? " bad" : " ok")}><div class="lab">브레이크 발동</div>
         <div class="val">${braked.length}<small> 채널</small></div><div class="hint">대기 가득 → 생성 정지</div></div>
       <div class=${"kpi" + (failed.length ? " warn" : " ok")}><div class="lab">최근 실행 실패</div>
@@ -401,7 +405,7 @@ function HomePage({ machines, queue, yt, now, review, chmap, avatars, feed }) {
             <span style=${{ flex: 1 }}><b>${g.channel}</b> EP${g.episode}
               <span style=${{ fontSize: "11px", color: "var(--ink3)" }}> · ${g.work || ""}</span><br/>
               <span style=${{ fontSize: "11.5px", color: "var(--ink2)" }}>
-                ${g.up.length ? `업로드 대기 ${g.up.length}건` : ""}${g.up.length && g.pub.length ? " · " : ""}${g.pub.length ? `공개 대기 ${g.pub.length}건` : ""}
+                ${g.up.length ? `검수 대기 ${g.up.length}건` : ""}${g.up.length && g.pub.length ? " · " : ""}${g.pub.length ? `공개 전환 대기 ${g.pub.length}건` : ""}
               </span></span>
             <span class="mac">${g.mac}</span>
             ${brakedSet.has(g.channel) ? html`<span class="brake">생성 정지</span>` : html`<span class="gauge">진행 중</span>`}
