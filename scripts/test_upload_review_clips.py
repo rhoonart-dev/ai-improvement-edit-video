@@ -56,11 +56,41 @@ def test_own_object_guard():
 
 
 def test_object_path_and_job_dir():
-    assert up.object_path("macmini-luna4", "김부장_30") == "macmini-luna4/김부장_30.mp4"
+    # 🛑 키는 clip_id(uuid) — run_id(한글)를 키에 쓰면 Storage 가 InvalidKey 로 거부한다
+    #    (2026-08-05 맥1 실측. percent-encode 로도 못 푼다 — 서버가 키 문자 자체를 검사).
+    assert up.object_path("macmini-luna4", "0a1b2c3d-e4f5-6789-abcd-ef0123456789") \
+        == "macmini-luna4/0a1b2c3d-e4f5-6789-abcd-ef0123456789.mp4"
     assert up.object_path("m", "a/b") == "m/a_b.mp4"          # 경로 붕괴 방어
     root = "/Users/x/ves/ai-video"
     assert up.resolve_job_dir("outputs/scene_loop/a", root) == pathlib.Path(root) / "outputs/scene_loop/a"
     assert up.resolve_job_dir("/abs/path", root) == pathlib.Path("/abs/path")
+
+
+def test_storage_request_percent_encodes_korean_path(monkeypatch):
+    """🛑 회귀 방지 — run_id 는 한글이다(전 작품). 경로를 percent-encode 하지 않으면 urllib 이
+    요청라인에서 UnicodeEncodeError 를 던지고, 그 예외가 스캔 전체를 죽여 그날 업로드가 통째로
+    빈다(2026-08-05 맥1 실측 — '내부 오류 무시' 한 줄만 남고 담당 4채널이 전부 미업로드)."""
+    seen = {}
+
+    class _R:
+        status = 200
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            return False
+
+    def fake_urlopen(req, timeout=None):
+        seen["url"] = req.full_url
+        req.full_url.encode("ascii")   # urllib 이 요청라인에서 하는 검사와 동일
+        return _R()
+
+    monkeypatch.setattr(up.urllib.request, "urlopen", fake_urlopen)
+    status = up.storage_request(
+        "https://x.supabase.co", "KEY", "POST",
+        "review-clips/macmini-luna1/원희는_스무살_54.mp4", data=b"x")
+    assert status == 200
+    assert "%EC" in seen["url"]                      # 한글이 인코딩됐다
+    assert seen["url"].startswith("https://x.supabase.co/storage/v1/object/review-clips/")
 
 
 if __name__ == "__main__":
