@@ -97,6 +97,26 @@ tr.rowlink{cursor:pointer}tr.rowlink:hover td{background:var(--accent-soft)}
 #login-wrap .msg{font-size:12px;color:var(--bad);min-height:16px;margin-top:8px}
 .skel{color:var(--ink3);font-size:13px;padding:20px 0}
 details.tail summary{cursor:pointer;font-size:11.5px;color:var(--ink2)}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.rcard{background:var(--panel);border:1px solid var(--soft);display:flex;flex-direction:column}
+.player{aspect-ratio:9/16;max-height:340px;background:#000;display:flex;align-items:center;justify-content:center}
+.player video{width:100%;height:100%;object-fit:contain}
+.player .skel{color:#888}
+.rbody{padding:12px 14px 14px;display:flex;flex-direction:column;gap:9px;flex:1}
+.rtitle{font-size:13px;font-weight:600;line-height:1.4;margin:0}
+.rmeta{font-size:11.5px;color:var(--ink2);line-height:1.7;font-variant-numeric:tabular-nums}
+.rmeta .k{color:var(--ink3)}
+.acts{display:flex;gap:8px;margin-top:auto}
+.btn{flex:1;padding:8px;font:inherit;font-size:13px;font-weight:600;border:1px solid;cursor:pointer;background:var(--panel)}
+.btn.pass{border-color:var(--ok);color:var(--ok)}.btn.pass:hover{background:var(--okbg)}
+.btn.rej{border-color:var(--bad);color:var(--bad)}.btn.rej:hover{background:var(--badbg)}
+.btn:disabled{opacity:.5;cursor:wait}
+.reason{width:100%;padding:6px 9px;font:inherit;font-size:12px;border:1px solid var(--line);background:var(--ground);color:var(--ink)}
+.decided-row{display:flex;gap:10px;align-items:center;font-size:12.5px;padding:7px 0;border-bottom:1px solid var(--soft)}
+.decided-row:last-child{border-bottom:none}
+.dpill{font-size:11px;font-weight:600;padding:1px 8px;border-radius:10px}
+.dpill.approved{background:var(--okbg);color:var(--ok)}.dpill.rejected{background:var(--badbg);color:var(--bad)}
+.namebox{padding:5px 9px;font:inherit;font-size:12px;border:1px solid var(--line);background:var(--panel);color:var(--ink);width:130px}
 @media(max-width:760px){.shell{flex-direction:column}aside{width:100%;height:auto;position:static}
 aside nav{flex-direction:row;overflow-x:auto;padding:0}aside nav a{border-left:none;border-bottom:3px solid transparent}
 aside nav a.on{border-left-color:transparent;border-bottom-color:#e8b04b}.side-foot{display:none}main{padding:0 14px 40px}}
@@ -319,6 +339,84 @@ function PerfPage() {
   </div>`;
 }
 
+// ── 검수함 (스펙 1급 데이터: review_decisions) ──
+function ReviewCard({ item, onDecide }) {
+  const [url, setUrl] = useState(null);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    api("/api/clip-url?clip_id=" + item.clip_id)
+      .then((d) => alive && setUrl(d.url || null)).catch(() => alive && setUrl(null));
+    return () => { alive = false; };
+  }, [item.clip_id]);
+  const decide = async (decision) => {
+    setBusy(true);
+    try { await onDecide(item, decision, note); } finally { setBusy(false); }
+  };
+  return html`<div class="rcard">
+    <div class="player">${url ? html`<video controls preload="metadata" src=${url}></video>`
+      : html`<span class="skel">영상 URL 발급 중…</span>`}</div>
+    <div class="rbody">
+      <p class="rtitle">${item.title || "(제목 미기록)"}</p>
+      <div class="rmeta">
+        <span class="k">채널</span> ${item.channel || "?"} · <span class="mac">${item.mac || "?"}</span><br/>
+        <span class="k">작품</span> ${item.work || "?"}<br/>
+        <span class="k">구간</span> ${Number(item.start).toFixed(1)} → ${Number(item.end).toFixed(1)}초
+          (${Number(item.duration).toFixed(1)}초)<br/>
+        <span class="k">judge</span> ${item.judge_quality != null ? "품질 " + Number(item.judge_quality).toFixed(2) : "미실행"}
+          · <span class="k">생성</span> ${(item.created_at || "").slice(5, 16).replace("T", " ")}
+      </div>
+      <input class="reason" placeholder="반려 사유 (선택) — 쌓이면 개선 신호가 됩니다"
+        value=${note} onChange=${(e) => setNote(e.target.value)} />
+      <div class="acts">
+        <button class="btn pass" disabled=${busy} onClick=${() => decide("approved")}>✅ 합격</button>
+        <button class="btn rej" disabled=${busy} onClick=${() => decide("rejected")}>❌ 반려</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function ReviewPage({ review, reload }) {
+  const [name, setName] = useState(localStorage.getItem("ves_name") || "");
+  const [msg, setMsg] = useState(null);
+  const onDecide = async (item, decision, note) => {
+    const r = await fetch(BASE + "/api/decision", {
+      method: "POST",
+      headers: { "x-ves-key": encodeURIComponent(KEY()), "content-type": "application/json" },
+      body: JSON.stringify({ clip_id: item.clip_id, decision, note: note || null, decided_by: name || null }),
+    });
+    const d = await r.json();
+    if (!r.ok || d.error) { setMsg("기록 실패: " + (d.error || r.status)); return; }
+    setMsg((decision === "approved" ? "✅ 합격" : "❌ 반려") + " 기록됨 — " + (item.channel || "") +
+      (decision === "approved" ? " · 10분 내 발행 픽업 예정(4단계 적용 후)" : " · 대기 슬롯 해제"));
+    reload();
+  };
+  const queue = review?.queue ?? [];
+  const decided = review?.decided ?? [];
+  return html`<div class="page">
+    <div class="topbar"><h2>검수함</h2>
+      <span class="sub">보고 → 누르면 끝. 결정은 DB(review_decisions)에 기록됩니다</span>
+      <span style=${{ marginLeft: "auto", display: "flex", gap: "8px", alignItems: "center", fontSize: "12px", color: "var(--ink3)" }}>
+        검수자 <input class="namebox" placeholder="이름(결정에 기록)" value=${name}
+          onChange=${(e) => { setName(e.target.value); localStorage.setItem("ves_name", e.target.value); }} /></span>
+    </div>
+    ${msg ? html`<p class="note">${msg}</p>` : null}
+    ${!review ? html`<div class="skel">불러오는 중…</div>`
+      : queue.length === 0 ? html`<p class="note">검수 대기 중인 클립이 없습니다 — 밤 생성 후 자동으로 올라옵니다.</p>`
+      : html`<div class="rgrid">${queue.map((i) => html`<${ReviewCard} key=${i.clip_id} item=${i} onDecide=${onDecide} />`)}</div>`}
+    ${decided.length ? html`<div class="panel" style=${{ marginTop: "20px" }}>
+      <h3>최근 결정 ${decided.length}건</h3>
+      ${decided.map((d) => html`<div class="decided-row" key=${d.clip_id}>
+        <span class=${"dpill " + d.decision.decision}>${d.decision.decision === "approved" ? "합격" : "반려"}</span>
+        <span style=${{ flex: 1 }}>${d.title || d.clip_id} <span style=${{ color: "var(--ink3)", fontSize: "11px" }}>· ${d.channel || ""}</span></span>
+        ${d.decision.note ? html`<span style=${{ color: "var(--ink3)", fontSize: "11px" }}>"${d.decision.note}"</span>` : null}
+        <span style=${{ color: "var(--ink3)", fontSize: "11px" }}>${(d.decision.decided_at || "").slice(5, 16).replace("T", " ")}${d.decision.decided_by ? " · " + d.decision.decided_by : ""}</span>
+      </div>`)}
+    </div>` : null}
+  </div>`;
+}
+
 // ── 머신 로그 ──
 function MachinesPage({ machines, now, anomalies }) {
   return html`<div class="page">
@@ -410,7 +508,7 @@ function DeployPage({ machines, commits }) {
 
 // ── 앱 ──
 const PAGES = [
-  ["home", "⌂ 홈 · 검수함"], ["feed", "▶ 영상 피드"], ["perf", "↗ 채널 성과"],
+  ["home", "⌂ 홈"], ["review", "☑ 검수함"], ["feed", "▶ 영상 피드"], ["perf", "↗ 채널 성과"],
   ["machines", "▦ 머신 로그"], ["deploy", "⇅ 커밋 · 배포"],
 ];
 
@@ -420,6 +518,7 @@ function App() {
   const [feed, setFeed] = useState([]);
   const [mx, setMx] = useState(null);        // {machines, queue, anomalies, now}
   const [commits, setCommits] = useState(null);
+  const [review, setReview] = useState(null);
   const [yt, setYt] = useState({});          // video_id -> {privacy}
   const [ytConfigured, setYtConfigured] = useState(true);
   const [updated, setUpdated] = useState(null);
@@ -428,6 +527,7 @@ function App() {
     const [f, m] = await Promise.all([api("/api/feed?days=60"), api("/api/machines")]);
     setFeed(f.items || []); setMx(m); setUpdated(new Date());
     api("/api/commits").then(setCommits).catch(() => null);
+    api("/api/review").then(setReview).catch(() => null);
     // 공개상태: 피드 + 검수큐의 video_id 합집합을 50개씩
     const ids = [...new Set([...(f.items || []).map((x) => x.video_id), ...(m.queue || []).map((q) => q.video_id)].filter(Boolean))];
     for (let i = 0; i < ids.length; i += 50) {
@@ -462,7 +562,7 @@ function App() {
       <div class="brand"><h1>VES OPS</h1><div class="v">맥미니 6대 · 19채널 · React v2</div></div>
       <nav>${PAGES.map(([id, label]) => html`
         <a key=${id} class=${page === id ? "on" : ""} onClick=${() => setPage(id)}>${label}
-          ${id === "home" && reviewCount ? html`<span class="cnt hot">${reviewCount}</span>` : null}
+          ${id === "review" && (review?.queue?.length ?? 0) ? html`<span class="cnt hot">${review.queue.length}</span>` : null}
           ${id === "feed" && feed.length ? html`<span class="cnt">${feed.length}</span>` : null}
         </a>`)}</nav>
       <div class="side-foot">
@@ -474,6 +574,7 @@ function App() {
     </aside>
     <main>
       ${page === "home" ? html`<${HomePage} machines=${machines} queue=${queue} yt=${yt} now=${mx?.now} />` : null}
+      ${page === "review" ? html`<${ReviewPage} review=${review} reload=${() => api("/api/review").then(setReview).catch(() => null)} />` : null}
       ${page === "feed" ? html`<${FeedPage} feed=${feed} yt=${yt} ytConfigured=${ytConfigured} />` : null}
       ${page === "perf" ? html`<${PerfPage} />` : null}
       ${page === "machines" ? html`<${MachinesPage} machines=${machines} now=${mx?.now} anomalies=${mx?.anomalies ?? []} />` : null}

@@ -1,4 +1,4 @@
-// VES 운영 대시보드 — v2 API (피드·성과 + 하트비트 기반 검수함·머신·배포)
+// VES 운영 대시보드 — v3 API (v2 + 검수함: review·clip-url·decision — 첫 쓰기 API)
 // 배포: Supabase Edge Function `dashboard` (프로젝트 fdidiqdhcyctdbogxkdu, verify_jwt=false)
 // 화면: https://rhoonart-da.github.io/ves-ops-dashboard/ (GitHub Pages, React 단일 파일) — 이 함수는 API 전용.
 //   슈파베이스 기본 도메인은 text/html 을 text/plain 으로 강제해 HTML 서빙이 불가하다.
@@ -63,7 +63,7 @@ const macOfHost = (h: string | null) => {
 const CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-headers": "x-ves-key, content-type",
-  "access-control-allow-methods": "GET, OPTIONS",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
 };
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json; charset=utf-8", ...CORS } });
@@ -270,6 +270,83 @@ async function apiMachines() {
 }
 
 // ── API: 최신 커밋 (GITHUB_TOKEN 선택 — 없으면 configured:false, pull 매트릭스는 상호 비교로 동작) ──
+// ── API: 검수함 (설계 §5 — Storage 사본 재생 + 결정 기록) ──
+const macOfStorage = (p: string | null) => {
+  const m = /^review-clips\/([^/]+)\//.exec(p ?? "");
+  return m ? (MACHINES[m[1]]?.mac ?? m[1]) : null;
+};
+
+async function apiReview() {
+  const sb = createClient(SB_URL, SB_KEY);
+  const { data: clips, error: e1 } = await sb.from("clips")
+    .select("id,channel_id,work_id,origin_start_sec,origin_end_sec,duration_sec,video_external_id,storage_path,created_at")
+    .eq("source", "auto_edit").not("storage_path", "is", null)
+    .order("created_at", { ascending: false }).limit(200);
+  if (e1) return json({ error: e1.message }, 500);
+  const ids = (clips ?? []).map((c: Record<string, unknown>) => c.id);
+  const [metas, decisions, chs, wks, judges] = await Promise.all([
+    sb.from("clip_metadata").select("clip_id,title:edit_plan->layout->>top_title").in("clip_id", ids),
+    sb.from("review_decisions").select("clip_id,decision,decided_at,decided_by,note").in("clip_id", ids),
+    sb.from("channels").select("id,name"),
+    sb.from("works").select("id,title"),
+    sb.from("judge_runs").select("clip_id,quality_score,created_at").in("clip_id", ids)
+      .order("created_at", { ascending: false }),
+  ]);
+  const title = new Map((metas.data ?? []).map((m: Record<string, unknown>) => [m.clip_id, m.title]));
+  const dec = new Map((decisions.data ?? []).map((d: Record<string, unknown>) => [d.clip_id, d]));
+  const chName = new Map((chs.data ?? []).map((c: Record<string, unknown>) => [c.id, c.name]));
+  const wkName = new Map((wks.data ?? []).map((w: Record<string, unknown>) => [w.id, w.title]));
+  const judge = new Map<unknown, unknown>();
+  for (const j of judges.data ?? []) if (!judge.has(j.clip_id)) judge.set(j.clip_id, j.quality_score);
+  const items = (clips ?? []).map((c: Record<string, unknown>) => ({
+    clip_id: c.id,
+    title: (title.get(c.id) as string | null)?.replace(/\n/g, " ") ?? null,
+    channel: chName.get(c.channel_id) ?? null,
+    work: wkName.get(c.work_id) ?? null,
+    mac: macOfStorage(c.storage_path as string),
+    start: c.origin_start_sec, end: c.origin_end_sec, duration: c.duration_sec,
+    published: c.video_external_id != null,
+    judge_quality: judge.get(c.id) ?? null,
+    created_at: c.created_at,
+    decision: dec.get(c.id) ?? null,
+  }));
+  return json({
+    queue: items.filter((i) => !i.decision && !i.published),
+    decided: items.filter((i) => i.decision).slice(0, 30),
+  });
+}
+
+async function apiClipUrl(url: URL) {
+  const clipId = url.searchParams.get("clip_id") ?? "";
+  const sb = createClient(SB_URL, SB_KEY);
+  const { data: c, error } = await sb.from("clips").select("storage_path").eq("id", clipId).single();
+  if (error || !c?.storage_path) return json({ error: "clip 또는 storage_path 없음" }, 404);
+  const objectPath = String(c.storage_path).replace(/^review-clips\//, "");
+  const { data: signed, error: e2 } = await sb.storage.from("review-clips")
+    .createSignedUrl(objectPath, 3600);  // 만료 1시간 — 페이지 갱신 주기(5분)보다 넉넉히
+  if (e2) return json({ error: e2.message }, 500);
+  return json({ url: signed.signedUrl, expires_in: 3600 });
+}
+
+async function apiDecision(req: Request) {
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch { return json({ error: "JSON body 필요" }, 400); }
+  const clipId = String(body.clip_id ?? "");
+  const decision = String(body.decision ?? "");
+  if (!clipId || !["approved", "rejected"].includes(decision)) {
+    return json({ error: "clip_id 와 decision(approved|rejected) 필요" }, 400);
+  }
+  const sb = createClient(SB_URL, SB_KEY);
+  const { error } = await sb.from("review_decisions").upsert({
+    clip_id: clipId, decision,
+    note: body.note ? String(body.note).slice(0, 500) : null,
+    decided_by: body.decided_by ? String(body.decided_by).slice(0, 80) : null,
+    decided_at: new Date().toISOString(),
+  }, { onConflict: "clip_id" });
+  if (error) return json({ error: error.message }, 500);
+  return json({ ok: true, clip_id: clipId, decision });
+}
+
 async function apiCommits() {
   if (!GH_TOKEN) return json({ configured: false, repos: {} });
   const out: Record<string, unknown> = {};
@@ -303,7 +380,8 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const path = url.pathname.replace(/^\/dashboard/, "") || "/";
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
-  if (req.method !== "GET" && req.method !== "HEAD") return json({ error: "method" }, 405);
+  if (!["GET", "HEAD", "POST"].includes(req.method)) return json({ error: "method" }, 405);
+  if (req.method === "POST" && path !== "/api/decision") return json({ error: "method" }, 405);
   if (path === "/" || path === "") {
     return json({ service: "VES OPS API", ui: "https://rhoonart-da.github.io/ves-ops-dashboard/", endpoints: ["/api/health", "/api/feed", "/api/perf", "/api/videos", "/api/ytstatus", "/api/machines", "/api/commits"] });
   }
@@ -319,5 +397,8 @@ Deno.serve(async (req) => {
   if (path === "/api/videos") return apiVideos(url);
   if (path === "/api/machines") return apiMachines();
   if (path === "/api/commits") return apiCommits();
+  if (path === "/api/review") return apiReview();
+  if (path === "/api/clip-url") return apiClipUrl(url);
+  if (path === "/api/decision") return apiDecision(req);
   return json({ error: "not found" }, 404);
 });
