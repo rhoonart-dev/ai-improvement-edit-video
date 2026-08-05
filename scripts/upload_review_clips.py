@@ -103,6 +103,24 @@ def own_object(storage_path, machine_id):
     return bool(storage_path) and storage_path.startswith(f"{BUCKET}/{machine_id}/")
 
 
+def needs_judge(clip_row, clip_id_judged, clip_id_decided):
+    """검수 전 judge 선실행 대상인가 (2026-08-05 — judge 를 검수 앞으로).
+
+    목적: 검수함에 뜨는 시점에 judge 점수·사유가 함께 보이게 한다. **표시용이다** —
+    합격/반려는 100% 사람이고, judge 는 발행 직전 안전게이트(환각) 역할만 유지한다.
+
+    제외 3부류:
+      - 이미 judge 있음 — 재실행은 Gemini 비용 중복 (발행 픽업도 이 판정으로 생략한다)
+      - 이미 사람이 결정함 — 검수가 끝났으니 선실행의 목적이 사라짐 (비용 절약)
+      - 이미 발행됨 — 구 흐름에서 발행 직전 judge 를 거쳤다
+    """
+    if clip_row is None:
+        return False
+    clip_id, video_id, _ = clip_row
+    return (not video_id and clip_id not in clip_id_judged
+            and clip_id not in clip_id_decided)
+
+
 def resolve_job_dir(job_dir, ai_video_root):
     p = pathlib.Path(job_dir)
     return p if p.is_absolute() else pathlib.Path(ai_video_root) / p
@@ -142,6 +160,35 @@ def set_storage_path(conn, clip_id, value):
     conn.commit()
 
 
+def judged_clip_ids(conn, clip_ids):
+    """judge_runs 가 있는 clip_id 집합."""
+    if not clip_ids:
+        return set()
+    with conn.cursor() as cur:
+        cur.execute("SELECT DISTINCT clip_id FROM public.judge_runs WHERE clip_id = ANY(%s)",
+                    (list(clip_ids),))
+        return {r[0] for r in cur.fetchall()}
+
+
+def decided_clip_ids(conn, clip_ids):
+    """review_decisions 가 있는 clip_id 집합 (합격·반려 무관 — 검수가 끝난 것)."""
+    if not clip_ids:
+        return set()
+    with conn.cursor() as cur:
+        cur.execute("SELECT DISTINCT clip_id FROM public.review_decisions WHERE clip_id = ANY(%s)",
+                    (list(clip_ids),))
+        return {r[0] for r in cur.fetchall()}
+
+
+def run_judge(clip_id, video):
+    """run_judge.py 재사용 — judge 프롬프트·기록 로직을 두 벌 만들지 않는다."""
+    r = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "run_judge.py"),
+         "--clip-id", str(clip_id), "--video", str(video)],
+        capture_output=True, text=True, timeout=1800)
+    return r.returncode == 0, (r.stdout + r.stderr)[-300:]
+
+
 def storage_request(url, key, method, path, data=None, content_type=None):
     # run_id 가 한글이라 경로를 percent-encode 해야 한다 — urllib 은 non-ASCII 요청라인을
     # UnicodeEncodeError 로 거부하고, 그 예외가 스캔 전체를 죽인다(2026-08-05 맥1 실측).
@@ -169,6 +216,8 @@ def main(argv=None):
     ap.add_argument("--since-days", type=int, default=None,
                     help="accepted_at 이 최근 N일 이내인 장면만 (기본: 전체 — 백로그 포함)")
     ap.add_argument("--dry-run", action="store_true", help="무엇을 할지만 출력, 쓰기 없음")
+    ap.add_argument("--no-judge", action="store_true",
+                    help="judge 선실행 생략(빠른 업로드 전용) — 자동 실행에는 쓰지 않는다")
     args = ap.parse_args(argv)
     try:
         return _run(args)
@@ -276,8 +325,37 @@ def _run(args):
 
             else:
                 n["skip"] += 1
+        # ── judge 선실행 (2026-08-05): 검수함에 점수·사유가 함께 보이게 ──
+        # 업로드 뒤에 도는 이유: 사람이 볼 수 있는 상태(사본 존재)를 먼저 만든다 — judge 는
+        # 편당 수 분이라, 먼저 돌리면 그동안 검수함이 빈다. 실패는 다음 실행이 재시도.
+        n["judge"] = 0
+        if not args.no_judge:
+            rows2 = clip_rows(conn, [sc["run_id"] for _, _, sc, mine in scenes if mine])
+            all_ids = [r[0] for r in rows2.values()]
+            judged = judged_clip_ids(conn, all_ids)
+            decided = decided_clip_ids(conn, all_ids)
+            for ch, ep, sc, mine in scenes:
+                if not mine or not within_days(sc.get("accepted_at"), args.since_days):
+                    continue
+                row = rows2.get(sc["run_id"])
+                if not needs_judge(row, judged, decided):
+                    continue
+                job_dir = resolve_job_dir(sc.get("job_dir", ""), ai_video_root)
+                mp4 = job_dir / "shorts.mp4"
+                if not mp4.exists():
+                    continue
+                if args.dry_run:
+                    print(f"[review-upload] (dry) judge {ch} EP{ep} {sc['run_id']}")
+                    n["judge"] += 1
+                    continue
+                ok, tail = run_judge(row[0], mp4)
+                if ok:
+                    print(f"[review-upload] ⚖ judge {ch} EP{ep} {sc['run_id']}: {tail.strip().splitlines()[-1] if tail.strip() else 'ok'}")
+                    n["judge"] += 1
+                else:
+                    print(f"[review-upload] ✗ judge 실패 {sc['run_id']}: {tail}")
         print(f"[review-upload] 완료 — 업로드 {n['upload']} (신규적재 {n['ingest']}) · "
-              f"정리 {n['cleanup']} · skip {n['skip']} · 경고 {n['warn']}")
+              f"judge {n['judge']} · 정리 {n['cleanup']} · skip {n['skip']} · 경고 {n['warn']}")
     finally:
         conn.close()
     return 0

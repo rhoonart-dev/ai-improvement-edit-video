@@ -16,13 +16,21 @@
 올라가지 않는다 — 채널에 폐기물 이력이 안 남고, "일부공개 = 검수 대기" 같은 추론이 사라진다.
 
 ```
-[각 맥, 야간]                         [대시보드]                    [각 맥, 다음 실행]
+[각 맥, 야간]                         [대시보드]                    [각 맥, 10분 픽업]
 scene_loop 렌더 확정
   → ① mp4 를 Storage 업로드          ② 검수함: 서명 URL 로 재생
-  → ① clips/clip_metadata 적재            ✅합격/❌반려 → review_decisions
+  → ① clips/clip_metadata 적재         + judge 점수·사유 표시(참고용)
+  → ① judge 선실행(2026-08-05)            ✅합격/❌반려 → review_decisions
      (video_external_id 는 아직 NULL)                                ③ approved && 미발행 픽업
-                                                                     → judge → 유튜브 업로드
+                                                                     → judge(선실행분 있으면 생략)
+                                                                     → 유튜브 업로드
                                                                      → video_external_id 채움
+
+★ judge 선실행(2026-08-05 운영자 결정): 검수함에 LLM 점수·사유가 **함께 보이도록** 업로더가
+  야간에 judge 를 먼저 돌린다(미발행·미결정·미judge 클립만 — 결정난 건 비용 절약으로 생략).
+  **표시 전용이다** — 합격/반려는 100% 사람이고, judge 는 발행 직전 안전게이트(환각 차단)
+  역할만 유지한다. 사람 결정(review_decisions)과 judge(judge_runs)가 클립별로 쌓이므로
+  사람-LLM 판단 비교가 조인 한 번으로 가능해진다.
 ```
 
 ## 1. 원칙 (스펙 §1 계승 + 이 설계의 추가)
