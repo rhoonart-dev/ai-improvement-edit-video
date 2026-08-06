@@ -1,4 +1,4 @@
-// VES 운영 대시보드 — v4.4 API (v4.3 + 스냅샷 신호등에 재생성 링(okr/warnr) — 화면 규칙과 일치)
+// VES 운영 대시보드 — v4.5 API (v4.4 + failuresToday — 재실행에 덮인 실패도 신호등이 기억)
 // 배포: Supabase Edge Function `dashboard` (프로젝트 fdidiqdhcyctdbogxkdu, verify_jwt=false)
 // 화면: https://rhoonart-da.github.io/ves-ops-dashboard/ (GitHub Pages, React 단일 파일) — 이 함수는 API 전용.
 //   슈파베이스 기본 도메인은 text/html 을 text/plain 으로 강제해 HTML 서빙이 불가하다.
@@ -291,8 +291,21 @@ async function apiMachines() {
       } : null,
     };
   });
+  // 오늘의 실패를 **모든 비트**에서 모은다 — machines[].beat 는 머신당 최신 1건이라,
+  // 재생성 실행이 새 비트를 남기면 새벽 실패가 통째로 사라진다(2026-08-06 운영자 발견:
+  // 커리어데이 숏츠 — 실패 후 재생성했는데 링이 안 그려짐). 신호등·스냅샷이 이 맵을 쓴다.
+  const todayKst = kstDayOf(new Date().toISOString());
+  const failuresToday: Record<string, string> = {};
+  for (const b of beats ?? []) {
+    if (kstDayOf(b.run_started_at) !== todayKst) continue;
+    for (const c of (b.channels ?? []) as Record<string, unknown>[]) {
+      if (c.result !== "failed" || !c.channel) continue;
+      const ch = String(c.channel), t = String(b.run_started_at);
+      if (!failuresToday[ch] || t > failuresToday[ch]) failuresToday[ch] = t;
+    }
+  }
   // channels: 정본 맵(이름→{id,mac}) 동봉 — 홈 보드가 담당 채널 목록·유튜브 링크에 쓴다
-  return json({ now: new Date().toISOString(), machines, queue, anomalies, channels: CHANNELS });
+  return json({ now: new Date().toISOString(), machines, queue, anomalies, channels: CHANNELS, failuresToday });
 }
 
 // ── API: 최신 커밋 (GITHUB_TOKEN 선택 — 없으면 configured:false, pull 매트릭스는 상호 비교로 동작) ──
@@ -493,16 +506,8 @@ async function buildDailySnapshot() {
       for (const it of data.items ?? []) yt[it.id] = { privacy: it.status?.privacyStatus ?? "unknown", published_at: it.snippet?.publishedAt ?? null };
     } catch { break; }
   }
-  // 실패 시각을 남긴다 — 그 뒤 재생성이 성공했으면 실패가 최종 상태가 아니다(화면과 동일 규칙)
-  const failedAt: Record<string, string> = {};
-  for (const m of mx.machines ?? []) {
-    if (!m.beat || kstDayOf(m.beat.run_started_at) !== today) continue;
-    for (const c of m.beat.channels ?? []) {
-      if (c.result !== "failed") continue;
-      const t = String(m.beat.run_started_at);
-      if (!failedAt[c.channel] || t > failedAt[c.channel]) failedAt[c.channel] = t;
-    }
-  }
+  // 실패 시각 — apiMachines 가 오늘 전 비트에서 모아준 맵(재실행에 덮이지 않는다)
+  const failedAt: Record<string, string> = mx.failuresToday ?? {};
   const failedToday = { has: (ch: string) => ch in failedAt };
   const after = (ch: string, iso: unknown) => {
     const f = failedAt[ch];

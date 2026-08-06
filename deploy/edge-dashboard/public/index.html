@@ -69,6 +69,16 @@ main{flex:1;min-width:0;padding:0 26px 60px}
 .vtile .vd{font-size:10.5px;color:var(--ink3);font-variant-numeric:tabular-nums}
 .vtile:hover .vt{text-decoration:underline}
 .railempty{color:var(--ink3);font-size:12px;padding:18px 4px}
+.vtile + .vtile{border-left:1px solid color-mix(in srgb, var(--soft) 55%, transparent);padding-left:10px}
+/* 전체 탭 — 채널 구분 없이 최신순 격자, 카드마다 채널 아이콘·이름 (검수함 카드와 같은 방식) */
+.fcard{background:var(--panel);border:1px solid var(--soft);border-radius:10px;overflow:hidden}
+.fcard .thumb{aspect-ratio:3/4}
+.fbody{padding:9px 10px}
+.fbody .ft{font-size:12px;line-height:1.5;margin:0 0 7px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.fchan{display:flex;align-items:center;gap:7px;padding-top:7px;border-top:1px solid var(--soft)}
+.fchan .chavatar{width:22px;height:22px}
+.fchan .chlink span{font-size:12px;font-weight:600}
+.fchan .when{margin-left:auto;font-size:10.5px;color:var(--ink3);font-variant-numeric:tabular-nums}
 .card .body{padding:10px 12px 12px}
 .card .title{font-size:12.5px;font-weight:600;line-height:1.4;margin:0 0 6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.8em}
 .card .meta{font-size:11px;color:var(--ink2);margin:0 0 8px}
@@ -180,8 +190,8 @@ details.tail summary{cursor:pointer;font-size:11.5px;color:var(--ink2)}
 .chrow{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:12.5px;min-width:0}
 .chhead{justify-content:flex-end;gap:17px;color:var(--ink2);font-size:10.5px;font-weight:600;letter-spacing:.02em;padding:0 0 3px}
 .chhead span{width:11px;text-align:center;overflow:visible;white-space:nowrap}
-.lghelp{position:relative;margin-left:auto;color:var(--ink3);cursor:help;display:flex;align-items:center}
-.lgpop{position:absolute;top:20px;right:0;z-index:25;width:290px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:11.5px;line-height:1.75;color:var(--ink2);box-shadow:0 6px 22px rgba(0,0,0,.16);cursor:auto;text-align:left}
+.lghelp{position:relative;margin-left:2px;color:var(--ink3);cursor:help;display:flex;align-items:center}
+.lgpop{position:absolute;top:20px;left:0;z-index:25;width:290px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:11.5px;line-height:1.75;color:var(--ink2);box-shadow:0 6px 22px rgba(0,0,0,.16);cursor:auto;text-align:left}
 .lgpop b{color:var(--ink)}
 .dotpair{display:flex;gap:17px;margin-left:auto;flex:none}
 .chdot{width:11px;height:11px;border-radius:50%;flex:none}
@@ -342,7 +352,7 @@ const PUB_TIP = { ok: "오늘 공개됨", warn: "공개 전환 대기 (Studio)",
 // 예약공개는 API 로 미리 안 보인다(비공개와 동일) — 실제 공개되는 순간 publishedAt 으로 잡힌다.
 // 지난 이력은 드릴다운(시각 표기)이 담당 — 어제의 초록이 오늘의 문제를 가리면 안 된다.
 // 드릴다운은 카드 클릭 토글이되, 실패가 있는 맥은 자동으로 펼친다(문제가 먼저 보이게).
-function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl }) {
+function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl, failures }) {
   const [manual, setManual] = useState({});   // machine_id → 수동 열림/닫힘 (자동값 덮어씀)
   const [help, setHelp] = useState(false);   // 범례 ⓘ — 긴 설명은 여기로 접었다(2026-08-06)
   // accepted_at(맥 로컬시각, 오프셋 없음)과 created_at(UTC 오프셋 포함)이 섞인다 —
@@ -353,13 +363,9 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl }
     return !isNaN(d) && d.toDateString() === new Date().toDateString();
   };
   // 실패는 "언제" 가 중요하다 — 그 뒤 재생성이 성공했으면 실패가 최종 상태가 아니다.
-  const failedAt = {};   // 채널 → 오늘 실패한 실행의 시작 시각(가장 최근)
-  for (const m of machines) for (const c of m.beat?.channels ?? []) {
-    const t = m.beat?.run_started_at;
-    if (c.result === "failed" && isToday(t)) {
-      if (!failedAt[c.channel] || String(t) > String(failedAt[c.channel])) failedAt[c.channel] = t;
-    }
-  }
+  // 서버가 오늘 **전 비트**에서 모아준 맵을 쓴다 — machines[].beat(머신당 최신 1건)만 보면
+  // 재생성 실행이 새 비트를 남기는 순간 새벽 실패가 사라진다(2026-08-06 실측).
+  const failedAt = failures ?? {};
   const failed = { has: (ch) => ch in failedAt };
   const pend = {}, dec = {}, waitPublic = {};
   for (const i of review?.queue ?? []) (pend[i.channel] ??= []).push(i);
@@ -520,7 +526,7 @@ function PastBoard({ snap, chmap, avatars }) {
   </div>`;
 }
 
-function HomePage({ machines, queue, yt, now, review, chmap, avatars, feed, refresh }) {
+function HomePage({ machines, queue, yt, now, review, chmap, avatars, feed, refresh, failures }) {
   // 검수 대기 = 검수함 큐(review_decisions 기준) — 스냅샷의 미발행 장면 수로 세면 결정이
   // 나도 발행 전까지 계속 '대기'로 남는다(2026-08-05 운영자 발견: 검수 끝냈는데 9건 표시).
   // 공개 전환 대기(구 흐름 일부공개 잔량)만 스냅샷 × YouTube 상태로 센다.
@@ -544,7 +550,7 @@ function HomePage({ machines, queue, yt, now, review, chmap, avatars, feed, refr
   const needPublic = queue.filter((q) => !q.stale && !q.unknown && q.video_id
     && yt[q.video_id] && !["public", "gone"].includes(yt[q.video_id].privacy));
   const braked = machines.flatMap((m) => (m.beat?.channels ?? []).filter((c) => c.result === "paused_pending").map((c) => ({ ...c, mac: m.mac })));
-  const failed = machines.flatMap((m) => (m.beat?.channels ?? []).filter((c) => c.result === "failed").map((c) => ({ ...c, mac: m.mac })));
+  const failed = Object.keys(failures ?? {}).map((channel) => ({ channel }));  // 오늘 전 비트 기준
   const beatsOk = machines.filter((m) => m.beat).length;
   // 채널×회차로 묶기 — 검수 대기(검수함 큐)와 공개 전환 대기(스냅샷)를 한 표로
   const groups = {};
@@ -579,7 +585,7 @@ function HomePage({ machines, queue, yt, now, review, chmap, avatars, feed, refr
     </div>
     ${snapState === "live"
       ? html`<${MacBoard} machines=${machines} queue=${queue} review=${review} chmap=${chmap} avatars=${avatars} yt=${yt} feed=${feed}
-          dateCtl=${dateCtl} />`
+          dateCtl=${dateCtl} failures=${failures} />`
       : snapState === "loading" ? html`<div class="skel">${selDate} 마감 기록 불러오는 중…</div>`
       : snapState === "none" ? html`<div class="pastnote">${dateCtl}<span>이 날짜의 마감 기록이 없습니다 — 스냅샷은 2026-08-05부터 매일 23:55에 저장됩니다.</span>
           <button class="rfbtn" style=${{ margin: 0 }} onClick=${() => setSelDate(todayStr)}>오늘로 돌아가기</button></div>`
@@ -648,7 +654,7 @@ function FeedPage({ feed, yt, ytConfigured, refresh, chmap, avatars }) {
   const railInit = (el) => { if (el && !el.dataset.init) { el.dataset.init = "1"; el.scrollLeft = el.scrollWidth; } };
 
   return html`<div class="page">
-    <div class="topbar"><h2>영상 피드</h2><span class="sub">채널별 · 오른쪽이 최신 · 활성 ${uploaded.length - goneCount}건</span>
+    <div class="topbar"><h2>영상 피드</h2><span class="sub">${filter === "전체" ? "전체 최신순" : "채널별 · 오른쪽이 최신"} · 활성 ${uploaded.length - goneCount}건</span>
       <${RefreshBtn} onRefresh=${refresh} /></div>
     ${!ytConfigured ? html`<p class="note">공개/일부공개 배지는 YOUTUBE_API_KEY 시크릿을 설정하면 켜집니다.</p>` : null}
     <div class="filters">${macs.map((m) => html`
@@ -657,7 +663,25 @@ function FeedPage({ feed, yt, ytConfigured, refresh, chmap, avatars }) {
       ${goneCount ? html`<span class=${"chip" + (showGone ? " on" : "")}
         onClick=${() => setShowGone(!showGone)}>반려·삭제 ${goneCount}건 ${showGone ? "숨기기" : "보기"}</span>` : null}
     </div>
-    ${rows.length === 0 ? html`<div class="skel">표시할 채널이 없습니다.</div>` : rows.map((ch) => {
+    ${filter === "전체" ? (items.length === 0 ? html`<div class="skel">표시할 클립이 없습니다.</div>`
+      : html`<div class="grid">${[...items].sort((a, b) =>
+          String(b.published_at || b.created_at).localeCompare(String(a.published_at || a.created_at)))
+        .map((x) => html`
+        <div class="fcard" key=${x.clip_id}>
+          <a class=${"thumb" + (yt[x.video_id]?.privacy === "gone" ? " nothumb" : "")}
+             href=${"https://youtu.be/" + x.video_id} target="_blank" rel="noopener">
+            ${yt[x.video_id]?.privacy !== "gone" ? html`<img loading="lazy" src=${"https://i.ytimg.com/vi/" + x.video_id + "/mqdefault.jpg"} alt="" />` : null}
+            <${StatusPill} st=${yt[x.video_id]} />
+          </a>
+          <div class="fbody">
+            <p class="ft">${x.title || "(제목 미기록)"}</p>
+            <div class="fchan">
+              <${ChannelChip} name=${x.channel || "?"} chmap=${chmap} avatars=${avatars} />
+              <span class="when">${fmtDT(x.published_at || x.created_at)}</span>
+            </div>
+          </div>
+        </div>`)}</div>`)
+      : rows.length === 0 ? html`<div class="skel">표시할 채널이 없습니다.</div>` : rows.map((ch) => {
       const vids = byCh[ch] ?? [];
       return html`<div class="chstrip" key=${ch}>
         <div class="chside">
@@ -1069,7 +1093,8 @@ function App() {
     </aside>
     <main>
       ${page === "home" ? html`<${HomePage} machines=${machines} queue=${queue} yt=${yt} now=${mx?.now}
-        review=${review} chmap=${mx?.channels ?? {}} avatars=${avatars} feed=${feed} refresh=${load} />` : null}
+        review=${review} chmap=${mx?.channels ?? {}} avatars=${avatars} feed=${feed} refresh=${load}
+        failures=${mx?.failuresToday ?? {}} />` : null}
       ${page === "review" ? html`<${ReviewPage} review=${review} chmap=${mx?.channels ?? {}} avatars=${avatars}
         reload=${() => api("/api/review").then(setReview).catch(() => null)} />` : null}
       ${page === "feed" ? html`<${FeedPage} feed=${feed} yt=${yt} ytConfigured=${ytConfigured} refresh=${load}
