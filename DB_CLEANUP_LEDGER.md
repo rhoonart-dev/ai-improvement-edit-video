@@ -398,7 +398,7 @@ GROUP BY w.title ORDER BY count(c.id) DESC;
 | run | yt | 처리 |
 |---|---|---|
 | 유미의_세포들_시즌3_3f | lhsdoTj0RE0 (private) | 상태 제거 + 산출물 rejected/yumi_ep01_cleared_20260806/ 이동. DB clips 행 유지 |
-| 유미의_세포들_시즌3_86 | k4DoUT8ALiE→k7DoUT8ALiE (private) | 〃 |
+| 유미의_세포들_시즌3_86 | k7DoUT8ALiE (private) | 〃 |
 | 유미의_세포들_시즌3_71 | YPFfTzslzBs (private) | 〃 |
 | 유미의_세포들_시즌3_5f | (업로드 전 반려) | 〃 (review_decisions: scene 중복) |
 | 유미의_세포들_시즌3_e2 | (업로드 전 반려) | 〃 (review_decisions: production 폴백 제목) |
