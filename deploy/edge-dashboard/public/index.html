@@ -458,6 +458,7 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl, 
       <span class="lg"><span class="chdot warn"></span>대기</span>
       <span class="lg"><span class="chdot rej"></span>반려</span>
       <span class="lg"><span class="chdot bad"></span>실패</span>
+      <span class="lg"><span class="chdot idle"></span>없음</span>
       <span style=${{ color: "var(--ink3)" }}>○ 링 = 재생성 후</span>
       <span class="lghelp" onMouseEnter=${() => setHelp(true)} onMouseLeave=${() => setHelp(false)}
         onClick=${(e) => { e.stopPropagation(); setHelp(!help); }} title="신호등 읽는 법">ⓘ
@@ -465,6 +466,7 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl, 
           <b>색</b>은 그 단계의 상태 — 두 열에서 뜻이 같습니다.<br/>
           <b>어느 단계</b>인지는 카드의 <b>생성 · 공개</b> 머리글이 알려줍니다.<br/>
           예: 생성 열 초록 = 검수 통과, 공개 열 초록 = 오늘 공개됨<br/>
+          <b>회색</b>은 오늘 그 단계에서 아무 신호가 없었다는 뜻입니다.<br/>
           <span style=${{ color: "var(--ink3)" }}>· 기준은 항상 오늘 — 예약공개는 공개되는 순간 반영</span><br/>
           <span style=${{ color: "var(--ink3)" }}>· 카드를 누르면 상세, 실패가 있는 맥은 자동으로 펼쳐집니다</span>
         </div>` : null}
