@@ -687,6 +687,37 @@
    "rejected_at": "2026-08-05T13:17:04.960000+00:00",
    "review_note": "잘못 만들어졌음. 엔딩 크레딧이 잡힘.",
    "reject_type": "scene"
+  },
+  "참교육_b5": {
+   "channel": "쇼츠션샤인",
+   "slot": "쇼츠션샤인",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-06T02:29:56.628000+00:00",
+   "review_note": "인물 인식을 잘못 했음. 목숨 구걸하는 건 피해자고 죽으라고 대답하는 건 감독관이 아니라 가해자임. 초반에 나오는 인물은 감독관-가해자인데, 뒷 장면은 가해자-피해자라서 이어지지 않음. ",
+   "reject_type": "production"
+  },
+  "하트시그널_시즌5_1f": {
+   "channel": "엔딩순삭",
+   "slot": "엔딩순삭",
+   "episode": 1,
+   "clip_id": "4ec009cc-b2de-403f-a431-2428cb0c7163",
+   "stage": "published",
+   "video_id": "dh_NM5q6UKI",
+   "privacy": "scheduled",
+   "published_at": "2026-08-06T11:31:57",
+   "scheduled_publish_at": "2026-08-07T19:00:00+09:00"
+  },
+  "유재석_캠프_88": {
+   "channel": "이불 속 극장",
+   "slot": "이불 속 극장",
+   "episode": 1,
+   "clip_id": "77f1dc51-ddda-444b-a8b1-1092a62a9dd2",
+   "stage": "published",
+   "video_id": "8lY4hWrM9iE",
+   "privacy": "scheduled",
+   "published_at": "2026-08-06T11:52:05",
+   "scheduled_publish_at": "2026-08-07T19:00:00+09:00"
   }
  },
  "publicized": {
