@@ -127,6 +127,9 @@ details.tail summary{cursor:pointer;font-size:11.5px;color:var(--ink2)}
 .drow-when{flex:none;color:var(--ink3);font-size:11px}
 .drow-note{position:relative;margin:9px 0 3px 6px;padding:8px 13px;background:var(--ground);border:1px solid var(--line);border-radius:10px;color:var(--ink2);font-size:11.5px;line-height:1.65;white-space:pre-wrap;word-break:break-word;max-width:760px;width:fit-content}
 .drow-note::before{content:"";position:absolute;top:-6px;left:18px;width:10px;height:10px;background:var(--ground);border-left:1px solid var(--line);border-top:1px solid var(--line);transform:rotate(45deg)}
+.drow-note.ok{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.drow-note.ok::before{background:var(--okbg);border-color:var(--ok)}
+.notehint{margin:6px 2px 0;font-size:11.5px;line-height:1.6;color:var(--warn)}
 .decided-row:last-child{border-bottom:none}
 .dpill{font-size:11px;font-weight:600;padding:1px 8px;border-radius:10px}
 .dpill.approved{background:var(--okbg);color:var(--ok)}.dpill.rejected{background:var(--badbg);color:var(--bad)}
@@ -616,6 +619,8 @@ function ReviewCard({ item, onDecide, chmap, avatars }) {
   const [url, setUrl] = useState(null);
   const [note, setNote] = useState("");
   const [prodReject, setProdReject] = useState(false);
+  // judge 와 사람 판단이 갈리는 지점 — 그 이유가 judge 개선의 유일한 재료다(스펙 §5 비교 뷰)
+  const lowJudge = item.judge?.quality_score != null && Number(item.judge.quality_score) < 0.5;
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     let alive = true;
@@ -654,8 +659,10 @@ function ReviewCard({ item, onDecide, chmap, avatars }) {
         ${item.judge.rubric_scores?.rationale ? html`<details><summary>judge 사유 보기</summary>
           ${item.judge.rubric_scores.rationale}</details>` : null}
       </div>` : html`<div class="judgebox" style=${{ color: "var(--ink3)" }}>judge 대기중 — 결정은 그대로 가능합니다</div>`}
-      <input class="reason" placeholder="반려 사유 (선택) — 쌓이면 개선 신호가 됩니다"
+      <input class="reason" placeholder="사유·메모 (선택) — 합격·반려 모두 기록됩니다"
         value=${note} onChange=${(e) => setNote(e.target.value)} />
+      ${lowJudge && !note.trim() ? html`<p class="notehint">💬 judge 가 낮게 봤습니다(${Number(item.judge.quality_score).toFixed(2)})
+        — 그래도 합격시키신다면 이유를 남겨 주세요. judge 를 고칠 근거가 됩니다.</p>` : null}
       <label style=${{ fontSize: "11.5px", color: "var(--ink2)", display: "flex", gap: "6px", alignItems: "center", cursor: "pointer" }}>
         <input type="checkbox" checked=${prodReject} onChange=${(e) => setProdReject(e.target.checked)} />
         제작 결함 (장면은 좋음 — 같은 구간 재시도 허용: TTS·자막·오디오 등)
@@ -681,8 +688,9 @@ function ReviewPage({ review, reload, chmap, avatars }) {  // reload: App 의 �
     });
     const d = await r.json();
     if (!r.ok || d.error) { setMsg("기록 실패: " + (d.error || r.status)); return; }
-    setMsg((decision === "approved" ? "✅ 합격" : "❌ 반려") + " 기록됨 — " + (item.channel || "") +
-      (decision === "approved" ? " · 10분 내 발행 픽업 예정(4단계 적용 후)" : " · 대기 슬롯 해제"));
+    setMsg((decision === "approved" ? "✅ 합격" : "❌ 반려") + ((note || "").trim() ? " (사유 기록됨)" : "") + " — " + (item.channel || "") +
+      (decision === "approved" ? " · 10분 내 자동 발행 → 오늘 몫이 비었으면 그 즉시, 아니면 다음 19시 공개"
+        : " · 대기 슬롯 해제 → 대체 장면 생성"));
     reload();
   };
   const allQueue = review?.queue ?? [];
@@ -713,7 +721,7 @@ function ReviewPage({ review, reload, chmap, avatars }) {  // reload: App 의 �
           <span class="drow-title">${d.title || d.clip_id} <span class="drow-sub">· ${d.channel || ""}${d.episode != null ? " " + d.episode + "회차" : ""}${d.published ? " · 발행됨" : ""}</span></span>
           <span class="drow-when">${fmtDT(d.decision.decided_at)}${d.decision.decided_by ? " · " + d.decision.decided_by : ""}</span>
         </div>
-        ${d.decision.note ? html`<div class="drow-note">${d.decision.note}</div>` : null}
+        ${d.decision.note ? html`<div class=${"drow-note" + (d.decision.decision === "approved" ? " ok" : "")}>${d.decision.note}</div>` : null}
       </div>`)}
     </div>` : null}
   </div>`;
