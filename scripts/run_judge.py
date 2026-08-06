@@ -26,8 +26,12 @@ import time
 from pathlib import Path
 
 JUDGE_MODEL = "gemini-3-flash-preview"
-RUBRIC_VERSION = "v1"
+RUBRIC_VERSION = "v2"   # v2(2026-08-05): 민감 소재 감지(sensitive_*) 추가 — 표시 전용
 DIMS = ["hook_3s", "visual_hook", "pacing", "completion_pull"]
+
+# 민감 소재 종류 — 권리사 가이드들이 실제로 금지하는 축(유미의 세포들·혜미리예채파·밤이 되었습니다
+# 가이드 문구에서 추출: "정치적 이슈·출연진 비방·성적인 표현" + 그 밖 사회적 논란)
+SENSITIVE_KINDS = ["정치", "인물비하", "성적표현", "기타논란"]
 
 RUBRIC_PROMPT = """당신은 숏폼(세로 쇼츠) 편집을 평가하는 심사자다. 아래 영상을 보고 '도달(노출)을 여는 품질'을
 0~1로 채점하라. 사람 히트 쇼츠의 원칙 기준:
@@ -38,9 +42,17 @@ RUBRIC_PROMPT = """당신은 숏폼(세로 쇼츠) 편집을 평가하는 심사
 가드:
 - hashtags_ok: 제목/자막이 내용과 맞고 과장 낚시가 아닌가 (true/false)
 - hallucination_flag: 화면에 없는 사실을 자막/제목이 지어냈는가 (true=문제 있음)
+민감 소재 (검수자 알림용 — 점수와 무관):
+- sensitive_flag: 화면·대사·자막·제목에 민감 소재가 포함되는가 (true/false).
+  종류: "정치"(정치인·정당·선거·시사 현안 — 풍자·패러디도 포함해 true), "인물비하"(실존 인물·
+  출연진에 대한 조롱이 맥락상 비하로 읽힐 수 있음), "성적표현"(성적 묘사·노출·수위 높은 농담),
+  "기타논란"(종교·혐오·사회적 갈등 등 논란 소지). 코미디 프로그램의 풍자여도 소재가 해당하면
+  true 로 표시하라 — 공개 여부 판단은 사람이 한다.
+- sensitive_kinds: 해당 종류 배열 (위 4개 문자열만, 없으면 [])
+- sensitive_note: 어떤 장면/대사가 왜 민감한지 한 줄 (없으면 "")
 
 JSON만 출력(코드펜스 없이):
-{"hook_3s":0.0,"visual_hook":0.0,"pacing":0.0,"completion_pull":0.0,"hashtags_ok":true,"hallucination_flag":false,"confidence":0.0,"rationale":"한 줄 근거"}
+{"hook_3s":0.0,"visual_hook":0.0,"pacing":0.0,"completion_pull":0.0,"hashtags_ok":true,"hallucination_flag":false,"sensitive_flag":false,"sensitive_kinds":[],"sensitive_note":"","confidence":0.0,"rationale":"한 줄 근거"}
 """
 
 
@@ -63,12 +75,19 @@ def parse_judge_json(text: str) -> dict:
     dims = {k: _clamp01(d.get(k)) for k in DIMS}
     vals = [v for v in dims.values() if v is not None]
     quality = round(sum(vals) / len(vals), 4) if vals else None
+    kinds_raw = d.get("sensitive_kinds") or []
+    kinds = [k for k in kinds_raw if k in SENSITIVE_KINDS] if isinstance(kinds_raw, list) else []
     return {
         "quality_score": quality,
         "rubric_scores": {
             **dims,
             "hashtags_ok": bool(d.get("hashtags_ok", True)),
             "hallucination_flag": bool(d.get("hallucination_flag", False)),
+            # 민감 소재 — **표시 전용**(검수함 배지). 점수에 안 들어가고 발행 게이트도 안 읽는다
+            # (gate_ok 는 hallucination_flag 만 본다). 공개 여부 판단은 100% 사람.
+            "sensitive_flag": bool(d.get("sensitive_flag", False)) or bool(kinds),
+            "sensitive_kinds": kinds,
+            "sensitive_note": str(d.get("sensitive_note", ""))[:300],
             "rationale": str(d.get("rationale", ""))[:500],
         },
         "confidence": _clamp01(d.get("confidence")),
@@ -152,9 +171,12 @@ def main():
                 vp = _resolve_video(conn, args.clip_id, td)
                 j = judge_video(vp, api_key)
         write_judge(conn, args.clip_id, j)
+        sens = j["rubric_scores"]
         print(f"judged clip {args.clip_id}: quality={j['quality_score']} "
               f"dims={ {k: j['rubric_scores'][k] for k in DIMS} } "
-              f"halluc={j['rubric_scores']['hallucination_flag']} conf={j['confidence']}")
+              f"halluc={sens['hallucination_flag']} "
+              f"sens={sens['sensitive_kinds'] if sens['sensitive_flag'] else False} "
+              f"conf={j['confidence']}")
     finally:
         conn.close()
 

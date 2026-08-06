@@ -49,11 +49,23 @@ HTTP_TIMEOUT = 120  # 업로드 ~30MB — 넉넉히
 
 # ── 순수 로직 (테스트 대상) ──────────────────────────────────
 
-def iter_state_scenes(state, my_channels):
-    """상태파일 → [(channel, episode, scene, in_assignment)] 평탄화."""
+def iter_state_scenes(state, my_channels, known_channels=None):
+    """상태파일 → [(channel, episode, scene, in_assignment)] 평탄화.
+
+    ⚠️ 상태 최상위 키는 **슬롯**이다 — 다작품 채널은 '재미쇼츠·유미의 세포들 시즌3' 처럼
+    채널명과 다르다. 채널은 슬롯의 'channel' 필드가 정본이고, 없으면(구 상태) '·' 앞부분을
+    등록 채널명(known_channels)과 대조해 복원한다 — scene_publish_loop.pending_scenes 와
+    같은 규칙. 복원 없이는 배정 채널의 장면이 '배정 밖'으로 영구 제외된다(2026-08-05 맥5 실측:
+    재미쇼츠 장면 3건이 검수함에 안 올라감)."""
     out = []
     mine = set(my_channels)
-    for ch, cdata in (state.get("channels") or {}).items():
+    known = set(known_channels) if known_channels is not None else None
+    for slot, cdata in (state.get("channels") or {}).items():
+        ch = cdata.get("channel") or slot
+        if known is not None and ch not in known and "·" in ch:
+            head = ch.split("·")[0].strip()
+            if head in known:
+                ch = head
         for ep, edata in (cdata.get("episodes") or {}).items():
             for sc in edata.get("scenes") or []:
                 if sc.get("run_id"):
@@ -276,7 +288,8 @@ def _run(args):
         print("[review-upload] 상태파일 없음 → skip")
         return 0
     state = json.loads(STATE_PATH.read_text(encoding="utf-8"))
-    scenes = iter_state_scenes(state, my_channels)
+    scenes = iter_state_scenes(state, my_channels,
+                               known_channels=channel_registry.channel_names())
 
     conn = _db()
     if conn is None:

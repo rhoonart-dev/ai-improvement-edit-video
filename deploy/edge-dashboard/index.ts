@@ -1,4 +1,4 @@
-// VES 운영 대시보드 — v3.9 API (v3.8 + 최근 결정은 review_decisions 기준 — 발행·정리된 합격작도 로그에 남게)
+// VES 운영 대시보드 — v4.1 API (v4.0 + 검수자 프로필 아이콘(0012) — 결정에 reviewer_icon 저장·반환)
 // 배포: Supabase Edge Function `dashboard` (프로젝트 fdidiqdhcyctdbogxkdu, verify_jwt=false)
 // 화면: https://rhoonart-da.github.io/ves-ops-dashboard/ (GitHub Pages, React 단일 파일) — 이 함수는 API 전용.
 //   슈파베이스 기본 도메인은 text/html 을 text/plain 으로 강제해 HTML 서빙이 불가하다.
@@ -313,7 +313,7 @@ async function apiReview() {
   // clips 목록에서 빠지고, 그러면 "합격했는데 로그에 없다"가 된다(2026-08-05 운영자 발견).
   // 결정 최근 30건의 클립을 별도로 당겨 합친다.
   const { data: decRows } = await sb.from("review_decisions")
-    .select("clip_id,decision,decided_at,decided_by,note,reject_type")
+    .select("clip_id,decision,decided_at,decided_by,note,reject_type,reviewer_icon")
     .order("decided_at", { ascending: false }).limit(30);
   const have = new Set((clips ?? []).map((c: Record<string, unknown>) => c.id));
   const missing = (decRows ?? []).map((d: Record<string, unknown>) => d.clip_id).filter((id) => !have.has(id));
@@ -324,8 +324,12 @@ async function apiReview() {
     for (const c of extra ?? []) (clips ?? []).push(c);
   }
   const ids = (clips ?? []).map((c: Record<string, unknown>) => c.id);
-  const [metas, chs, wks, judges, beats] = await Promise.all([
+  const [metas, decsAll, chs, wks, judges, beats] = await Promise.all([
     sb.from("clip_metadata").select("clip_id,ai_video_run_id,title:edit_plan->layout->>top_title").in("clip_id", ids),
+    // ⚠ 결정 맵을 최근 30건(decRows)만으로 만들면 하루 결정이 30건을 넘는 순간 옛 반려가
+    //   '미결정'으로 큐에 복귀한다(2026-08-05 실측: 오후 반려분이 밤에 검수함 재등장).
+    //   목록 클립 전체의 결정을 별도로 당겨 합친다.
+    sb.from("review_decisions").select("clip_id,decision,decided_at,decided_by,note,reject_type,reviewer_icon").in("clip_id", ids),
     sb.from("channels").select("id,name"),
     sb.from("works").select("id,title"),
     sb.from("judge_runs").select("clip_id,quality_score,confidence,rubric_scores,created_at").in("clip_id", ids)
@@ -336,6 +340,7 @@ async function apiReview() {
   const title = new Map((metas.data ?? []).map((m: Record<string, unknown>) => [m.clip_id, m.title]));
   const runOf = new Map((metas.data ?? []).map((m: Record<string, unknown>) => [m.clip_id, m.ai_video_run_id]));
   const dec = new Map((decRows ?? []).map((d: Record<string, unknown>) => [d.clip_id, d]));
+  for (const d of decsAll.data ?? []) if (!dec.has(d.clip_id)) dec.set(d.clip_id, d);
   const chName = new Map((chs.data ?? []).map((c: Record<string, unknown>) => [c.id, c.name]));
   const wkName = new Map((wks.data ?? []).map((w: Record<string, unknown>) => [w.id, w.title]));
   const judge = new Map<unknown, unknown>();  // clip_id → 최신 judge 행 (§5 표시 전용)
@@ -403,6 +408,7 @@ async function apiDecision(req: Request) {
     clip_id: clipId, decision, reject_type: rejectType,
     note: body.note ? String(body.note).slice(0, 500) : null,
     decided_by: body.decided_by ? String(body.decided_by).slice(0, 80) : null,
+    reviewer_icon: body.reviewer_icon ? String(body.reviewer_icon).slice(0, 20) : null,  // 0012 표시 전용
     decided_at: new Date().toISOString(),
   }, { onConflict: "clip_id" });
   if (error) return json({ error: error.message }, 500);
@@ -438,12 +444,119 @@ async function apiCommits() {
   return json({ configured: true, repos: out });
 }
 
+// ── 일일 마감 스냅샷 (0011) — 23:55 KST pg_cron 이 /api/snapshot-daily 를 호출해 그날의
+//    신호등·현황을 박제한다. 캘린더 과거 보기(/api/snapshot?date=)가 읽는다. ──
+function kstDayOf(iso: unknown): string | null {
+  if (!iso) return null;
+  const s = String(iso);
+  if (!/[zZ]$|[+-]\d\d:?\d\d$/.test(s)) return s.slice(0, 10);  // 오프셋 없음 = 맥 로컬(KST) 문자열
+  const t = new Date(s);
+  if (isNaN(+t)) return null;
+  return new Date(t.getTime() + 9 * 36e5).toISOString().slice(0, 10);
+}
+
+async function buildDailySnapshot() {
+  const today = kstDayOf(new Date().toISOString())!;
+  const [mx, rev, fd] = await Promise.all([
+    apiMachines().then((r) => r.json()),
+    apiReview().then((r) => r.json()),
+    apiFeed(new URL("http://local/api/feed?days=7")).then((r) => r.json()),
+  ]);
+  const feed = (fd.items ?? []) as Record<string, unknown>[];
+  const vids = [...new Set([...feed.map((f) => f.video_id),
+    ...(mx.queue ?? []).map((q: Record<string, unknown>) => q.video_id)].filter(Boolean))] as string[];
+  const yt: Record<string, { privacy: string; published_at?: string | null }> = {};
+  for (let i = 0; i < vids.length && YT_KEY; i += 50) {
+    try {
+      const r = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=status,snippet&id=${vids.slice(i, i + 50).join(",")}&key=${YT_KEY}`);
+      if (!r.ok) break;
+      const data = await r.json();
+      for (const it of data.items ?? []) yt[it.id] = { privacy: it.status?.privacyStatus ?? "unknown", published_at: it.snippet?.publishedAt ?? null };
+    } catch { break; }
+  }
+  const failedToday = new Set<string>();
+  for (const m of mx.machines ?? []) {
+    if (!m.beat || kstDayOf(m.beat.run_started_at) !== today) continue;
+    for (const c of m.beat.channels ?? []) if (c.result === "failed") failedToday.add(c.channel);
+  }
+  const pend: Record<string, Record<string, unknown>[]> = {};
+  const decd: Record<string, Record<string, unknown>[]> = {};
+  for (const i of rev.queue ?? []) (pend[i.channel] ??= []).push(i);
+  for (const i of rev.decided ?? []) (decd[i.channel] ??= []).push(i);
+  const pubToday: Record<string, Record<string, unknown>[]> = {};
+  const waitPub: Record<string, Record<string, unknown>[]> = {};
+  for (const q of mx.queue ?? []) {
+    if (!q.video_id || q.stale || q.unknown) continue;
+    const pv = yt[q.video_id as string]?.privacy;
+    if (pv && pv !== "public" && pv !== "gone") (waitPub[q.channel as string] ??= []).push(q);
+  }
+  for (const f of feed) {
+    const st = yt[f.video_id as string];
+    if (f.channel && st?.privacy === "public" && kstDayOf(st.published_at) === today) (pubToday[f.channel as string] ??= []).push(f);
+  }
+  const board: Record<string, unknown> = {};
+  for (const [ch, meta] of Object.entries(CHANNELS)) {
+    const decToday = (decd[ch] ?? [])
+      .filter((i) => kstDayOf((i.decision as Record<string, unknown>).decided_at) === today)
+      .sort((a, b) => String((b.decision as Record<string, unknown>).decided_at)
+        .localeCompare(String((a.decision as Record<string, unknown>).decided_at)));
+    const d0 = decToday[0] ? (decToday[0].decision as Record<string, unknown>).decision : null;
+    const gen = failedToday.has(ch) ? "bad"
+      : (pend[ch] ?? []).some((i) => kstDayOf(i.created_at) === today) ? "warn"
+      : d0 === "rejected" ? "rej" : d0 === "approved" ? "ok" : "idle";
+    const pub = (pubToday[ch] ?? []).length ? "ok" : (waitPub[ch] ?? []).length ? "warn" : "idle";
+    const rows: unknown[] = [];
+    if (failedToday.has(ch)) rows.push(["bad", "생성 실패", null, null]);
+    for (const i of pend[ch] ?? []) rows.push(["warn",
+      `${i.work ?? "?"}${i.episode != null ? " " + i.episode + "회차" : ""} — 검수 대기`, null, i.created_at]);
+    for (const i of decToday) {
+      const d = i.decision as Record<string, unknown>;
+      rows.push([d.decision === "approved" ? "ok" : "bad",
+        `${i.work ?? "?"}${i.episode != null ? " " + i.episode + "회차" : ""} — ` +
+        (d.decision === "approved" ? "합격" : d.reject_type === "production" ? "반려 · 제작" : "반려 · 장면"),
+        null, d.decided_at]);
+    }
+    for (const f of pubToday[ch] ?? []) rows.push(["ok",
+      `${f.work ?? "?"}${f.episode_no != null ? " " + f.episode_no + "회차" : ""} — 공개됨`,
+      f.video_id, yt[f.video_id as string]?.published_at ?? f.published_at]);
+    board[ch] = { mac: meta.mac, gen, pub, rows };
+  }
+  const payload = {
+    date: today, generated_at: new Date().toISOString(),
+    machines: Object.values(MACHINES).map((m) => ({ mac: m.mac, label: m.label })),
+    kpis: { review_wait: (rev.queue ?? []).length, failed: failedToday.size },
+    board,
+  };
+  const sb = createClient(SB_URL, SB_KEY);
+  const { error } = await sb.from("dashboard_daily_snapshots")
+    .upsert({ snapshot_date: today, payload }, { onConflict: "snapshot_date" });
+  if (error) return json({ error: error.message }, 500);
+  return json({ ok: true, date: today });
+}
+
+async function apiSnapshot(url: URL) {
+  const date = url.searchParams.get("date") ?? "";
+  const sb = createClient(SB_URL, SB_KEY);
+  const { data, error } = await sb.from("dashboard_daily_snapshots")
+    .select("payload").eq("snapshot_date", date).maybeSingle();
+  if (error) return json({ error: error.message }, 500);
+  if (!data) return json({ error: "no snapshot", date }, 404);
+  return json({ payload: data.payload });
+}
+
+async function apiSnapshotDates() {
+  const sb = createClient(SB_URL, SB_KEY);
+  const { data } = await sb.from("dashboard_daily_snapshots")
+    .select("snapshot_date").order("snapshot_date", { ascending: false }).limit(120);
+  return json({ dates: (data ?? []).map((d: Record<string, unknown>) => d.snapshot_date) });
+}
+
 Deno.serve(async (req) => {
   const url = new URL(req.url);
   const path = url.pathname.replace(/^\/dashboard/, "") || "/";
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (!["GET", "HEAD", "POST"].includes(req.method)) return json({ error: "method" }, 405);
-  if (req.method === "POST" && path !== "/api/decision") return json({ error: "method" }, 405);
+  if (req.method === "POST" && !["/api/decision", "/api/snapshot-daily"].includes(path)) return json({ error: "method" }, 405);
   if (path === "/" || path === "") {
     return json({ service: "VES OPS API", ui: "https://rhoonart-da.github.io/ves-ops-dashboard/", endpoints: ["/api/health", "/api/feed", "/api/perf", "/api/videos", "/api/ytstatus", "/api/chavatars", "/api/machines", "/api/commits"] });
   }
@@ -451,6 +564,9 @@ Deno.serve(async (req) => {
   if (path === "/api/health") {
     return json({ ok: true, secrets: { password: !!PASSWORD, laeebly: !!LAEEBLY, youtube: !!YT_KEY, github: !!GH_TOKEN } });
   }
+  // 스냅샷 생성은 무인증 — pg_cron(pg_net)이 호출하며 시크릿을 알 수 없다. 오늘 날짜의
+  // 마감 기록을 라이브 데이터로 재계산해 덮어쓸 뿐이라(멱등·무해) 인증 없이 둔다.
+  if (path === "/api/snapshot-daily") return buildDailySnapshot();
   const deny = authed(req, url);
   if (deny) return deny;
   if (path === "/api/feed") return apiFeed(url);
@@ -461,6 +577,8 @@ Deno.serve(async (req) => {
   if (path === "/api/machines") return apiMachines();
   if (path === "/api/commits") return apiCommits();
   if (path === "/api/review") return apiReview();
+  if (path === "/api/snapshot") return apiSnapshot(url);
+  if (path === "/api/snapshot-dates") return apiSnapshotDates();
   if (path === "/api/clip-url") return apiClipUrl(url);
   if (path === "/api/decision") return apiDecision(req);
   return json({ error: "not found" }, 404);

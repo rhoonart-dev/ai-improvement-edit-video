@@ -35,6 +35,8 @@ main{flex:1;min-width:0;padding:0 26px 60px}
 .topbar h2{font-size:19px;margin:0}.topbar .sub{color:var(--ink2);font-size:13px}
 .rfbtn{font:inherit;font-size:11.5px;padding:4px 12px;border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--ink2);cursor:pointer;margin-left:auto}
 .rfbtn:hover{border-color:var(--accent);color:var(--ink)}.rfbtn:disabled{opacity:.55;cursor:default}
+.datebox{font:inherit;font-size:11.5px;padding:3px 9px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink2)}
+.pastnote{background:var(--accent-soft);color:var(--accent);padding:8px 12px;font-size:12px;margin-bottom:10px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
 .chip{font-size:12px;border:1px solid var(--line);padding:3px 11px;border-radius:20px;color:var(--ink2);background:var(--panel);cursor:pointer;user-select:none;position:relative}
 .tbadge{position:absolute;top:-8px;right:-7px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--bad);color:#fff;font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:var(--mono)}
@@ -123,8 +125,20 @@ details.tail summary{cursor:pointer;font-size:11.5px;color:var(--ink2)}
 .drow-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .drow-sub{color:var(--ink3);font-size:11px}
 .drow-when{flex:none;color:var(--ink3);font-size:11px}
-.drow-note{position:relative;margin:9px 0 3px 6px;padding:8px 13px;background:var(--ground);border:1px solid var(--line);border-radius:10px;color:var(--ink2);font-size:11.5px;line-height:1.65;white-space:pre-wrap;word-break:break-word;max-width:760px;width:fit-content}
-.drow-note::before{content:"";position:absolute;top:-6px;left:18px;width:10px;height:10px;background:var(--ground);border-left:1px solid var(--line);border-top:1px solid var(--line);transform:rotate(45deg)}
+.drow-body{display:flex;gap:10px;margin-top:8px;align-items:flex-start}
+.drow-author{width:58px;flex:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding-top:1px;font-size:10.5px;color:var(--ink3);text-align:center;word-break:keep-all}
+.drow-note{position:relative;margin:2px 0 3px 4px;padding:8px 13px;background:var(--ground);border:1px solid var(--line);border-radius:10px;color:var(--ink2);font-size:11.5px;line-height:1.65;white-space:pre-wrap;word-break:break-word;max-width:720px;width:fit-content;flex:0 1 auto}
+.drow-note::before{content:"";position:absolute;bottom:9px;left:-6px;width:10px;height:10px;background:var(--ground);border-left:1px solid var(--line);border-bottom:1px solid var(--line);transform:rotate(45deg)}
+.drow-note.ok{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.drow-note.ok::before{background:var(--okbg);border-color:var(--ok)}
+.face{display:block;border-radius:50%}
+.avpick{position:relative;display:flex;align-items:center}
+.avbtn{border:1px solid var(--line);background:var(--panel);border-radius:50%;padding:2px;cursor:pointer;display:flex}
+.avbtn:hover{border-color:var(--accent)}
+.avpop{position:absolute;top:36px;right:0;z-index:30;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;display:grid;grid-template-columns:repeat(5,1fr);gap:6px;box-shadow:0 6px 22px rgba(0,0,0,.18)}
+.avopt{border:2px solid transparent;background:none;border-radius:50%;padding:2px;cursor:pointer;display:flex}
+.avopt:hover{border-color:var(--line)}.avopt.on{border-color:var(--accent)}
+.notehint{margin:6px 2px 0;font-size:11.5px;line-height:1.6;color:var(--warn)}
 .decided-row:last-child{border-bottom:none}
 .dpill{font-size:11px;font-weight:600;padding:1px 8px;border-radius:10px}
 .dpill.approved{background:var(--okbg);color:var(--ok)}.dpill.rejected{background:var(--badbg);color:var(--bad)}
@@ -228,6 +242,43 @@ function StatusPill({ st }) {
 
 // ── 홈 · 검수함 ──
 // ── 공통: 페이지 데이터 새로고침 버튼 (사이트 리로드 없이 API 만 다시) ──
+// ── 검수자 프로필 얼굴 (0012) — 연한 파스텔 + 은은한 선. 표시 전용, id 만 DB 에 저장 ──
+const FACES = [
+  ["smile",   "#F4E7E9"], ["beam",  "#E8F0E4"], ["wink",   "#E4EDF6"], ["calm",   "#F6F0DF"],
+  ["surprise","#EDE7F5"], ["sleepy","#E2F0EC"], ["grin",   "#F6EAE1"], ["shy",    "#EFEDEA"],
+  ["smirk",   "#E5F0F6"], ["gentle","#EFF3DF"],
+];
+const FACE_BG = Object.fromEntries(FACES);
+function Face({ id, size = 30 }) {
+  const bg = FACE_BG[id] || FACES[0][1];
+  const ink = "#7d786e";
+  const dot = (cx, cy) => html`<circle cx=${cx} cy=${cy} r="1.5" fill=${ink} />`;
+  const feat = {
+    smile: html`${dot(11.5, 13.5)}${dot(20.5, 13.5)}<path d="M11.5 19.5 Q16 23 20.5 19.5" />`,
+    beam: html`<path d="M9.5 14 Q11.5 11.5 13.5 14" /><path d="M18.5 14 Q20.5 11.5 22.5 14" /><path d="M12 19.5 Q16 22.5 20 19.5" />`,
+    wink: html`${dot(11.5, 13.5)}<path d="M18.5 13.5 h4" /><path d="M11.5 19.5 Q16 23 20.5 19.5" />`,
+    calm: html`${dot(11.5, 13.5)}${dot(20.5, 13.5)}<path d="M12.5 20 h7" />`,
+    surprise: html`${dot(11.5, 13)}${dot(20.5, 13)}<circle cx="16" cy="20" r="2.2" />`,
+    sleepy: html`<path d="M10 13.5 h4" /><path d="M18 13.5 h4" /><path d="M14 20 Q16 21.5 18 20" />`,
+    grin: html`${dot(11.5, 13.5)}${dot(20.5, 13.5)}<path d="M10.5 18.5 Q16 24.5 21.5 18.5" />`,
+    shy: html`${dot(11.5, 13.5)}${dot(20.5, 13.5)}<path d="M13.5 20 Q16 21.8 18.5 20" /><circle cx="8.8" cy="17.5" r="1.6" fill="#EBC9CE" stroke="none" /><circle cx="23.2" cy="17.5" r="1.6" fill="#EBC9CE" stroke="none" />`,
+    smirk: html`${dot(11.5, 13.5)}${dot(20.5, 13.5)}<path d="M12 20 Q17 22.5 20.5 18.8" />`,
+    gentle: html`<path d="M9.5 13 Q11.5 15 13.5 13" /><path d="M18.5 13 Q20.5 15 22.5 13" /><path d="M12 19 Q16 22 20 19" />`,
+  };
+  return html`<svg class="face" width=${size} height=${size} viewBox="0 0 32 32">
+    <circle cx="16" cy="16" r="15" fill=${bg} stroke="rgba(0,0,0,.07)" />
+    <g stroke=${ink} stroke-width="1.6" stroke-linecap="round" fill="none">${feat[id] || feat.smile}</g>
+  </svg>`;
+}
+// 아이콘 미저장 결정(과거분·타인)은 이름 해시로 고정 배정 — 모든 뷰어에게 같은 얼굴
+function faceOf(decision) {
+  if (decision.reviewer_icon && FACE_BG[decision.reviewer_icon]) return decision.reviewer_icon;
+  const s = decision.decided_by || "?";
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return FACES[h % FACES.length][0];
+}
+
 function RefreshBtn({ onRefresh }) {
   const [busy, setBusy] = useState(false);
   return html`<button class="rfbtn" disabled=${busy} onClick=${async () => {
@@ -257,7 +308,7 @@ function ChannelChip({ name, chmap, avatars }) {
 // 예약공개는 API 로 미리 안 보인다(비공개와 동일) — 실제 공개되는 순간 publishedAt 으로 잡힌다.
 // 지난 이력은 드릴다운(시각 표기)이 담당 — 어제의 초록이 오늘의 문제를 가리면 안 된다.
 // 드릴다운은 카드 클릭 토글이되, 실패가 있는 맥은 자동으로 펼친다(문제가 먼저 보이게).
-function MacBoard({ machines, queue, review, chmap, avatars, yt, feed }) {
+function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl }) {
   const [manual, setManual] = useState({});   // machine_id → 수동 열림/닫힘 (자동값 덮어씀)
   // accepted_at(맥 로컬시각, 오프셋 없음)과 created_at(UTC 오프셋 포함)이 섞인다 —
   // Date 파싱이 둘 다 브라우저 로컬(KST)로 맞춰주므로 날짜 비교는 toDateString 으로.
@@ -337,6 +388,7 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed }) {
   const toggle = (m) => setManual((p) => ({ ...p, [m.machine_id]: !isOpen(m) }));
   return html`<div>
     <div class="boardlegend">
+      ${dateCtl}
       <b style=${{ color: "var(--ink2)" }}>생성</b>
       <span class="lg"><span class="chdot ok"></span>검수 통과</span>
       <span class="lg"><span class="chdot warn"></span>검수 대기</span>
@@ -374,10 +426,57 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed }) {
   </div>`;
 }
 
+// ── 홈: 과거 날짜 보드 — 일일 마감 스냅샷(23:55 저장분)을 그대로 렌더. 재계산 없음. ──
+function PastBoard({ snap, chmap, avatars }) {
+  const b = snap.board || {};
+  const chansOf = (mac) => Object.keys(b).filter((c) => b[c].mac === mac);
+  return html`<div>
+    <div class="macboard">
+      ${(snap.machines || []).map((m) => html`<div key=${m.mac} class="macbox" style=${{ cursor: "default" }}>
+        <h4>${m.mac} <small>· ${m.label}</small></h4>
+        ${chansOf(m.mac).length ? html`<div class="chrow chhead"><span>생성</span><span>공개</span></div>` : null}
+        ${chansOf(m.mac).map((ch) => html`<div class="chrow" key=${ch}>
+          <${ChannelChip} name=${ch} chmap=${chmap} avatars=${avatars} />
+          <span class="dotpair"><span class=${"chdot " + b[ch].gen}></span>
+            <span class=${"chdot " + b[ch].pub}></span></span></div>`)}
+        ${chansOf(m.mac).length === 0 ? html`<div class="chrow" style=${{ color: "var(--ink3)" }}>담당 채널 없음</div>` : null}
+      </div>`)}
+    </div>
+    ${(snap.machines || []).filter((m) => chansOf(m.mac).some((c) => (b[c].rows || []).length)).map((m) => html`
+      <div class="drill" key=${m.mac}>
+        <h4>${m.mac} <small>· ${m.label} — 그날 기록</small></h4>
+        ${chansOf(m.mac).filter((ch) => (b[ch].rows || []).length).map((ch) => html`<div class="drillrow" key=${ch}>
+          <div class="drillch"><${ChannelChip} name=${ch} chmap=${chmap} avatars=${avatars} /></div>
+          <div class="drillitems">${b[ch].rows.map(([cls, text, vid, t], i) => html`
+            <div key=${i} class="ditem"><span class="dtime">${fmtDT(t)}</span>
+              <span class=${"st " + cls} style=${{ fontWeight: 400 }}>${text}
+              ${vid ? html` <a class="lnk" target="_blank" rel="noopener"
+                href=${"https://studio.youtube.com/video/" + vid + "/edit"}>Studio →</a>` : null}</span></div>`)}</div>
+        </div>`)}
+      </div>`)}
+  </div>`;
+}
+
 function HomePage({ machines, queue, yt, now, review, chmap, avatars, feed, refresh }) {
   // 검수 대기 = 검수함 큐(review_decisions 기준) — 스냅샷의 미발행 장면 수로 세면 결정이
   // 나도 발행 전까지 계속 '대기'로 남는다(2026-08-05 운영자 발견: 검수 끝냈는데 9건 표시).
   // 공개 전환 대기(구 흐름 일부공개 잔량)만 스냅샷 × YouTube 상태로 센다.
+  // 캘린더 과거 보기 — 오늘이면 라이브, 과거면 그날 마감 스냅샷(23:55 저장분)
+  const todayStr = (() => { const d = new Date(); const z = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`; })();
+  const [selDate, setSelDate] = useState(todayStr);
+  const [snap, setSnap] = useState(null);
+  const [snapState, setSnapState] = useState("live"); // live | loading | ok | none
+  useEffect(() => {
+    if (selDate >= todayStr) { setSnapState("live"); setSnap(null); return; }
+    setSnapState("loading");
+    api("/api/snapshot?date=" + selDate)
+      .then((d) => { if (d.payload) { setSnap(d.payload); setSnapState("ok"); } else setSnapState("none"); })
+      .catch(() => setSnapState("none"));
+  }, [selDate]);
+  // 보드를 지배하는 컨트롤이라 상단바가 아니라 보드 범례 맨 왼쪽에 둔다(2026-08-05 운영자)
+  const dateCtl = html`<input type="date" class="datebox" max=${todayStr} value=${selDate}
+    title="과거 날짜의 마감 기록 보기" onChange=${(e) => setSelDate(e.target.value || todayStr)} />`;
   const rq = review?.queue ?? [];
   const needPublic = queue.filter((q) => !q.stale && !q.unknown && q.video_id
     && yt[q.video_id] && !["public", "gone"].includes(yt[q.video_id].privacy));
@@ -415,7 +514,17 @@ function HomePage({ machines, queue, yt, now, review, chmap, avatars, feed, refr
         <div class="val">${beatsOk}<small> / ${machines.length} 대</small></div>
         <div class="hint">${machines.filter((m) => !m.beat).map((m) => m.mac).join(", ") || "전원 수신"}${machines.some((m) => !m.beat) ? " 무보고" : ""}</div></div>
     </div>
-    <${MacBoard} machines=${machines} queue=${queue} review=${review} chmap=${chmap} avatars=${avatars} yt=${yt} feed=${feed} />
+    ${snapState === "live"
+      ? html`<${MacBoard} machines=${machines} queue=${queue} review=${review} chmap=${chmap} avatars=${avatars} yt=${yt} feed=${feed}
+          dateCtl=${dateCtl} />`
+      : snapState === "loading" ? html`<div class="skel">${selDate} 마감 기록 불러오는 중…</div>`
+      : snapState === "none" ? html`<div class="pastnote">${dateCtl}<span>이 날짜의 마감 기록이 없습니다 — 스냅샷은 2026-08-05부터 매일 23:55에 저장됩니다.</span>
+          <button class="rfbtn" style=${{ margin: 0 }} onClick=${() => setSelDate(todayStr)}>오늘로 돌아가기</button></div>`
+      : html`<div>
+          <div class="pastnote">${dateCtl}<b>마감 기록</b><span>매일 23:55 저장 — 당시 신호등·현황 그대로 (검수 대기 ${snap.kpis?.review_wait ?? "?"} · 생성 실패 ${snap.kpis?.failed ?? "?"})</span>
+            <button class="rfbtn" style=${{ margin: 0 }} onClick=${() => setSelDate(todayStr)}>오늘로 돌아가기</button></div>
+          <${PastBoard} snap=${snap} chmap=${chmap} avatars=${avatars} />
+        </div>`}
     <div class="two-col">
       <div class="panel"><h3>검수 대기함 — 채널 × 회차</h3>
         ${braked.length ? html`<p class="note err">⚠ ${braked.length}개 채널이 검수 지연으로 생성 정지 중 — 공개 전환하면 다음 실행부터 다시 생산됩니다</p>` : null}
@@ -556,6 +665,8 @@ function ReviewCard({ item, onDecide, chmap, avatars }) {
   const [url, setUrl] = useState(null);
   const [note, setNote] = useState("");
   const [prodReject, setProdReject] = useState(false);
+  // judge 와 사람 판단이 갈리는 지점 — 그 이유가 judge 개선의 유일한 재료다(스펙 §5 비교 뷰)
+  const lowJudge = item.judge?.quality_score != null && Number(item.judge.quality_score) < 0.5;
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     let alive = true;
@@ -594,8 +705,10 @@ function ReviewCard({ item, onDecide, chmap, avatars }) {
         ${item.judge.rubric_scores?.rationale ? html`<details><summary>judge 사유 보기</summary>
           ${item.judge.rubric_scores.rationale}</details>` : null}
       </div>` : html`<div class="judgebox" style=${{ color: "var(--ink3)" }}>judge 대기중 — 결정은 그대로 가능합니다</div>`}
-      <input class="reason" placeholder="반려 사유 (선택) — 쌓이면 개선 신호가 됩니다"
+      <input class="reason" placeholder="사유·메모 (선택) — 합격·반려 모두 기록됩니다"
         value=${note} onChange=${(e) => setNote(e.target.value)} />
+      ${lowJudge && !note.trim() ? html`<p class="notehint">💬 judge 가 낮게 봤습니다(${Number(item.judge.quality_score).toFixed(2)})
+        — 그래도 합격시키신다면 이유를 남겨 주세요. judge 를 고칠 근거가 됩니다.</p>` : null}
       <label style=${{ fontSize: "11.5px", color: "var(--ink2)", display: "flex", gap: "6px", alignItems: "center", cursor: "pointer" }}>
         <input type="checkbox" checked=${prodReject} onChange=${(e) => setProdReject(e.target.checked)} />
         제작 결함 (장면은 좋음 — 같은 구간 재시도 허용: TTS·자막·오디오 등)
@@ -610,6 +723,8 @@ function ReviewCard({ item, onDecide, chmap, avatars }) {
 
 function ReviewPage({ review, reload, chmap, avatars }) {  // reload: App 의 검수함 재조회
   const [name, setName] = useState(localStorage.getItem("ves_name") || "");
+  const [icon, setIcon] = useState(localStorage.getItem("ves_icon") || "smile");
+  const [pickOpen, setPickOpen] = useState(false);
   const [msg, setMsg] = useState(null);
   const [tab, setTab] = useState("전체");
   const onDecide = async (item, decision, note, rejectType) => {
@@ -617,12 +732,14 @@ function ReviewPage({ review, reload, chmap, avatars }) {  // reload: App 의 �
       method: "POST",
       headers: { "x-ves-key": encodeURIComponent(KEY()), "content-type": "application/json" },
       body: JSON.stringify({ clip_id: item.clip_id, decision, note: note || null,
-        decided_by: name || null, reject_type: decision === "rejected" ? rejectType : null }),
+        decided_by: name || null, reviewer_icon: icon,
+        reject_type: decision === "rejected" ? rejectType : null }),
     });
     const d = await r.json();
     if (!r.ok || d.error) { setMsg("기록 실패: " + (d.error || r.status)); return; }
-    setMsg((decision === "approved" ? "✅ 합격" : "❌ 반려") + " 기록됨 — " + (item.channel || "") +
-      (decision === "approved" ? " · 10분 내 발행 픽업 예정(4단계 적용 후)" : " · 대기 슬롯 해제"));
+    setMsg((decision === "approved" ? "✅ 합격" : "❌ 반려") + ((note || "").trim() ? " (사유 기록됨)" : "") + " — " + (item.channel || "") +
+      (decision === "approved" ? " · 10분 내 자동 발행 → 오늘 몫이 비었으면 그 즉시, 아니면 다음 19시 공개"
+        : " · 대기 슬롯 해제 → 대체 장면 생성"));
     reload();
   };
   const allQueue = review?.queue ?? [];
@@ -635,7 +752,15 @@ function ReviewPage({ review, reload, chmap, avatars }) {  // reload: App 의 �
       <span class="sub">보고 → 누르면 끝. 결정은 DB(review_decisions)에 기록됩니다</span>
       <${RefreshBtn} onRefresh=${reload} />
       <span style=${{ display: "flex", gap: "8px", alignItems: "center", fontSize: "12px", color: "var(--ink3)" }}>
-        검수자 <input class="namebox" placeholder="이름(결정에 기록)" value=${name}
+        검수자
+        <span class="avpick">
+          <button class="avbtn" title="프로필 아이콘 선택" onClick=${() => setPickOpen(!pickOpen)}><${Face} id=${icon} size=${26} /></button>
+          ${pickOpen ? html`<div class="avpop">${FACES.map(([id]) => html`
+            <button key=${id} class=${"avopt" + (id === icon ? " on" : "")}
+              onClick=${() => { setIcon(id); localStorage.setItem("ves_icon", id); setPickOpen(false); }}>
+              <${Face} id=${id} size=${30} /></button>`)}</div>` : null}
+        </span>
+        <input class="namebox" placeholder="이름(결정에 기록)" value=${name}
           onChange=${(e) => { setName(e.target.value); localStorage.setItem("ves_name", e.target.value); }} /></span>
     </div>
     ${msg ? html`<p class="note">${msg}</p>` : null}
@@ -651,9 +776,12 @@ function ReviewPage({ review, reload, chmap, avatars }) {  // reload: App 의 �
           <span class=${"dpill " + d.decision.decision}>${d.decision.decision === "approved" ? "합격"
             : d.decision.reject_type === "production" ? "반려·제작" : "반려·장면"}</span>
           <span class="drow-title">${d.title || d.clip_id} <span class="drow-sub">· ${d.channel || ""}${d.episode != null ? " " + d.episode + "회차" : ""}${d.published ? " · 발행됨" : ""}</span></span>
-          <span class="drow-when">${fmtDT(d.decision.decided_at)}${d.decision.decided_by ? " · " + d.decision.decided_by : ""}</span>
+          <span class="drow-when">${fmtDT(d.decision.decided_at)}${!d.decision.note && d.decision.decided_by ? " · " + d.decision.decided_by : ""}</span>
         </div>
-        ${d.decision.note ? html`<div class="drow-note">${d.decision.note}</div>` : null}
+        ${d.decision.note ? html`<div class="drow-body">
+          <div class="drow-author"><${Face} id=${faceOf(d.decision)} size=${32} /><span>${d.decision.decided_by || "익명"}</span></div>
+          <div class=${"drow-note" + (d.decision.decision === "approved" ? " ok" : "")}>${d.decision.note}</div>
+        </div>` : null}
       </div>`)}
     </div>` : null}
   </div>`;
