@@ -29,3 +29,9 @@ SELECT cron.schedule('dashboard-daily-snapshot', '55 14 * * *',
   $$SELECT net.http_post(
       url := 'https://fdidiqdhcyctdbogxkdu.supabase.co/functions/v1/dashboard/api/snapshot-daily',
       body := '{}'::jsonb)$$);
+
+-- 0011a (2026-08-06): created_at 오독 방지 주석.
+-- upsert 는 payload 만 갱신하고 created_at 은 최초 생성 시각 그대로 둔다 — "어젯밤 크론이
+-- 돌았나?"는 created_at 이 아니라 payload->>'generated_at' 으로 봐야 한다(8/6 실제 오독).
+COMMENT ON COLUMN public.dashboard_daily_snapshots.created_at IS
+  '행이 처음 생긴 시각(upsert 로 payload 가 갱신돼도 안 바뀜). 마지막 기록 시각은 payload->>generated_at 이 정본';
