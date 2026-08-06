@@ -200,6 +200,7 @@ details.tail summary{cursor:pointer;font-size:11.5px;color:var(--ink2)}
 /* 링 = 재생성 사이클을 거친 상태(첫 시도 실패 후 다시 만든 것) */
 .chdot.warnr{background:transparent;border:3px solid var(--dotwarn,var(--warn))}
 .chdot.okr{background:transparent;border:3px solid var(--ok)}
+.chdot.hold{background:transparent;border:3px solid var(--line)}
 .chlink{display:flex;align-items:center;gap:6px;color:inherit;text-decoration:none;min-width:0}
 .chlink span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 a.chlink:hover span{text-decoration:underline}
@@ -340,7 +341,8 @@ function ChannelChip({ name, chmap, avatars }) {
 
 // 점 툴팁 — 범례를 짧게 줄인 대신 정확한 뜻은 여기서(2026-08-06 운영자 합의)
 const GEN_TIP = { ok: "검수 통과", warn: "검수 대기", rej: "반려 (대체 장면 생성 예정)",
-  bad: "생성 실패", okr: "재생성 후 검수 통과", warnr: "재생성 후 검수 대기", idle: "오늘 신호 없음" };
+  bad: "생성 실패", okr: "재생성 후 검수 통과", warnr: "재생성 후 검수 대기",
+  hold: "재생성 반복했지만 전부 중복 — 보류 (소재 소진 의심)", idle: "오늘 신호 없음" };
 const PUB_TIP = { ok: "오늘 공개됨", warn: "공개 전환 대기 (Studio)", idle: "오늘 공개 없음" };
 
 // ── 홈: 6대 상태 보드 + 드릴다운 ──
@@ -352,7 +354,7 @@ const PUB_TIP = { ok: "오늘 공개됨", warn: "공개 전환 대기 (Studio)",
 // 예약공개는 API 로 미리 안 보인다(비공개와 동일) — 실제 공개되는 순간 publishedAt 으로 잡힌다.
 // 지난 이력은 드릴다운(시각 표기)이 담당 — 어제의 초록이 오늘의 문제를 가리면 안 된다.
 // 드릴다운은 카드 클릭 토글이되, 실패가 있는 맥은 자동으로 펼친다(문제가 먼저 보이게).
-function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl, failures }) {
+function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl, failures, holds }) {
   const [manual, setManual] = useState({});   // machine_id → 수동 열림/닫힘 (자동값 덮어씀)
   const [help, setHelp] = useState(false);   // 범례 ⓘ — 긴 설명은 여기로 접었다(2026-08-06)
   // accepted_at(맥 로컬시각, 오프셋 없음)과 created_at(UTC 오프셋 포함)이 섞인다 —
@@ -366,7 +368,13 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl, 
   // 서버가 오늘 **전 비트**에서 모아준 맵을 쓴다 — machines[].beat(머신당 최신 1건)만 보면
   // 재생성 실행이 새 비트를 남기는 순간 새벽 실패가 사라진다(2026-08-06 실측).
   const failedAt = failures ?? {};
-  const failed = { has: (ch) => ch in failedAt };
+  const holdAt = holds ?? {};   // 3회 전부 중복 → 보류(dup_hold). 실패보다 약하지만 사람이 봐야 한다
+  const badAt = (ch) => {
+    const f = failedAt[ch], h = holdAt[ch];
+    return !f ? h : !h ? f : (String(f) > String(h) ? f : h);
+  };
+  const badKind = (ch) => (badAt(ch) === failedAt[ch] ? "bad" : "hold");
+  const failed = { has: (ch) => !!badAt(ch) };
   const pend = {}, dec = {}, waitPublic = {};
   for (const i of review?.queue ?? []) (pend[i.channel] ??= []).push(i);
   for (const i of review?.decided ?? []) (dec[i.channel] ??= []).push(i);
@@ -392,7 +400,7 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl, 
   const todayDec = (ch) => (dec[ch] ?? []).find((i) => isToday(i.decision.decided_at));
   // 실패 뒤에 온 신호인가 — 재생성분(그 뒤 적재된 클립·그 뒤 내려진 결정)이면 true.
   const after = (ch, iso) => {
-    const f = failedAt[ch];
+    const f = badAt(ch);
     return !f || (iso && new Date(iso) > new Date(f));
   };
   // 생성 점: 실패가 최신이면 빨강(solid). 실패 뒤 재생성분이 있으면 그 결과를 **링**으로 —
@@ -409,7 +417,7 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl, 
     if (waiting.some((i) => after(ch, i.created_at))) return "warnr";   // 재생성 → 검수 대기
     if (d && after(ch, d.decision.decided_at)) return d.decision.decision === "approved" ? "okr" : "rej";
     if ((pubToday[ch] ?? []).some((f) => after(ch, f.published_at))) return "okr";
-    return "bad";                                                       // 실패가 마지막 소식
+    return badKind(ch);                                                 // 실패/보류가 마지막 소식
   };
   const chVids = {};  // 채널 → 아는 video_id 전부 (피드 + 스냅샷)
   for (const f of feed ?? []) if (f.channel && f.video_id) (chVids[f.channel] ??= new Set()).add(f.video_id);
@@ -427,9 +435,13 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl, 
   // 그래서 줄마다 생성 시각(발행분은 장면 확정 시각)을 왼쪽에 붙인다(2026-08-05 운영자 요청).
   const rowsOf = (ch, m) => {
     const items = [];
-    if (failed.has(ch)) items.push([genStatus(ch).endsWith("r") ? "warn" : "bad",
-      genStatus(ch).endsWith("r") ? "생성 실패 → 재생성함 (다음 항목이 재생성분)"
-        : "최근 생성 실패 — 상세는 '머신 로그' 탭", null, failedAt[ch]]);
+    if (failed.has(ch)) {
+      const g = genStatus(ch);
+      items.push([g.endsWith("r") || g === "hold" ? "warn" : "bad",
+        g.endsWith("r") ? "생성 실패 → 재생성함 (다음 항목이 재생성분)"
+          : badKind(ch) === "hold" ? "재생성 반복했지만 전부 중복 → 보류 (소재 소진 의심 — 회차 전진 검토)"
+          : "최근 생성 실패 — 상세는 '머신 로그' 탭", null, badAt(ch)]);
+    }
     for (const i of pend[ch] ?? []) items.push(["warn",
       `${i.work || "?"}${i.episode != null ? " " + i.episode + "회차" : ""} — 검수 대기` +
       (i.judge?.quality_score != null ? ` (judge ${Number(i.judge.quality_score).toFixed(2)})` : ""), null, i.created_at]);
@@ -467,6 +479,7 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl, 
           <b>어느 단계</b>인지는 카드의 <b>생성 · 공개</b> 머리글이 알려줍니다.<br/>
           예: 생성 열 초록 = 검수 통과, 공개 열 초록 = 오늘 공개됨<br/>
           <b>회색</b>은 오늘 그 단계에서 아무 신호가 없었다는 뜻입니다.<br/>
+          <b>회색 링</b>은 재생성을 반복했지만 전부 중복이라 보류된 상태입니다.<br/>
           <span style=${{ color: "var(--ink3)" }}>· 기준은 항상 오늘 — 예약공개는 공개되는 순간 반영</span><br/>
           <span style=${{ color: "var(--ink3)" }}>· 카드를 누르면 상세, 실패가 있는 맥은 자동으로 펼쳐집니다</span>
         </div>` : null}
@@ -528,7 +541,7 @@ function PastBoard({ snap, chmap, avatars }) {
   </div>`;
 }
 
-function HomePage({ machines, queue, yt, now, review, chmap, avatars, feed, refresh, failures }) {
+function HomePage({ machines, queue, yt, now, review, chmap, avatars, feed, refresh, failures, holds }) {
   // 검수 대기 = 검수함 큐(review_decisions 기준) — 스냅샷의 미발행 장면 수로 세면 결정이
   // 나도 발행 전까지 계속 '대기'로 남는다(2026-08-05 운영자 발견: 검수 끝냈는데 9건 표시).
   // 공개 전환 대기(구 흐름 일부공개 잔량)만 스냅샷 × YouTube 상태로 센다.
@@ -553,6 +566,7 @@ function HomePage({ machines, queue, yt, now, review, chmap, avatars, feed, refr
     && yt[q.video_id] && !["public", "gone"].includes(yt[q.video_id].privacy));
   const braked = machines.flatMap((m) => (m.beat?.channels ?? []).filter((c) => c.result === "paused_pending").map((c) => ({ ...c, mac: m.mac })));
   const failed = Object.keys(failures ?? {}).map((channel) => ({ channel }));  // 오늘 전 비트 기준
+  const holdList = Object.keys(holds ?? {});
   const beatsOk = machines.filter((m) => m.beat).length;
   // 채널×회차로 묶기 — 검수 대기(검수함 큐)와 공개 전환 대기(스냅샷)를 한 표로
   const groups = {};
@@ -580,14 +594,15 @@ function HomePage({ machines, queue, yt, now, review, chmap, avatars, feed, refr
         <div class="val">${braked.length}<small> 채널</small></div><div class="hint">대기 가득 → 생성 정지</div></div>
       <div class=${"kpi" + (failed.length ? " warn" : " ok")}><div class="lab">최근 실행 실패</div>
         <div class="val">${failed.length}<small> 건</small></div>
-        <div class="hint">${failed.map((f) => f.channel).join(", ") || "없음"}</div></div>
+        <div class="hint">${failed.map((f) => f.channel).join(", ") || "없음"}${holdList.length
+          ? ` · 중복 보류 ${holdList.length}: ${holdList.join(", ")}` : ""}</div></div>
       <div class=${"kpi" + (beatsOk < machines.length ? " warn" : " ok")}><div class="lab">하트비트</div>
         <div class="val">${beatsOk}<small> / ${machines.length} 대</small></div>
         <div class="hint">${machines.filter((m) => !m.beat).map((m) => m.mac).join(", ") || "전원 수신"}${machines.some((m) => !m.beat) ? " 무보고" : ""}</div></div>
     </div>
     ${snapState === "live"
       ? html`<${MacBoard} machines=${machines} queue=${queue} review=${review} chmap=${chmap} avatars=${avatars} yt=${yt} feed=${feed}
-          dateCtl=${dateCtl} failures=${failures} />`
+          dateCtl=${dateCtl} failures=${failures} holds=${holds} />`
       : snapState === "loading" ? html`<div class="skel">${selDate} 마감 기록 불러오는 중…</div>`
       : snapState === "none" ? html`<div class="pastnote">${dateCtl}<span>이 날짜의 마감 기록이 없습니다 — 스냅샷은 2026-08-05부터 매일 23:55에 저장됩니다.</span>
           <button class="rfbtn" style=${{ margin: 0 }} onClick=${() => setSelDate(todayStr)}>오늘로 돌아가기</button></div>`
@@ -1096,7 +1111,7 @@ function App() {
     <main>
       ${page === "home" ? html`<${HomePage} machines=${machines} queue=${queue} yt=${yt} now=${mx?.now}
         review=${review} chmap=${mx?.channels ?? {}} avatars=${avatars} feed=${feed} refresh=${load}
-        failures=${mx?.failuresToday ?? {}} />` : null}
+        failures=${mx?.failuresToday ?? {}} holds=${mx?.holdsToday ?? {}} />` : null}
       ${page === "review" ? html`<${ReviewPage} review=${review} chmap=${mx?.channels ?? {}} avatars=${avatars}
         reload=${() => api("/api/review").then(setReview).catch(() => null)} />` : null}
       ${page === "feed" ? html`<${FeedPage} feed=${feed} yt=${yt} ytConfigured=${ytConfigured} refresh=${load}

@@ -1,4 +1,4 @@
-// VES 운영 대시보드 — v4.5 API (v4.4 + failuresToday — 재실행에 덮인 실패도 신호등이 기억)
+// VES 운영 대시보드 — v4.6 API (v4.5 + holdsToday — 3회 전부 중복이라 보류된 채널을 회색 링으로)
 // 배포: Supabase Edge Function `dashboard` (프로젝트 fdidiqdhcyctdbogxkdu, verify_jwt=false)
 // 화면: https://rhoonart-da.github.io/ves-ops-dashboard/ (GitHub Pages, React 단일 파일) — 이 함수는 API 전용.
 //   슈파베이스 기본 도메인은 text/html 을 text/plain 으로 강제해 HTML 서빙이 불가하다.
@@ -296,16 +296,23 @@ async function apiMachines() {
   // 커리어데이 숏츠 — 실패 후 재생성했는데 링이 안 그려짐). 신호등·스냅샷이 이 맵을 쓴다.
   const todayKst = kstDayOf(new Date().toISOString());
   const failuresToday: Record<string, string> = {};
+  // dup_hold = 실행은 됐지만 3회 전부 중복이라 아무것도 못 건진 것(send_heartbeat 파서, 2026-08-06).
+  // 'skipped'(할 일 없어 넘어감)와 달리 사람이 봐야 하는 상태라 따로 내려준다.
+  const holdsToday: Record<string, string> = {};
   for (const b of beats ?? []) {
     if (kstDayOf(b.run_started_at) !== todayKst) continue;
     for (const c of (b.channels ?? []) as Record<string, unknown>[]) {
-      if (c.result !== "failed" || !c.channel) continue;
+      if (!c.channel) continue;
       const ch = String(c.channel), t = String(b.run_started_at);
-      if (!failuresToday[ch] || t > failuresToday[ch]) failuresToday[ch] = t;
+      if (c.result === "failed" && (!failuresToday[ch] || t > failuresToday[ch])) failuresToday[ch] = t;
+      // 구 하트비트 소급: 파서 배포 전 비트는 result='skipped' 이지만 tries>0 이면 같은 상태다
+      // (할 일 없어 넘어간 채널은 tries=0). 맥들이 pull 하면 dup_hold 로 정확히 들어온다.
+      const isHold = c.result === "dup_hold" || (c.result === "skipped" && Number(c.tries ?? 0) > 0);
+      if (isHold && (!holdsToday[ch] || t > holdsToday[ch])) holdsToday[ch] = t;
     }
   }
   // channels: 정본 맵(이름→{id,mac}) 동봉 — 홈 보드가 담당 채널 목록·유튜브 링크에 쓴다
-  return json({ now: new Date().toISOString(), machines, queue, anomalies, channels: CHANNELS, failuresToday });
+  return json({ now: new Date().toISOString(), machines, queue, anomalies, channels: CHANNELS, failuresToday, holdsToday });
 }
 
 // ── API: 최신 커밋 (GITHUB_TOKEN 선택 — 없으면 configured:false, pull 매트릭스는 상호 비교로 동작) ──
@@ -508,9 +515,16 @@ async function buildDailySnapshot() {
   }
   // 실패 시각 — apiMachines 가 오늘 전 비트에서 모아준 맵(재실행에 덮이지 않는다)
   const failedAt: Record<string, string> = mx.failuresToday ?? {};
-  const failedToday = { has: (ch: string) => ch in failedAt };
+  const holdAt: Record<string, string> = mx.holdsToday ?? {};
+  // 부정 이벤트(실패·중복보류) 중 더 나중 것이 그 채널의 '마지막 나쁜 소식'
+  const badAt = (ch: string) => {
+    const f = failedAt[ch], h = holdAt[ch];
+    return !f ? h : !h ? f : (f > h ? f : h);
+  };
+  const badKind = (ch: string) => (badAt(ch) === failedAt[ch] ? "bad" : "hold");
+  const failedToday = { has: (ch: string) => !!badAt(ch) };
   const after = (ch: string, iso: unknown) => {
-    const f = failedAt[ch];
+    const f = badAt(ch);
     return !f || (!!iso && new Date(String(iso)) > new Date(f));
   };
   const pend: Record<string, Record<string, unknown>[]> = {};
@@ -544,11 +558,13 @@ async function buildDailySnapshot() {
       : (decToday[0] && after(ch, (decToday[0].decision as Record<string, unknown>).decided_at))
         ? (d0 === "approved" ? "okr" : "rej")
       : (pubToday[ch] ?? []).some((f) => after(ch, yt[f.video_id as string]?.published_at ?? f.published_at)) ? "okr"
-      : "bad";
+      : badKind(ch);
     const pub = (pubToday[ch] ?? []).length ? "ok" : (waitPub[ch] ?? []).length ? "warn" : "idle";
     const rows: unknown[] = [];
-    if (failedToday.has(ch)) rows.push([gen.endsWith("r") ? "warn" : "bad",
-      gen.endsWith("r") ? "생성 실패 → 재생성함" : "생성 실패", null, failedAt[ch]]);
+    if (failedToday.has(ch)) rows.push([gen.endsWith("r") ? "warn" : gen === "hold" ? "warn" : "bad",
+      gen.endsWith("r") ? "생성 실패 → 재생성함"
+        : badKind(ch) === "hold" ? "재생성 반복했지만 전부 중복 → 보류(소재 소진 의심)" : "생성 실패",
+      null, badAt(ch)]);
     for (const i of pend[ch] ?? []) rows.push(["warn",
       `${i.work ?? "?"}${i.episode != null ? " " + i.episode + "회차" : ""} — 검수 대기`, null, i.created_at]);
     for (const i of decToday) {
@@ -566,7 +582,8 @@ async function buildDailySnapshot() {
   const payload = {
     date: today, generated_at: new Date().toISOString(),
     machines: Object.values(MACHINES).map((m) => ({ mac: m.mac, label: m.label })),
-    kpis: { review_wait: (rev.queue ?? []).length, failed: Object.keys(failedAt).length },
+    kpis: { review_wait: (rev.queue ?? []).length, failed: Object.keys(failedAt).length,
+            dup_hold: Object.keys(holdAt).length },
     board,
   };
   const sb = createClient(SB_URL, SB_KEY);
