@@ -1,4 +1,4 @@
-// VES 운영 대시보드 — v4.0 API (v3.9 + 일일 마감 스냅샷·캘린더 과거 보기 + 결정맵 30건 누수 수정)
+// VES 운영 대시보드 — v4.1 API (v4.0 + 검수자 프로필 아이콘(0012) — 결정에 reviewer_icon 저장·반환)
 // 배포: Supabase Edge Function `dashboard` (프로젝트 fdidiqdhcyctdbogxkdu, verify_jwt=false)
 // 화면: https://rhoonart-da.github.io/ves-ops-dashboard/ (GitHub Pages, React 단일 파일) — 이 함수는 API 전용.
 //   슈파베이스 기본 도메인은 text/html 을 text/plain 으로 강제해 HTML 서빙이 불가하다.
@@ -313,7 +313,7 @@ async function apiReview() {
   // clips 목록에서 빠지고, 그러면 "합격했는데 로그에 없다"가 된다(2026-08-05 운영자 발견).
   // 결정 최근 30건의 클립을 별도로 당겨 합친다.
   const { data: decRows } = await sb.from("review_decisions")
-    .select("clip_id,decision,decided_at,decided_by,note,reject_type")
+    .select("clip_id,decision,decided_at,decided_by,note,reject_type,reviewer_icon")
     .order("decided_at", { ascending: false }).limit(30);
   const have = new Set((clips ?? []).map((c: Record<string, unknown>) => c.id));
   const missing = (decRows ?? []).map((d: Record<string, unknown>) => d.clip_id).filter((id) => !have.has(id));
@@ -329,7 +329,7 @@ async function apiReview() {
     // ⚠ 결정 맵을 최근 30건(decRows)만으로 만들면 하루 결정이 30건을 넘는 순간 옛 반려가
     //   '미결정'으로 큐에 복귀한다(2026-08-05 실측: 오후 반려분이 밤에 검수함 재등장).
     //   목록 클립 전체의 결정을 별도로 당겨 합친다.
-    sb.from("review_decisions").select("clip_id,decision,decided_at,decided_by,note,reject_type").in("clip_id", ids),
+    sb.from("review_decisions").select("clip_id,decision,decided_at,decided_by,note,reject_type,reviewer_icon").in("clip_id", ids),
     sb.from("channels").select("id,name"),
     sb.from("works").select("id,title"),
     sb.from("judge_runs").select("clip_id,quality_score,confidence,rubric_scores,created_at").in("clip_id", ids)
@@ -408,6 +408,7 @@ async function apiDecision(req: Request) {
     clip_id: clipId, decision, reject_type: rejectType,
     note: body.note ? String(body.note).slice(0, 500) : null,
     decided_by: body.decided_by ? String(body.decided_by).slice(0, 80) : null,
+    reviewer_icon: body.reviewer_icon ? String(body.reviewer_icon).slice(0, 20) : null,  // 0012 표시 전용
     decided_at: new Date().toISOString(),
   }, { onConflict: "clip_id" });
   if (error) return json({ error: error.message }, 500);
