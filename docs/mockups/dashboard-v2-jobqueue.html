@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VES OPS v2 (목업) — 잡 큐 아키텍처</title>
+<!-- ⚠️ 목업이다. 실데이터를 읽지 않고, 아무것도 쓰지 않는다.
+     현행 대시보드(deploy/edge-dashboard/public/index.html)의 CSS 토큰·셸을 그대로 재활용해
+     "같은 제품의 다음 버전"으로 보이게 했다. 데이터는 2026-08-06 실제 상태를 본떠 넣은 정적 값.
+     목적: 통합 아키텍처(job_queue) 전환 시 화면이 어떻게 바뀌는지 눈으로 놓고 논의하기. -->
+<style>
+:root{--ground:#eef1f4;--panel:#fff;--side:#1e2833;--side-ink:#aebbc7;--side-on:#fff;
+--ink:#232830;--ink2:#5c6570;--ink3:#8b939d;--line:#c9d0d8;--soft:#dde2e8;
+--accent:#20586e;--accent-soft:#e3edf2;--ok:#1d7a46;--okbg:#e2f1e8;--warn:#a06008;--warnbg:#f7ecd8;--dotwarn:#f0ad00;
+--bad:#a33131;--badbg:#f6e4e4;--mono:ui-monospace,"SF Mono",Menlo,monospace}
+@media(prefers-color-scheme:dark){:root{--ground:#15181c;--panel:#1f242a;--side:#11161b;--side-ink:#7e8a95;
+--side-on:#e8edf2;--ink:#e3e7ec;--ink2:#9aa3ad;--ink3:#6d757f;--line:#3c434c;--soft:#2e343b;
+--accent:#7db3c9;--accent-soft:#243440;--ok:#5cb884;--okbg:#22352b;--warn:#d9a458;--warnbg:#3a3222;--dotwarn:#eab84f;
+--bad:#d97e7e;--badbg:#3c2727}}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--ground);color:var(--ink);font:14.5px/1.5 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Segoe UI",sans-serif}
+.shell{display:flex;min-height:100vh}
+aside{width:216px;flex-shrink:0;background:var(--side);color:var(--side-ink);display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.brand{padding:20px 18px 14px;border-bottom:1px solid rgba(255,255,255,.08)}
+.brand h1{font-size:16px;margin:0;color:var(--side-on)}.brand .v{font-family:var(--mono);font-size:10px;opacity:.65}
+aside nav{display:flex;flex-direction:column;padding:10px 0}
+aside nav a{display:flex;align-items:center;gap:10px;padding:10px 18px;cursor:pointer;font-size:13.5px;color:var(--side-ink);text-decoration:none;border-left:3px solid transparent}
+aside nav a:hover{color:var(--side-on);background:rgba(255,255,255,.04)}
+aside nav a.on{color:var(--side-on);background:rgba(255,255,255,.07);border-left-color:#e8b04b;font-weight:600}
+.cnt{margin-left:auto;font-family:var(--mono);font-size:10.5px;background:rgba(255,255,255,.1);padding:1px 7px;border-radius:10px}
+.cnt.hot{background:var(--bad);color:#fff}
+.side-foot{margin-top:auto;padding:14px 18px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;line-height:1.8}
+.hb-ok{color:#7ec89a}.hb-bad{color:#e08a8a}.hb-mut{opacity:.55}
+main{flex:1;min-width:0;padding:0 26px 60px}
+.page{max-width:1280px;margin:0 auto}
+.topbar{display:flex;align-items:baseline;gap:14px;padding:22px 0 14px;flex-wrap:wrap}
+.topbar h2{font-size:19px;margin:0}.topbar .sub{color:var(--ink2);font-size:13px}
+.rfbtn{font:inherit;font-size:11.5px;padding:4px 12px;border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--ink2);cursor:pointer;margin-left:auto}
+.rfbtn:hover{border-color:var(--accent);color:var(--ink)}
+.datebox{font:inherit;font-size:11.5px;padding:3px 9px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink2)}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+.chip{font-size:12px;border:1px solid var(--line);padding:3px 11px;border-radius:20px;color:var(--ink2);background:var(--panel);cursor:pointer;user-select:none}
+.chip.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);font-weight:600}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px}
+.panel h3{margin:0 0 4px;font-size:14px}
+.panel .ph{color:var(--ink3);font-size:11.5px;margin:0 0 12px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-left-width:4px;border-radius:10px;padding:12px 14px}
+.kpi.ok{border-left-color:var(--ok)}.kpi.warn{border-left-color:var(--dotwarn)}.kpi.bad{border-left-color:var(--bad)}
+.kpi .lab{font-size:11.5px;color:var(--ink3)}
+.kpi .val{font-size:26px;font-weight:700;line-height:1.25}.kpi .val small{font-size:12px;font-weight:400;color:var(--ink3)}
+.kpi .hint{font-size:11px;color:var(--ink3)}
+.mut{color:var(--ink3)}
+/* 채널 × 파이프라인 */
+.phead,.prow{display:flex;align-items:center;gap:10px;font-size:12.5px}
+.phead{font-size:10px;color:var(--ink3);padding-bottom:6px;border-bottom:1px solid var(--line)}
+.prow{padding:9px 0;border-bottom:1px solid var(--soft);cursor:pointer}
+.prow:last-child{border-bottom:none}
+.prow:hover{background:var(--accent-soft)}
+.pch{width:118px;flex:none;display:flex;align-items:center;gap:7px;font-weight:600}
+.av{width:20px;height:20px;border-radius:50%;background:var(--accent-soft);border:1px solid var(--line);flex:none}
+.pwk{flex:1;min-width:0;color:var(--ink2);font-size:11.5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.stages{display:flex;gap:22px;width:196px;flex:none;justify-content:flex-end}
+.stages .sl{width:11px;text-align:center;white-space:nowrap;overflow:visible}
+.dot{width:11px;height:11px;border-radius:50%;display:inline-block}
+.dot.ok{background:var(--ok)}.dot.warn{background:var(--dotwarn)}.dot.bad{background:var(--bad)}.dot.idle{background:var(--line)}
+.dot.ring{background:transparent;border:3px solid var(--line)}
+.dot.rej{background:transparent;border:3px solid var(--bad)}
+.pst{width:150px;flex:none;text-align:right;font-size:11px;color:var(--ink2)}
+.drill{background:var(--ground);border:1px solid var(--soft);border-radius:10px;padding:10px 12px;margin:2px 0 10px;font-size:11.5px}
+.dstep{display:flex;gap:10px;align-items:center;padding:4px 0}
+.dstep .nm{width:96px;flex:none;font-family:var(--mono);font-size:10.5px;color:var(--ink3)}
+/* 표 */
+table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
+th{text-align:left;font-weight:400;color:var(--ink3);font-size:10.5px;padding:0 6px 6px 0}
+td{padding:8px 6px 8px 0;border-top:1px solid var(--soft);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.pill{font-size:10.5px;padding:1.5px 8px;border-radius:20px;white-space:nowrap}
+.pill.run{background:var(--accent-soft);color:var(--accent)}
+.pill.pend{background:var(--soft);color:var(--ink3)}
+.pill.blk{background:var(--warnbg);color:var(--warn)}
+.pill.dead{background:var(--badbg);color:var(--bad)}
+.pill.ok{background:var(--okbg);color:var(--ok)}
+.pill.cap{background:var(--accent-soft);color:var(--accent);font-family:var(--mono)}
+.btn{font:inherit;font-size:11px;padding:3px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink2);cursor:pointer}
+.btn:hover{border-color:var(--accent);color:var(--ink)}
+.btn.pass{border-color:var(--ok);color:var(--ok)}.btn.rej{border-color:var(--bad);color:var(--bad)}
+/* 게이트 */
+.gates{display:flex;gap:10px;margin-bottom:14px}
+.gate{flex:1;border:1px solid var(--line);border-radius:10px;padding:10px 13px;background:var(--panel);cursor:pointer}
+.gate.on{border-color:var(--accent);background:var(--accent-soft)}
+.gate .g1{font-size:12px;color:var(--ink2)}.gate .g2{font-size:22px;font-weight:700}
+.gate .g3{font-size:10.5px;color:var(--ink3)}
+.gcard{border:1px solid var(--soft);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--panel)}
+.gcard .gt{font-weight:600;font-size:13px;margin:0 0 6px}
+.metrics{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;margin:8px 0}
+.metrics b{font-family:var(--mono)}
+.pass-mark{color:var(--ok)}.fail-mark{color:var(--bad)}
+/* 플릿 */
+.node{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid var(--soft);font-size:12.5px}
+.node:last-child{border-bottom:none}
+.node .nid{width:64px;flex:none;font-weight:600;font-family:var(--mono)}
+.bar{height:6px;border-radius:4px;background:var(--soft);flex:1;overflow:hidden;max-width:260px}
+.bar i{display:block;height:100%;background:var(--accent)}
+.bar i.hot{background:var(--dotwarn)}
+.legend{display:flex;gap:14px;align-items:center;font-size:11.5px;color:var(--ink2);margin-bottom:10px;flex-wrap:wrap}
+.lg{display:flex;gap:5px;align-items:center}
+.note{background:var(--warnbg);color:var(--warn);padding:9px 12px;border-radius:8px;font-size:12px;margin-bottom:14px}
+.stub{background:var(--panel);border:1px dashed var(--line);border-radius:12px;padding:28px;text-align:center;color:var(--ink3);font-size:13px}
+</style></head>
+<body><div class="shell">
+<aside>
+  <div class="brand"><h1>VES OPS</h1><div class="v">v2 목업 · 잡 큐 아키텍처</div></div>
+  <nav id="nav"></nav>
+  <div class="side-foot">
+    <b style="color:var(--side-on)">플릿</b><br/>
+    <span class="hb-ok">● 5대 작업중·유휴</span> <span class="hb-bad">● mm-05 다운</span><br/>
+    <span class="hb-mut">잡 큐 20 · 실행 4 · 막힘 2</span>
+  </div>
+</aside>
+<main><div class="page" id="page"></div></main>
+</div>
+
+<script>
+// ── 목업 데이터 (2026-08-06 실제 상태를 본뜬 정적 값) ─────────────────────────
+const CH = [
+  { ch:"킥킥극장", work:"SNL 코리아 리부트 시즌8", ep:1,
+    s:["ok","ok","ok","idle"], st:"오늘 19:00 공개 예약",
+    steps:[["generate","완료 02:10 · mm-01"],["ingest","완료"],["evaluate","judge 0.55 · 환각 없음"],
+           ["publish_gate","합격 05:49 · Sally"],["publish","예약 19:00 (private)"],["measure","D+7 대기"]] },
+  { ch:"몰입도둑", work:"SNL 코리아 리부트 시즌8", ep:1,
+    s:["ok","warn","idle","idle"], st:"검수 대기 1건",
+    steps:[["generate","완료 02:45 · mm-03"],["ingest","완료"],["evaluate","judge 0.83"],
+           ["publish_gate","⚑ 사람 대기 — 3시간째"]] },
+  { ch:"이거보고자", work:"김부장", ep:1,
+    s:["ring","idle","idle","idle"], st:"3회 중복 → 보류",
+    steps:[["generate","시도 3회 모두 중복 구간 → dup_hold"],["—","소재 소진 의심 · 회차 전진 검토"]] },
+  { ch:"재미쇼츠", work:"유미의 세포들 시즌3", ep:2,
+    s:["bad","idle","idle","idle"], st:"generate 실패 · 재시도 2/3",
+    steps:[["generate","transient 실패 · 다음 시도 09:12"],["—","error_class=transient → 지수 백오프"]] },
+  { ch:"숏나우저", work:"놀라운 토요일", ep:411,
+    s:["ok","ok","ok","warn"], st:"+7d 판정 D-4",
+    steps:[["publish","공개 완료 · iYe03Z6IX_8"],["measure","laeebly 성숙도 대기 (D+11)"]] },
+  { ch:"이불 속 극장", work:"유재석 캠프", ep:1,
+    s:["warn","idle","idle","idle"], st:"소스 확보 대기",
+    steps:[["acquire","⚑ Drive 비공개 — 사람 개입 필요"]] },
+  { ch:"ショトコン", work:"혜미리예채파", ep:1,
+    s:["ok","idle","idle","idle"], st:"현지화 대기 (mm-06)",
+    steps:[["generate","완료"],["localize","pending — gpu_mps 노드 대기"]] },
+];
+const JOBS = [
+  { job:"generate", tgt:"재미쇼츠 · 유미의 세포들 S3 2회차", st:"dead", node:"—", info:"attempt 3/3 · transient", act:"재시도" },
+  { job:"acquire",  tgt:"이불 속 극장 · 유재석 캠프 1회차", st:"blocked", node:"—", info:"human_required · Drive 비공개", act:"소스 지정" },
+  { job:"generate", tgt:"킥킥극장 · SNL 시즌8 2회차", st:"running", node:"mm-01", info:"lease 84s · 경과 41분", act:"" },
+  { job:"generate", tgt:"다람쥐 숏토리 · 원희는 스무살 1회차", st:"running", node:"mm-03", info:"lease 112s · 경과 8분", act:"" },
+  { job:"localize", tgt:"ショトコン · 혜미리예채파 1회차", st:"pending", node:"—", info:"required_caps=gpu_mps · mm-06 대기", act:"" },
+  { job:"publish",  tgt:"숏테토칩 · 도깨비 10주년 4회차", st:"pending", node:"—", info:"run_after 19:00 (예약)", act:"" },
+  { job:"evaluate", tgt:"몰입도둑 · SNL 시즌8 1회차", st:"succeeded", node:"mm-02", info:"judge 0.83 · 환각 없음", act:"" },
+  { job:"measure",  tgt:"숏나우저 · 놀라운 토요일 411회차", st:"pending", node:"—", info:"run_after D+11 · 커버리지 게이트", act:"" },
+];
+const NODES = [
+  { id:"mm-01", st:"작업중", job:"generate · SNL 시즌8 2회차", info:"lease 84s", caps:[] },
+  { id:"mm-02", st:"유휴",   job:"큐 비어 있음", info:"3s 폴링", caps:[] },
+  { id:"mm-03", st:"작업중", job:"generate · 원희는 스무살 1회차", info:"lease 112s", caps:[] },
+  { id:"mm-04", st:"draining", job:"정비 — 새 잡 안 받음", info:"잔여 1건", caps:[] },
+  { id:"mm-05", st:"다운",   job:"3분째 심박 없음 — lease 회수 예정", info:"", caps:[] },
+  { id:"mm-06", st:"작업중", job:"localize · 혜미리예채파", info:"lease 61s", caps:["gpu_mps"] },
+];
+const QUOTA = [["VES01",9,11],["CJENM",4,12],["VES03",2,10],["VES04",7,10],["SEAN",1,8],["JMLP",0,6]];
+const STAGES = ["생산","검수","발행","측정"];
+const PAGES = [["today","오늘",null],["review","검수함",4],["jobs","잡 큐",2],["feed","영상 피드",null],
+               ["perf","채널 성과",null],["fleet","플릿",null],["rounds","라운드 · 실험",null]];
+
+// ── 렌더 ──────────────────────────────────────────────────────────────────
+let page = "today", gate = "publish", jobFilter = "막힘", openCh = null;
+const el = (h) => { const d=document.createElement("div"); d.innerHTML=h.trim(); return d.firstChild; };
+const dots = (arr) => `<span class="stages">${arr.map(s=>`<span class="sl"><span class="dot ${s}"></span></span>`).join("")}</span>`;
+
+function nav(){
+  document.getElementById("nav").innerHTML = PAGES.map(([id,label,n])=>
+    `<a data-p="${id}" class="${page===id?"on":""}">${label}${n?`<span class="cnt ${id==='jobs'?'hot':''}">${n}</span>`:""}</a>`).join("");
+  document.querySelectorAll("nav a").forEach(a=>a.onclick=()=>{page=a.dataset.p;openCh=null;render();});
+}
+
+function today(){
+  return `
+  <div class="topbar"><h2>오늘</h2><span class="sub">8월 6일 (목) · 지시서 20건 · 채널 × 파이프라인</span>
+    <button class="rfbtn">⟳ 새로고침</button><input type="date" class="datebox" value="2026-08-06"/></div>
+  <div class="kpis">
+    <div class="kpi bad"><div class="lab">막힌 잡</div><div class="val">2<small> 건</small></div>
+      <div class="hint">dead 1 · blocked 1 — 사람이 풀어야</div></div>
+    <div class="kpi warn"><div class="lab">검수 대기</div><div class="val">4<small> 건</small></div>
+      <div class="hint">발행 승인 4 · 승격 1 · 현지화 QA 2</div></div>
+    <div class="kpi ok"><div class="lab">오늘 공개</div><div class="val">3<small> / 20</small></div>
+      <div class="hint">19:00 예약 5건 대기</div></div>
+    <div class="kpi warn"><div class="lab">플릿</div><div class="val">5<small> / 6 대</small></div>
+      <div class="hint">mm-05 다운 · 큐는 계속 소진 중</div></div>
+  </div>
+  <div class="panel">
+    <div class="legend">
+      <span class="lg"><span class="dot ok"></span>완료</span>
+      <span class="lg"><span class="dot warn"></span>진행·대기</span>
+      <span class="lg"><span class="dot rej"></span>반려</span>
+      <span class="lg"><span class="dot bad"></span>실패</span>
+      <span class="lg"><span class="dot ring"></span>보류</span>
+      <span class="lg"><span class="dot idle"></span>미착수</span>
+      <span class="mut">· 채널 줄을 누르면 잡 단계 상세</span>
+    </div>
+    <div class="phead"><span style="width:118px">채널</span><span style="flex:1">작품 · 회차</span>
+      <span class="stages">${STAGES.map(s=>`<span class="sl" style="width:11px;font-size:9.5px">${s}</span>`).join("")}</span>
+      <span style="width:150px"></span></div>
+    ${CH.map((c,i)=>`
+      <div class="prow" data-i="${i}">
+        <span class="pch"><span class="av"></span>${c.ch}</span>
+        <span class="pwk">${c.work} · ${c.ep}회차</span>
+        ${dots(c.s)}
+        <span class="pst">${c.st}</span>
+      </div>
+      ${openCh===i?`<div class="drill">${c.steps.map(([n,v])=>
+        `<div class="dstep"><span class="nm">${n}</span><span>${v}</span></div>`).join("")}</div>`:""}
+    `).join("")}
+  </div>`;
+}
+
+function jobs(){
+  const fs = ["막힘","실행중","대기","완료"];
+  const map = {"막힘":["dead","blocked"],"실행중":["running"],"대기":["pending"],"완료":["succeeded"]};
+  const rows = JOBS.filter(j=>map[jobFilter].includes(j.st));
+  return `
+  <div class="topbar"><h2>잡 큐</h2><span class="sub">지금은 없는 화면 — 막힌 잡을 사람이 푸는 곳</span>
+    <button class="rfbtn">⟳ 새로고침</button></div>
+  <div class="note">⚑ dead·blocked 는 <b>사람이 손대기 전까지 아무도 집지 않는다.</b> 이 화면의 존재 이유.</div>
+  <div class="filters">${fs.map(f=>`<span class="chip ${jobFilter===f?"on":""}" data-f="${f}">${f} ${JOBS.filter(j=>map[f].includes(j.st)).length}</span>`).join("")}</div>
+  <div class="panel">
+    <table>
+      <colgroup><col style="width:86px"><col><col style="width:88px"><col style="width:70px"><col style="width:190px"><col style="width:82px"></colgroup>
+      <tr><th>잡</th><th>대상</th><th>상태</th><th>노드</th><th>메모</th><th></th></tr>
+      ${rows.map(j=>`<tr>
+        <td style="font-family:var(--mono);font-size:11px">${j.job}</td>
+        <td>${j.tgt}</td>
+        <td><span class="pill ${j.st==='dead'?'dead':j.st==='blocked'?'blk':j.st==='running'?'run':j.st==='succeeded'?'ok':'pend'}">${j.st}</span></td>
+        <td class="mut">${j.node}</td>
+        <td class="mut" style="font-size:11px">${j.info}</td>
+        <td style="text-align:right">${j.act?`<button class="btn">${j.act}</button>`:""}</td>
+      </tr>`).join("")}
+    </table>
+  </div>`;
+}
+
+function review(){
+  const G = { publish:["발행 승인",4,"영상 보고 합격/반려 — 매일"],
+              promote:["승격 승인",1,"노브 채택 — 몇 주에 한 번"],
+              qa:["현지화 QA",2,"더빙·자막 확인"] };
+  const body = gate==="promote" ? `
+    <div class="gcard">
+      <p class="gt">loudness_v1 · −14 LUFS 채택 여부</p>
+      <div class="metrics">
+        <span>CI 하한 <b class="pass-mark">+0.041</b> &gt; baseline <span class="pass-mark">✓</span></span>
+        <span>점추정 − baseline <b class="pass-mark">+0.058</b> &gt; margin 0.03 <span class="pass-mark">✓</span></span>
+        <span>쌍 <b>6</b> / 최소 5 <span class="pass-mark">✓</span></span>
+      </div>
+      <div class="mut" style="font-size:11.5px">가드레일 — 절대 시청시간 −0.3% (길이 artifact 아님) · 코호트 커버리지 82%</div>
+      <div style="display:flex;gap:6px;margin-top:10px">
+        <button class="btn pass">채택</button><button class="btn">보류</button><button class="btn rej">기각</button></div>
+    </div>
+    <div class="mut" style="font-size:11.5px">⚑ 승격은 제품 결정이다 — 누가 눌렀는지 남아야 하면 인증 방식을 바꿔야 한다(논의 ③).</div>`
+   : gate==="qa" ? `
+    <div class="gcard"><p class="gt">ショトコン · 혜미리예채파 1회차 — 일본어 더빙</p>
+      <div class="mut" style="font-size:11.5px">Level B 판별 · OCR 인페인팅 2곳 · XTTS 재합성 완료</div>
+      <div style="display:flex;gap:6px;margin-top:10px"><button class="btn pass">통과</button><button class="btn rej">hold</button></div></div>
+    <div class="gcard"><p class="gt">ショトコン · 혜미리예채파 1회차 — 자막 위치</p>
+      <div class="mut" style="font-size:11.5px">원본 자막 잔상 의심 구간 1곳</div>
+      <div style="display:flex;gap:6px;margin-top:10px"><button class="btn pass">통과</button><button class="btn rej">hold</button></div></div>`
+   : `
+    <div class="gcard"><p class="gt">언제 죽고 싶냐는 질문에 탁재훈이 던진 레전드 답변</p>
+      <div class="mut" style="font-size:11.5px">몰입도둑 · SNL 시즌8 1회차 · judge 0.83 · 환각 없음</div>
+      <div style="display:flex;gap:6px;margin-top:10px"><button class="btn pass">✅ 합격</button><button class="btn rej">❌ 반려</button></div></div>
+    <div class="gcard"><p class="gt">밧줄이 안 풀리자 의자를 부순 하승진</p>
+      <div class="mut" style="font-size:11.5px">명장면 세탁소 · 피의 게임 X 1회차 · judge 0.75</div>
+      <div style="display:flex;gap:6px;margin-top:10px"><button class="btn pass">✅ 합격</button><button class="btn rej">❌ 반려</button></div></div>`;
+  return `
+  <div class="topbar"><h2>검수함</h2><span class="sub">사람이 막는 지점 3종 — 지금은 발행 승인만 있다</span>
+    <button class="rfbtn">⟳ 새로고침</button></div>
+  <div class="gates">${Object.entries(G).map(([k,[t,n,d]])=>
+    `<div class="gate ${gate===k?"on":""}" data-g="${k}"><div class="g1">${t}</div><div class="g2">${n}</div><div class="g3">${d}</div></div>`).join("")}</div>
+  ${body}`;
+}
+
+function fleet(){
+  return `
+  <div class="topbar"><h2>플릿</h2><span class="sub">누가 어느 채널을 맡았나 → 누가 살아있고 무엇을 잡고 있나</span>
+    <button class="rfbtn">⟳ 새로고침</button></div>
+  <div class="panel"><h3>노드</h3><p class="ph">채널 배정표가 없다. 노드는 처리 용량일 뿐이다.</p>
+    ${NODES.map(n=>`<div class="node">
+      <span class="nid">${n.id}</span>
+      <span class="pill ${n.st==='작업중'?'run':n.st==='유휴'?'pend':n.st==='draining'?'blk':'dead'}">${n.st}</span>
+      <span style="flex:1;color:var(--ink2);font-size:11.5px">${n.job}
+        ${n.caps.map(c=>`<span class="pill cap">${c}</span>`).join("")}</span>
+      <span class="mut" style="font-size:10.5px">${n.info}</span>
+      <button class="btn">${n.st==="draining"?"복귀":"정비"}</button>
+    </div>`).join("")}
+  </div>
+  <div class="panel"><h3>자원 쿼터 — Gemini (gcp_project 세마포어)</h3>
+    <p class="ph">진짜 병목은 CPU 가 아니라 여기다. 6대 동시면 72청크가 동시에 나간다.</p>
+    ${QUOTA.map(([k,u,c])=>`<div class="node" style="border:none;padding:5px 0">
+      <span class="nid" style="font-size:11.5px">${k}</span>
+      <span class="bar"><i class="${u/c>0.75?"hot":""}" style="width:${Math.round(u/c*100)}%"></i></span>
+      <span class="mut" style="font-size:11px">${u} / ${c}</span></div>`).join("")}
+  </div>`;
+}
+
+function rounds(){
+  return `
+  <div class="topbar"><h2>라운드 · 실험</h2><span class="sub">개선 평면이 붙으면 생기는 화면</span></div>
+  <div class="panel">
+    <h3>진행 중 — loudness_v1</h3><p class="ph">쌍 A/B · −14 LUFS vs off</p>
+    <div class="metrics">
+      <span>쌍 <b>6</b>/5 확보 <span class="pass-mark">✓</span></span>
+      <span>발행 완료 <b>12</b>편</span>
+      <span>판정 <b>D+7</b> 대기 · 3편 성숙</span>
+      <span>커버리지 <b>82%</b> <span class="pass-mark">✓</span></span>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>후보 노브</h3>
+    <table><colgroup><col style="width:150px"><col><col style="width:100px"></colgroup>
+      <tr><th>노브</th><th>근거</th><th>상태</th></tr>
+      <tr><td>loudness_dynamics</td><td>제안기 δ=−0.53 (예능×비서사)</td><td><span class="pill run">실험 중</span></td></tr>
+      <tr><td>hook_form</td><td>golden 쌍 #1 — 사람 2인 reaction-first 선호</td><td><span class="pill pend">후보</span></td></tr>
+      <tr><td>length_profile</td><td>—</td><td><span class="pill pend">대기</span></td></tr>
+    </table>
+  </div>`;
+}
+
+function stub(t, why){
+  return `<div class="topbar"><h2>${t}</h2><span class="sub">현행 유지</span></div>
+    <div class="stub">${why}</div>`;
+}
+
+function render(){
+  nav();
+  const p = document.getElementById("page");
+  p.innerHTML = page==="today" ? today() : page==="jobs" ? jobs() : page==="review" ? review()
+    : page==="fleet" ? fleet() : page==="rounds" ? rounds()
+    : page==="feed" ? stub("영상 피드","지금 화면 그대로. 맥 탭만 <b>채널 필터</b>로 바뀐다.")
+    : stub("채널 성과","지금 화면 그대로. laeebly 기준이라 아키텍처와 무관하다.");
+  p.querySelectorAll(".prow").forEach(r=>r.onclick=()=>{const i=+r.dataset.i;openCh=openCh===i?null:i;render();});
+  p.querySelectorAll("[data-f]").forEach(c=>c.onclick=()=>{jobFilter=c.dataset.f;render();});
+  p.querySelectorAll("[data-g]").forEach(g=>g.onclick=()=>{gate=g.dataset.g;render();});
+}
+render();
+</script></body></html>
