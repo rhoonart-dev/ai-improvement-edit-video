@@ -1,4 +1,4 @@
-// VES 운영 대시보드 — v4.2 API (v4.1 + POST /api/note — 결정 불변, 사유만 수정/추가)
+// VES 운영 대시보드 — v4.3 API (v4.2 + 최근 결정 창 30→200건 — 발행·정리분이 창 밖으로 밀리던 문제)
 // 배포: Supabase Edge Function `dashboard` (프로젝트 fdidiqdhcyctdbogxkdu, verify_jwt=false)
 // 화면: https://rhoonart-da.github.io/ves-ops-dashboard/ (GitHub Pages, React 단일 파일) — 이 함수는 API 전용.
 //   슈파베이스 기본 도메인은 text/html 을 text/plain 으로 강제해 HTML 서빙이 불가하다.
@@ -312,9 +312,12 @@ async function apiReview() {
   // 최근 결정의 기준은 결정 테이블 — 합격작은 발행되면 사본이 정리돼(storage_path NULL) 위
   // clips 목록에서 빠지고, 그러면 "합격했는데 로그에 없다"가 된다(2026-08-05 운영자 발견).
   // 결정 최근 30건의 클립을 별도로 당겨 합친다.
+  // limit 이 곧 "최근 결정" 의 실제 창이다 — 발행된 합격작은 사본이 정리돼 위 clips 목록에서
+  // 빠지고 오직 이 창으로만 돌아온다. 30 이면 하루 이틀 결정에 밀려 사라지고, 맥 탭으로
+  // 나눠 보면 더 빨리 빈다(2026-08-06 운영자 발견: 맥1 어제 기록 실종). 넉넉히 200.
   const { data: decRows } = await sb.from("review_decisions")
     .select("clip_id,decision,decided_at,decided_by,note,reject_type,reviewer_icon")
-    .order("decided_at", { ascending: false }).limit(30);
+    .order("decided_at", { ascending: false }).limit(200);
   const have = new Set((clips ?? []).map((c: Record<string, unknown>) => c.id));
   const missing = (decRows ?? []).map((d: Record<string, unknown>) => d.clip_id).filter((id) => !have.has(id));
   if (missing.length) {
@@ -376,7 +379,7 @@ async function apiReview() {
     queue: items.filter((i) => !i.decision && !i.published),
     decided: items.filter((i) => i.decision)
       .sort((a, b) => String((b.decision as Record<string, unknown>).decided_at ?? "")
-        .localeCompare(String((a.decision as Record<string, unknown>).decided_at ?? ""))).slice(0, 30),
+        .localeCompare(String((a.decision as Record<string, unknown>).decided_at ?? ""))).slice(0, 100),
   });
 }
 
