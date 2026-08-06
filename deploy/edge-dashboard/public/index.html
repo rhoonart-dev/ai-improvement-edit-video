@@ -165,6 +165,9 @@ details.tail summary{cursor:pointer;font-size:11.5px;color:var(--ink2)}
 .chdot{width:11px;height:11px;border-radius:50%;flex:none}
 .chdot.ok{background:var(--ok)}.chdot.warn{background:var(--dotwarn,var(--warn))}.chdot.bad{background:var(--bad)}.chdot.idle{background:var(--line)}
 .chdot.rej{background:transparent;border:3px solid var(--bad);width:9px;height:9px}
+/* 링 = 재생성 사이클을 거친 상태(첫 시도 실패 후 다시 만든 것) */
+.chdot.warnr{background:transparent;border:3px solid var(--dotwarn,var(--warn));width:9px;height:9px}
+.chdot.okr{background:transparent;border:3px solid var(--ok);width:9px;height:9px}
 .chlink{display:flex;align-items:center;gap:6px;color:inherit;text-decoration:none;min-width:0}
 .chlink span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 a.chlink:hover span{text-decoration:underline}
@@ -321,10 +324,15 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl }
     const d = new Date(iso);
     return !isNaN(d) && d.toDateString() === new Date().toDateString();
   };
-  const failed = new Set();
+  // 실패는 "언제" 가 중요하다 — 그 뒤 재생성이 성공했으면 실패가 최종 상태가 아니다.
+  const failedAt = {};   // 채널 → 오늘 실패한 실행의 시작 시각(가장 최근)
   for (const m of machines) for (const c of m.beat?.channels ?? []) {
-    if (c.result === "failed" && isToday(m.beat?.run_started_at)) failed.add(c.channel);
+    const t = m.beat?.run_started_at;
+    if (c.result === "failed" && isToday(t)) {
+      if (!failedAt[c.channel] || String(t) > String(failedAt[c.channel])) failedAt[c.channel] = t;
+    }
   }
+  const failed = { has: (ch) => ch in failedAt };
   const pend = {}, dec = {}, waitPublic = {};
   for (const i of review?.queue ?? []) (pend[i.channel] ??= []).push(i);
   for (const i of review?.decided ?? []) (dec[i.channel] ??= []).push(i);
@@ -348,10 +356,27 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl }
     if (isToday(f.published_at)) (pubToday[f.channel] ??= []).push(f);
   }
   const todayDec = (ch) => (dec[ch] ?? []).find((i) => isToday(i.decision.decided_at));
-  const genStatus = (ch) => failed.has(ch) ? "bad"
-    : (pend[ch]?.some((i) => isToday(i.created_at)) ? "warn"
-    : todayDec(ch)?.decision.decision === "rejected" ? "rej"
-    : (todayDec(ch)?.decision.decision === "approved" || pubToday[ch]?.length) ? "ok" : "idle");
+  // 실패 뒤에 온 신호인가 — 재생성분(그 뒤 적재된 클립·그 뒤 내려진 결정)이면 true.
+  const after = (ch, iso) => {
+    const f = failedAt[ch];
+    return !f || (iso && new Date(iso) > new Date(f));
+  };
+  // 생성 점: 실패가 최신이면 빨강(solid). 실패 뒤 재생성분이 있으면 그 결과를 **링**으로 —
+  // "실패했지만 다시 만들어 진행 중/통과" 를 한 점에 담는다(2026-08-06 운영자 제안).
+  const genStatus = (ch) => {
+    const d = todayDec(ch);
+    const waiting = (pend[ch] ?? []).filter((i) => isToday(i.created_at));
+    const decOk = d?.decision.decision === "approved" || (pubToday[ch] ?? []).length;
+    const decRej = d?.decision.decision === "rejected";
+    if (!failed.has(ch)) {
+      return waiting.length ? "warn" : decRej ? "rej" : decOk ? "ok" : "idle";
+    }
+    // 실패 이력 있음 — 그 뒤 신호를 찾는다
+    if (waiting.some((i) => after(ch, i.created_at))) return "warnr";   // 재생성 → 검수 대기
+    if (d && after(ch, d.decision.decided_at)) return d.decision.decision === "approved" ? "okr" : "rej";
+    if ((pubToday[ch] ?? []).some((f) => after(ch, f.published_at))) return "okr";
+    return "bad";                                                       // 실패가 마지막 소식
+  };
   const chVids = {};  // 채널 → 아는 video_id 전부 (피드 + 스냅샷)
   for (const f of feed ?? []) if (f.channel && f.video_id) (chVids[f.channel] ??= new Set()).add(f.video_id);
   for (const q of queue) if (q.channel && q.video_id) (chVids[q.channel] ??= new Set()).add(q.video_id);
@@ -368,7 +393,9 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl }
   // 그래서 줄마다 생성 시각(발행분은 장면 확정 시각)을 왼쪽에 붙인다(2026-08-05 운영자 요청).
   const rowsOf = (ch, m) => {
     const items = [];
-    if (failed.has(ch)) items.push(["bad", "최근 생성 실패 — 상세는 '머신 로그' 탭", null, m?.beat?.run_started_at]);
+    if (failed.has(ch)) items.push([genStatus(ch).endsWith("r") ? "warn" : "bad",
+      genStatus(ch).endsWith("r") ? "생성 실패 → 재생성함 (다음 항목이 재생성분)"
+        : "최근 생성 실패 — 상세는 '머신 로그' 탭", null, failedAt[ch]]);
     for (const i of pend[ch] ?? []) items.push(["warn",
       `${i.work || "?"}${i.episode != null ? " " + i.episode + "회차" : ""} — 검수 대기` +
       (i.judge?.quality_score != null ? ` (judge ${Number(i.judge.quality_score).toFixed(2)})` : ""), null, i.created_at]);
@@ -398,6 +425,7 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl }
       <span class="lg"><span class="chdot warn"></span>검수 대기</span>
       <span class="lg"><span class="chdot rej"></span>반려</span>
       <span class="lg"><span class="chdot bad"></span>실패</span>
+      <span class="lg"><span class="chdot warnr"></span><span class="chdot okr"></span>재생성 후 대기·통과</span>
       <b style=${{ color: "var(--ink2)", marginLeft: "8px" }}>공개</b>
       <span class="lg"><span class="chdot ok"></span>오늘 공개됨</span>
       <span class="lg"><span class="chdot warn"></span>전환 대기</span>
@@ -424,7 +452,7 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl }
           <div key=${i} class="ditem"><span class="dtime">${fmtDT(t)}</span>
             <span class=${"st " + cls} style=${{ fontWeight: 400 }}>${text}
             ${vid ? html` <a class="lnk" target="_blank" rel="noopener"
-              href=${"https://studio.youtube.com/video/" + vid + "/edit"}>Studio →</a>` : null}</span></div>`)}</div>
+              href=${"https://youtu.be/" + vid}>▶ 영상</a>` : null}</span></div>`)}</div>
       </div>`)}
     </div>`)}
   </div>`;
@@ -455,7 +483,7 @@ function PastBoard({ snap, chmap, avatars }) {
             <div key=${i} class="ditem"><span class="dtime">${fmtDT(t)}</span>
               <span class=${"st " + cls} style=${{ fontWeight: 400 }}>${text}
               ${vid ? html` <a class="lnk" target="_blank" rel="noopener"
-                href=${"https://studio.youtube.com/video/" + vid + "/edit"}>Studio →</a>` : null}</span></div>`)}</div>
+                href=${"https://youtu.be/" + vid}>▶ 영상</a>` : null}</span></div>`)}</div>
         </div>`)}
       </div>`)}
   </div>`;
@@ -542,7 +570,7 @@ function HomePage({ machines, queue, yt, now, review, chmap, avatars, feed, refr
             <span class="mac">${g.mac}</span>
             ${brakedSet.has(g.channel) ? html`<span class="brake">생성 정지</span>` : html`<span class="gauge">진행 중</span>`}
             ${g.pub[0]?.video_id ? html`<a class="lnk" target="_blank" rel="noopener"
-              href=${"https://studio.youtube.com/video/" + g.pub[0].video_id + "/edit"}>Studio →</a>` : null}
+              href=${"https://youtu.be/" + g.pub[0].video_id}>▶ 영상</a>` : null}
           </div>`)}
       </div>
       <div>
@@ -597,7 +625,7 @@ function FeedPage({ feed, yt, ytConfigured, refresh }) {
           <p class="title">${x.title || "(제목 미기록)"}</p>
           <p class="meta">${x.channel || "?"} · <span class="mac">${x.mac || "?"}</span> · ${(x.created_at || "").slice(5, 16).replace("T", " ")}</p>
           <a class="lnk" href=${"https://www.youtube.com/shorts/" + x.video_id} target="_blank" rel="noopener">▶ 보기</a>
-          <a class="lnk" href=${"https://studio.youtube.com/video/" + x.video_id + "/edit"} target="_blank" rel="noopener">Studio</a>
+          <a class="lnk" href=${"https://youtu.be/" + x.video_id} target="_blank" rel="noopener">▶ 영상</a>
         </div>
       </div>`)}</div>`}
   </div>`;

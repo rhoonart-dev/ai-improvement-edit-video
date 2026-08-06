@@ -1,4 +1,4 @@
-// VES 운영 대시보드 — v4.3 API (v4.2 + 최근 결정 창 30→200건 — 발행·정리분이 창 밖으로 밀리던 문제)
+// VES 운영 대시보드 — v4.4 API (v4.3 + 스냅샷 신호등에 재생성 링(okr/warnr) — 화면 규칙과 일치)
 // 배포: Supabase Edge Function `dashboard` (프로젝트 fdidiqdhcyctdbogxkdu, verify_jwt=false)
 // 화면: https://rhoonart-da.github.io/ves-ops-dashboard/ (GitHub Pages, React 단일 파일) — 이 함수는 API 전용.
 //   슈파베이스 기본 도메인은 text/html 을 text/plain 으로 강제해 HTML 서빙이 불가하다.
@@ -493,11 +493,21 @@ async function buildDailySnapshot() {
       for (const it of data.items ?? []) yt[it.id] = { privacy: it.status?.privacyStatus ?? "unknown", published_at: it.snippet?.publishedAt ?? null };
     } catch { break; }
   }
-  const failedToday = new Set<string>();
+  // 실패 시각을 남긴다 — 그 뒤 재생성이 성공했으면 실패가 최종 상태가 아니다(화면과 동일 규칙)
+  const failedAt: Record<string, string> = {};
   for (const m of mx.machines ?? []) {
     if (!m.beat || kstDayOf(m.beat.run_started_at) !== today) continue;
-    for (const c of m.beat.channels ?? []) if (c.result === "failed") failedToday.add(c.channel);
+    for (const c of m.beat.channels ?? []) {
+      if (c.result !== "failed") continue;
+      const t = String(m.beat.run_started_at);
+      if (!failedAt[c.channel] || t > failedAt[c.channel]) failedAt[c.channel] = t;
+    }
   }
+  const failedToday = { has: (ch: string) => ch in failedAt };
+  const after = (ch: string, iso: unknown) => {
+    const f = failedAt[ch];
+    return !f || (!!iso && new Date(String(iso)) > new Date(f));
+  };
   const pend: Record<string, Record<string, unknown>[]> = {};
   const decd: Record<string, Record<string, unknown>[]> = {};
   for (const i of rev.queue ?? []) (pend[i.channel] ??= []).push(i);
@@ -520,12 +530,20 @@ async function buildDailySnapshot() {
       .sort((a, b) => String((b.decision as Record<string, unknown>).decided_at)
         .localeCompare(String((a.decision as Record<string, unknown>).decided_at)));
     const d0 = decToday[0] ? (decToday[0].decision as Record<string, unknown>).decision : null;
-    const gen = failedToday.has(ch) ? "bad"
-      : (pend[ch] ?? []).some((i) => kstDayOf(i.created_at) === today) ? "warn"
-      : d0 === "rejected" ? "rej" : d0 === "approved" ? "ok" : "idle";
+    // 생성 점: 실패가 마지막 소식이면 solid 빨강, 실패 뒤 재생성분이 있으면 그 결과를 링으로
+    const waitToday = (pend[ch] ?? []).filter((i) => kstDayOf(i.created_at) === today);
+    const gen = !failedToday.has(ch)
+      ? (waitToday.length ? "warn" : d0 === "rejected" ? "rej" : d0 === "approved" ? "ok"
+         : (pubToday[ch] ?? []).length ? "ok" : "idle")
+      : waitToday.some((i) => after(ch, i.created_at)) ? "warnr"
+      : (decToday[0] && after(ch, (decToday[0].decision as Record<string, unknown>).decided_at))
+        ? (d0 === "approved" ? "okr" : "rej")
+      : (pubToday[ch] ?? []).some((f) => after(ch, yt[f.video_id as string]?.published_at ?? f.published_at)) ? "okr"
+      : "bad";
     const pub = (pubToday[ch] ?? []).length ? "ok" : (waitPub[ch] ?? []).length ? "warn" : "idle";
     const rows: unknown[] = [];
-    if (failedToday.has(ch)) rows.push(["bad", "생성 실패", null, null]);
+    if (failedToday.has(ch)) rows.push([gen.endsWith("r") ? "warn" : "bad",
+      gen.endsWith("r") ? "생성 실패 → 재생성함" : "생성 실패", null, failedAt[ch]]);
     for (const i of pend[ch] ?? []) rows.push(["warn",
       `${i.work ?? "?"}${i.episode != null ? " " + i.episode + "회차" : ""} — 검수 대기`, null, i.created_at]);
     for (const i of decToday) {
@@ -543,7 +561,7 @@ async function buildDailySnapshot() {
   const payload = {
     date: today, generated_at: new Date().toISOString(),
     machines: Object.values(MACHINES).map((m) => ({ mac: m.mac, label: m.label })),
-    kpis: { review_wait: (rev.queue ?? []).length, failed: failedToday.size },
+    kpis: { review_wait: (rev.queue ?? []).length, failed: Object.keys(failedAt).length },
     board,
   };
   const sb = createClient(SB_URL, SB_KEY);
