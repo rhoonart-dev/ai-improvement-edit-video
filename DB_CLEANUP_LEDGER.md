@@ -388,3 +388,19 @@ GROUP BY w.title ORDER BY count(c.id) DESC;
 - ⚠️ 환경 메모: 렌더 도중 macOS가 `~/Downloads` 읽기를 차단(TCC, `Operation not permitted`)해 샤먼 재렌더가 실패했다.
   Drive 티빙 폴더에서 원본을 `~/ves/sources/shaman_tving/1회_사용구간.mp4` 로 다시 받아 우회함(크기 345,306,408 bytes 동일).
   앞으로 소스는 `~/Downloads` 밖(`~/ves/sources/`)에 두는 편이 안전.
+
+## 2026-08-06 — 재미쇼츠 유미 EP1 반려분 5건 상태·스캔 정리 (맥5)
+
+운영자 지시: EP1 실공개는 XBkvHH6xF4o(run 유미의_세포들_시즌3_c7, 말티즈 장면, scene_loop
+이전 7/15 발행분) 1건 — §6-2 로 심어 공개 1/3 로 교정. 반려 5건은 전부 비공개 처리됐고
+운영자가 "말티즈 내용만 중복"이라 판단해 **중복 회피 목록에서 제거**(재생성 허용):
+
+| run | yt | 처리 |
+|---|---|---|
+| 유미의_세포들_시즌3_3f | lhsdoTj0RE0 (private) | 상태 제거 + 산출물 rejected/yumi_ep01_cleared_20260806/ 이동. DB clips 행 유지 |
+| 유미의_세포들_시즌3_86 | k4DoUT8ALiE→k7DoUT8ALiE (private) | 〃 |
+| 유미의_세포들_시즌3_71 | YPFfTzslzBs (private) | 〃 |
+| 유미의_세포들_시즌3_5f | (업로드 전 반려) | 〃 (review_decisions: scene 중복) |
+| 유미의_세포들_시즌3_e2 | (업로드 전 반려) | 〃 (review_decisions: production 폴백 제목) |
+
+유튜브 삭제는 하지 않음(비공개 유지 — 사람 몫). Storage 검수 사본(5f·e2)은 결정 완료 상태로 잔존.
