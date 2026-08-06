@@ -139,6 +139,9 @@ FROM judge_runs ORDER BY clip_id, created_at DESC
 
 `rubric_scores` jsonb: `hook_3s`·`visual_hook`·`pacing`·`completion_pull`(0~1) ·
 `rationale`(사유 텍스트) · `hallucination_flag`(bool) · `hashtags_ok`(bool)
+· **v2(2026-08-05) 추가**: `sensitive_flag`(bool) · `sensitive_kinds`(배열 —
+"정치"/"인물비하"/"성적표현"/"기타논란") · `sensitive_note`(무엇이 왜 민감한지 한 줄).
+구버전(v1) 행에는 이 필드가 없다 — 없으면 민감 배지를 그리지 않는다.
 
 ### 표시 요구
 
@@ -147,6 +150,10 @@ FROM judge_runs ORDER BY clip_id, created_at DESC
    발행 게이트에서 자동 차단됨". (발행 차단은 기존 안전게이트가 하며 대시보드 일이 아님)
 3. judge 행이 없으면 "judge 대기중" 표기 — **결정 버튼은 그래도 활성**이어야 한다
    (선실행 실패·지연이 검수를 막으면 안 된다).
+3-1. `sensitive_flag=true` 면 **민감 소재 배지** — 종류(`sensitive_kinds`)와
+   `sensitive_note` 를 함께 표시. 문구 예: "⚠ 민감 소재: 정치 — 대통령 패러디 콩트".
+   환각 배지와 달리 발행 차단과 무관한 **순수 알림**이다(권리사 가이드가 금지하는
+   작품인지 판단 포함, 공개 여부는 사람 몫). 배지로 숨기거나 자동 반려하지 않는다.
 4. ⛔ 하지 않는 것: judge 점수로 자동 결정·정렬 기본값 강제·발행 트리거. quality 는
    성과 예측이 아니다(CLAUDE.md §7) — 참고 정보로만.
 
