@@ -62,14 +62,17 @@ main{flex:1;min-width:0;padding:0 26px 60px}
 .chrail{flex:1;min-width:0;overflow-x:auto;display:flex;gap:10px;padding-bottom:6px;scrollbar-width:thin}
 .chrail::-webkit-scrollbar{height:8px}
 .chrail::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}
-.vtile{width:124px;flex:none;text-decoration:none;color:inherit;display:block}
+.vtile{--vtile:124px;width:var(--vtile);flex:none;text-decoration:none;color:inherit;display:block}
 .vtile .thumb{aspect-ratio:3/4;border-radius:8px;background:var(--ground)}
 .vtile .pill{top:5px;left:5px;font-size:9.5px;padding:1px 6px}
 .vtile .vt{font-size:11px;line-height:1.45;margin:5px 0 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .vtile .vd{font-size:10.5px;color:var(--ink3);font-variant-numeric:tabular-nums}
 .vtile:hover .vt{text-decoration:underline}
 .railempty{color:var(--ink3);font-size:12px;padding:18px 4px}
-.vtile + .vtile{border-left:1px solid color-mix(in srgb, var(--soft) 55%, transparent);padding-left:10px}
+/* 구분선의 여백·테두리는 타일 폭에 더한다 — 안 그러면 2번째부터 썸네일이 11px 좁아진다
+   (box-sizing:border-box, 2026-08-06 운영자 발견) */
+.vtile + .vtile{border-left:1px solid color-mix(in srgb, var(--soft) 55%, transparent);
+  padding-left:10px;width:calc(var(--vtile) + 11px)}
 /* 전체 탭 — 채널 구분 없이 최신순 격자, 카드마다 채널 아이콘·이름 (검수함 카드와 같은 방식) */
 .fcard{background:var(--panel);border:1px solid var(--soft);border-radius:10px;overflow:hidden}
 .fcard .thumb{aspect-ratio:3/4}
