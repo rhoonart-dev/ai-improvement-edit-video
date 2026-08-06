@@ -51,6 +51,24 @@ main{flex:1;min-width:0;padding:0 26px 60px}
 .pill.pub{background:var(--okbg);color:var(--ok)}.pill.unl{background:var(--warnbg);color:var(--warn)}
 .pill.gone{background:var(--badbg);color:var(--bad)}.pill.na{background:var(--soft);color:var(--ink3)}
 .thumb .pill{position:absolute;top:8px;left:8px}
+/* 영상 피드 — 채널별 가로 스트립(2026-08-06 운영자 스케치) */
+.chstrip{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;gap:14px;align-items:flex-start;margin-bottom:12px}
+.chside{width:118px;flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding-top:4px}
+.chside .chavatar{width:46px;height:46px}
+.chside .chlink{flex-direction:column;gap:5px}
+.chside .chlink span{white-space:normal;font-size:12.5px;font-weight:600;line-height:1.35}
+.chside .nm{font-size:12.5px;font-weight:600;line-height:1.35;word-break:keep-all}
+.chside .sub{font-size:10.5px;color:var(--ink3)}
+.chrail{flex:1;min-width:0;overflow-x:auto;display:flex;gap:10px;padding-bottom:6px;scrollbar-width:thin}
+.chrail::-webkit-scrollbar{height:8px}
+.chrail::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}
+.vtile{width:124px;flex:none;text-decoration:none;color:inherit;display:block}
+.vtile .thumb{aspect-ratio:3/4;border-radius:8px;background:var(--ground)}
+.vtile .pill{top:5px;left:5px;font-size:9.5px;padding:1px 6px}
+.vtile .vt{font-size:11px;line-height:1.45;margin:5px 0 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.vtile .vd{font-size:10.5px;color:var(--ink3);font-variant-numeric:tabular-nums}
+.vtile:hover .vt{text-decoration:underline}
+.railempty{color:var(--ink3);font-size:12px;padding:18px 4px}
 .card .body{padding:10px 12px 12px}
 .card .title{font-size:12.5px;font-weight:600;line-height:1.4;margin:0 0 6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.8em}
 .card .meta{font-size:11px;color:var(--ink2);margin:0 0 8px}
@@ -606,7 +624,7 @@ function HomePage({ machines, queue, yt, now, review, chmap, avatars, feed, refr
 }
 
 // ── 영상 피드 ──
-function FeedPage({ feed, yt, ytConfigured, refresh }) {
+function FeedPage({ feed, yt, ytConfigured, refresh, chmap, avatars }) {
   const [filter, setFilter] = useState("전체");
   const [showGone, setShowGone] = useState(false);
   const macs = ["전체", "맥1", "맥2", "맥3", "맥4", "맥5", "맥6"];
@@ -616,8 +634,21 @@ function FeedPage({ feed, yt, ytConfigured, refresh }) {
   const isGone = (x) => { const p = yt[x.video_id]?.privacy; return p === "gone" || p === "private"; };
   const goneCount = uploaded.filter(isGone).length;
   const items = uploaded.filter((x) => (filter === "전체" || x.mac === filter) && (showGone || !isGone(x)));
+
+  // 채널별 행 — 담당 채널을 정본에서 뽑아 영상이 없는 채널도 보이게(공백 자체가 신호다)
+  const scope = Object.keys(chmap || {}).filter((c) => filter === "전체" || chmap[c].mac === filter);
+  const byCh = {};
+  for (const x of items) if (x.channel) (byCh[x.channel] ??= []).push(x);
+  for (const c of Object.keys(byCh)) {  // 왼쪽=과거 … 오른쪽=최신 (스케치)
+    byCh[c].sort((a, b) => String(a.published_at || a.created_at).localeCompare(String(b.published_at || b.created_at)));
+  }
+  for (const c of Object.keys(byCh)) if (!scope.includes(c)) scope.push(c);  // 정본 밖 채널도 누락 없이
+  const rows = scope.sort((a, b) => String(chmap?.[a]?.mac ?? "").localeCompare(String(chmap?.[b]?.mac ?? "")) || a.localeCompare(b));
+  // 레일은 최신 끝에서 시작 — 처음 보이는 게 최신이어야 한다
+  const railInit = (el) => { if (el && !el.dataset.init) { el.dataset.init = "1"; el.scrollLeft = el.scrollWidth; } };
+
   return html`<div class="page">
-    <div class="topbar"><h2>영상 피드</h2><span class="sub">유튜브에 올라간 클립 — 최신순 · 활성 ${uploaded.length - goneCount}건</span>
+    <div class="topbar"><h2>영상 피드</h2><span class="sub">채널별 · 오른쪽이 최신 · 활성 ${uploaded.length - goneCount}건</span>
       <${RefreshBtn} onRefresh=${refresh} /></div>
     ${!ytConfigured ? html`<p class="note">공개/일부공개 배지는 YOUTUBE_API_KEY 시크릿을 설정하면 켜집니다.</p>` : null}
     <div class="filters">${macs.map((m) => html`
@@ -626,21 +657,25 @@ function FeedPage({ feed, yt, ytConfigured, refresh }) {
       ${goneCount ? html`<span class=${"chip" + (showGone ? " on" : "")}
         onClick=${() => setShowGone(!showGone)}>반려·삭제 ${goneCount}건 ${showGone ? "숨기기" : "보기"}</span>` : null}
     </div>
-    ${items.length === 0 ? html`<div class="skel">표시할 클립이 없습니다.</div>` : html`
-    <div class="grid">${items.map((x) => html`
-      <div class="card" key=${x.clip_id}>
-        <a class=${"thumb" + (x.video_id && yt[x.video_id]?.privacy === "gone" ? " nothumb" : "")}
-           href=${x.video_id ? "https://www.youtube.com/shorts/" + x.video_id : undefined} target="_blank" rel="noopener">
-          ${x.video_id && yt[x.video_id]?.privacy !== "gone" ? html`<img loading="lazy" src=${"https://i.ytimg.com/vi/" + x.video_id + "/mqdefault.jpg"} alt="" />` : null}
-          <${StatusPill} st=${x.video_id ? yt[x.video_id] : null} />
-        </a>
-        <div class="body">
-          <p class="title">${x.title || "(제목 미기록)"}</p>
-          <p class="meta">${x.channel || "?"} · <span class="mac">${x.mac || "?"}</span> · ${(x.created_at || "").slice(5, 16).replace("T", " ")}</p>
-          <a class="lnk" href=${"https://www.youtube.com/shorts/" + x.video_id} target="_blank" rel="noopener">▶ 보기</a>
-          <a class="lnk" href=${"https://youtu.be/" + x.video_id} target="_blank" rel="noopener">▶ 영상</a>
+    ${rows.length === 0 ? html`<div class="skel">표시할 채널이 없습니다.</div>` : rows.map((ch) => {
+      const vids = byCh[ch] ?? [];
+      return html`<div class="chstrip" key=${ch}>
+        <div class="chside">
+          <${ChannelChip} name=${ch} chmap=${chmap} avatars=${avatars} />
+          <span class="sub">${chmap?.[ch]?.mac ?? "?"} · ${vids.length}편</span>
         </div>
-      </div>`)}</div>`}
+        ${vids.length === 0 ? html`<div class="railempty">이 기간에 올라간 영상이 없습니다.</div>`
+          : html`<div class="chrail" ref=${railInit}>${vids.map((x) => html`
+          <a class="vtile" key=${x.clip_id} href=${"https://youtu.be/" + x.video_id} target="_blank" rel="noopener">
+            <span class=${"thumb" + (yt[x.video_id]?.privacy === "gone" ? " nothumb" : "")}>
+              ${yt[x.video_id]?.privacy !== "gone" ? html`<img loading="lazy" src=${"https://i.ytimg.com/vi/" + x.video_id + "/mqdefault.jpg"} alt="" />` : null}
+              <${StatusPill} st=${yt[x.video_id]} />
+            </span>
+            <p class="vt">${x.title || "(제목 미기록)"}</p>
+            <p class="vd">${fmtDT(x.published_at || x.created_at)}${x.episode_no != null ? " · " + x.episode_no + "회차" : ""}</p>
+          </a>`)}</div>`}
+      </div>`;
+    })}
   </div>`;
 }
 
@@ -1037,7 +1072,8 @@ function App() {
         review=${review} chmap=${mx?.channels ?? {}} avatars=${avatars} feed=${feed} refresh=${load} />` : null}
       ${page === "review" ? html`<${ReviewPage} review=${review} chmap=${mx?.channels ?? {}} avatars=${avatars}
         reload=${() => api("/api/review").then(setReview).catch(() => null)} />` : null}
-      ${page === "feed" ? html`<${FeedPage} feed=${feed} yt=${yt} ytConfigured=${ytConfigured} refresh=${load} />` : null}
+      ${page === "feed" ? html`<${FeedPage} feed=${feed} yt=${yt} ytConfigured=${ytConfigured} refresh=${load}
+        chmap=${mx?.channels ?? {}} avatars=${avatars} />` : null}
       ${page === "perf" ? html`<${PerfPage} />` : null}
       ${page === "machines" ? html`<${MachinesPage} machines=${machines} now=${mx?.now} anomalies=${mx?.anomalies ?? []} refresh=${load} />` : null}
       ${page === "deploy" ? html`<${DeployPage} machines=${machines} commits=${commits} refresh=${load} />` : null}
