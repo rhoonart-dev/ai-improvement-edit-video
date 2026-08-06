@@ -133,9 +133,26 @@ def test_episode_pairs_only_known_numeric():
         ("몰입도둑", "x", {"run_id": "SNL_9z"}, True),      # 회차가 숫자 아님 → 제외(방어)
         ("킥킥극장", "2", {"run_id": "SNL_7c"}, False),     # 배정 밖 → 제외
     ]
-    rows = {"SNL_3b": ("cid-3b", None, None), "SNL_9z": ("cid-9z", None, None),
-            "SNL_7c": ("cid-7c", None, None)}
+    # rows 키는 (run_id, take) — 한 job 의 테이크 3개가 같은 run_id 를 공유하므로 라벨까지 봐야 한다
+    rows = {("SNL_3b", "shorts_1"): ("cid-3b", None, None),
+            ("SNL_9z", "shorts_1"): ("cid-9z", None, None),
+            ("SNL_7c", "shorts_1"): ("cid-7c", None, None)}
     assert up.episode_pairs(scenes, rows) == [("cid-3b", 1)]
+
+
+def test_episode_pairs_distinguishes_takes():
+    # 같은 job 의 테이크 2는 별개 클립 — take 를 안 보면 정본 클립으로 잘못 붙는다
+    scenes = [("몰입도둑", "1", {"run_id": "SNL_3b", "take": "shorts_2"}, True)]
+    rows = {("SNL_3b", "shorts_1"): ("cid-1", None, None),
+            ("SNL_3b", "shorts_2"): ("cid-2", None, None)}
+    assert up.episode_pairs(scenes, rows) == [("cid-2", 1)]
+
+
+def test_take_files_resolves_variant_paths():
+    v, plan = up.take_files("/job", "shorts_3")
+    assert v.name == "shorts_3.mp4" and plan.name == "edit_plan_3.json"
+    v1, plan1 = up.take_files("/job", "shorts_1")
+    assert v1.name == "shorts.mp4" and plan1.name == "edit_plan.json"
 
 
 if __name__ == "__main__":

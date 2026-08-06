@@ -610,3 +610,96 @@ def test_dedup_spans_excludes_production_rejects():
     assert [10, 60] not in spans
     assert [100, 150] in spans and [200, 250] in spans and [300, 350] in spans
     assert sl.dedup_spans(scenes, None) == [s["span"] for s in scenes]  # 기록 없으면 전부 유지
+
+
+# ── 한 job 의 여러 테이크(--max-shorts N) 처리 ──
+# 첫 테이크가 기존 장면과 겹치면 예전엔 전 과정을 재생성했다(2026-08-05 리와인드포차 3시간).
+# 이제 같은 분석이 낸 변이 중 안 겹치는 것을 골라 쓰고, 하류가 아는 이름으로 올린다.
+
+def _job_with_takes(tmp, spans):
+    """spans[i] → 테이크 i 의 edit_plan/mp4 를 만든다(0=정본, 1.. =변이)."""
+    job = Path(tmp, "job")
+    job.mkdir(parents=True, exist_ok=True)
+    for i, (s, e) in enumerate(spans):
+        plan = {"timeline": [{"clip_start_sec": s, "clip_end_sec": e}]}
+        name = "edit_plan.json" if i == 0 else f"edit_plan_{i + 1}.json"
+        vid = "shorts.mp4" if i == 0 else f"shorts_{i + 1}.mp4"
+        Path(job, name).write_text(json.dumps(plan), encoding="utf-8")
+        Path(job, vid).write_text(f"take{i}", encoding="utf-8")
+    return str(job)
+
+
+def test_job_takes_orders_canonical_first():
+    with tempfile.TemporaryDirectory() as d:
+        job = _job_with_takes(d, [(10, 20), (30, 40), (50, 60)])
+        assert [t[0] for t in sl.job_takes(job)] == ["shorts", "shorts_2", "shorts_3"]
+
+
+def test_take_label_maps_canonical_to_ingest_key():
+    # 정본만 파일명(shorts.mp4)과 멱등 키(shorts_1)가 어긋난다 — 여기서 통일한다
+    assert sl.take_label("shorts") == "shorts_1"
+    assert sl.take_label("shorts_2") == "shorts_2"
+
+
+def test_take_files_resolves_video_and_plan():
+    with tempfile.TemporaryDirectory() as d:
+        job = _job_with_takes(d, [(10, 20), (30, 40)])
+        v, plan = sl.take_files(job, "shorts_1")
+        assert v.name == "shorts.mp4" and plan.name == "edit_plan.json"
+        v2, plan2 = sl.take_files(job, "shorts_2")
+        assert v2.read_text() == "take1" and json.loads(plan2.read_text())["timeline"][0]["clip_start_sec"] == 30
+
+
+def test_record_scene_stores_take():
+    state = {}
+    sl.record_scene(state, "채널1", "작품", 1, "/src.mp4", [10.0, 20.0], "job_a", "/out", take="shorts_2")
+    assert state["channels"]["채널1"]["episodes"]["1"]["scenes"][0]["take"] == "shorts_2"
+
+
+def test_build_cmd_passes_max_shorts():
+    cmd = sl.build_cmd("py", "작품", "/src.mp4", "/out", [], ep_num=1, max_shorts=3)
+    assert cmd[cmd.index("--max-shorts") + 1] == "3"
+
+
+# ── 실패 재개 (--from-step) ──
+# 생성 시간의 대부분은 청크 분석이다. 뒤 단계에서 죽어도 처음부터 다시 돌리던 탓에
+# 2026-08-06 하루에 70분·40분을 날렸다 — 둘 다 checkpoint_gemini.json 이 남아 있었다.
+
+def test_resume_point_prefers_gemini_checkpoint():
+    with tempfile.TemporaryDirectory() as d:
+        job = Path(d, "피의_게임_X_ab"); job.mkdir()
+        Path(job, "checkpoint_probe.json").write_text("{}", encoding="utf-8")
+        Path(job, "checkpoint_gemini.json").write_text("{}", encoding="utf-8")
+        assert sl.resume_point(str(job)) == ("피의_게임_X_ab", "graph")
+
+
+def test_resume_point_falls_back_to_gemini_step():
+    with tempfile.TemporaryDirectory() as d:
+        job = Path(d, "job_x"); job.mkdir()
+        Path(job, "checkpoint_probe.json").write_text("{}", encoding="utf-8")
+        assert sl.resume_point(str(job)) == ("job_x", "gemini")
+
+
+def test_resume_point_none_without_checkpoints():
+    with tempfile.TemporaryDirectory() as d:
+        job = Path(d, "job_y"); job.mkdir()
+        assert sl.resume_point(str(job)) is None
+        assert sl.resume_point(None) is None
+
+
+def test_any_job_dir_finds_failed_job_without_edit_plan():
+    # 실패한 job 은 edit_plan 이 없다 — newest_job_dir 로는 못 찾는다
+    with tempfile.TemporaryDirectory() as d:
+        job = Path(d, "job_z"); job.mkdir()
+        Path(job, "checkpoint_gemini.json").write_text("{}", encoding="utf-8")
+        assert sl.newest_job_dir(d) is None
+        assert sl.any_job_dir(d) == str(job)
+
+
+def test_build_cmd_resume_args():
+    cmd = sl.build_cmd("py", "작품", "/src.mp4", "/out", [], ep_num=2,
+                       from_step="graph", job_id="job_ab")
+    assert cmd[cmd.index("--from-step") + 1] == "graph"
+    assert cmd[cmd.index("--job-id") + 1] == "job_ab"
+    # 재개가 아니면 인자가 아예 없어야 한다(빈 값으로 넘기면 ai-video 가 --job-id 요구로 죽는다)
+    assert "--from-step" not in sl.build_cmd("py", "작품", "/src.mp4", "/out", [], ep_num=2)

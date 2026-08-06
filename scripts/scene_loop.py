@@ -571,7 +571,7 @@ def rendered_scenes(state, channel, ep_num, video_path, scan_roots, iou_th, cent
 
 
 def record_scene(state, slot, work_title, ep_num, video_path, span, run_id, job_dir,
-                 channel=None):
+                 channel=None, take="shorts_1"):
     # 🛑 video_path 는 반드시 str 로 넣는다 — source_cache.ensure_episode_source 가 Path 를 돌려주므로
     # 그대로 담으면 save_state 의 json.dumps 가 TypeError(PosixPath not JSON serializable) 로 죽는다.
     # 생성이 끝난 **뒤**에 터지는 자리라, 30~90분 쓴 렌더가 상태에 기록되지 않는다(2026-07-29 실측:
@@ -583,7 +583,11 @@ def record_scene(state, slot, work_title, ep_num, video_path, span, run_id, job_
     if channel:
         ch["channel"] = channel
     ep = ch.setdefault("episodes", {}).setdefault(str(ep_num), {"video_path": str(video_path), "scenes": []})
-    ep["scenes"].append({"span": span, "run_id": run_id, "job_dir": job_dir,
+    # take: 한 job 이 --max-shorts N 으로 낸 테이크 중 어느 것인가(shorts_1 = 정본).
+    # 🛑 이 값이 곧 **어느 mp4/edit_plan 을 발행하느냐**다 — 하류(검수 업로더·인제스트·발행)가
+    # 이걸 안 보면 테이크 2·3 자리에 정본 영상이 올라간다. 인제스트 멱등 키(short_label)와도
+    # 같은 값이어서, 한 job 의 테이크들이 DB 에서 같은 ai_video_run_id + 다른 라벨로 구분된다.
+    ep["scenes"].append({"span": span, "run_id": run_id, "job_dir": job_dir, "take": take,
                          "accepted_at": datetime.now().isoformat(timespec="seconds")})
 
 
@@ -824,7 +828,8 @@ def dedup_spans(scenes, publish_records):
     return out
 
 
-def build_cmd(gen_py, work_title, video_path, outdir, gen_flags, ep_num=None, subtitle=None):
+def build_cmd(gen_py, work_title, video_path, outdir, gen_flags, ep_num=None, subtitle=None,
+              max_shorts=3, from_step=None, job_id=None):
     """소스가 URL 이면 --youtube-url(ai-video 가 직접 받아 씀), 아니면 --video. 순수.
 
     작품 리서치는 **켠 상태**로 돌린다 — 인물명·관계를 모르면 장면 분석이 등장인물을 틀린다
@@ -838,9 +843,11 @@ def build_cmd(gen_py, work_title, video_path, outdir, gen_flags, ep_num=None, su
     src = ["--youtube-url", video_path] if is_url(video_path) else ["--video", str(video_path)]
     ep = ["--episode", str(ep_num)] if ep_num is not None else []
     sub = ["--subtitle", str(subtitle)] if subtitle else []
+    # 재개: 같은 outdir 의 job 을 지정 단계부터 다시 돈다(분석 체크포인트 재사용)
+    resume = ["--from-step", str(from_step), "--job-id", str(job_id)] if (from_step and job_id) else []
     return [gen_py, "-m", "app.cli", "create_shorts",
-            "--title", work_title, *src, *sub, *ep,
-            "--max-shorts", "1", "--outdir", outdir, *gen_flags]
+            "--title", work_title, *src, *sub, *ep, *resume,
+            "--max-shorts", str(max_shorts), "--outdir", outdir, *gen_flags]
 
 
 def run_generation(cmd, worktree, ai_video_root, timeout):
@@ -851,6 +858,76 @@ def run_generation(cmd, worktree, ai_video_root, timeout):
 def newest_job_dir(outdir):
     cands = glob.glob(str(Path(outdir) / "*" / "edit_plan.json"))
     return str(Path(max(cands, key=os.path.getmtime)).parent) if cands else None
+
+
+# ── 실패한 생성 재개 (--from-step) ──
+# 생성은 [분석 → 구성 → 렌더] 인데 **분석이 시간의 대부분**이고(청크당 ~3분 × 12~15청크),
+# 뒤 단계에서 죽어도 지금까지는 다음 실행이 처음부터 다시 돌렸다. 2026-08-06 하루에만 두 번
+# (70분·40분) 그렇게 날렸는데, 둘 다 checkpoint_gemini.json 이 남아 있어 `--from-step graph`
+# 로 몇 분 만에 회복할 수 있었다. ai-video 는 예전부터 재개를 지원했고 루프가 안 쓰고 있었다.
+#
+# 재개는 **한 번만** 시도한다 — 재개도 실패하면 원인이 체크포인트 밖에 있다는 뜻이라,
+# 반복하면 밤새 같은 자리를 맴돌며 Gemini 비용만 쓴다.
+RESUME_POINTS = [
+    ("checkpoint_gemini.json", "graph"),          # 청크 분석 완료 → 구성부터
+    ("checkpoint_probe.json", "gemini"),          # 프록시·프로브까지 → 분석부터(가장 비싼 부분은 재실행)
+]
+
+
+def any_job_dir(outdir):
+    """edit_plan 이 없어도 job 폴더를 찾는다 — 실패한 job 은 edit_plan 이 없다(newest_job_dir 은 못 찾음)."""
+    cands = [p for p in Path(outdir).glob("*") if p.is_dir()]
+    return str(max(cands, key=lambda p: p.stat().st_mtime)) if cands else None
+
+
+def resume_point(job_dir):
+    """job 폴더의 체크포인트 → (job_id, from_step) 또는 None(재개 불가, 처음부터)."""
+    if not job_dir:
+        return None
+    p = Path(job_dir)
+    for fname, step in RESUME_POINTS:
+        if (p / fname).exists():
+            return p.name, step
+    return None
+
+
+# ── 한 job 안의 여러 테이크 (--max-shorts N) ──
+# ai-video 는 분석 1회로 쇼츠 N 편을 낸다: shorts.mp4/edit_plan.json + shorts_<n>.mp4/edit_plan_<n>.json.
+# 분석이 가장 비싼 단계(편당 30~90분 중 대부분)라 **재생성보다 훨씬 싸게 대안 테이크를 얻는다** —
+# 예전에는 첫 테이크가 기존 장면과 겹치면 전 과정을 다시 돌렸다(2026-08-05 리와인드포차 3회 = 3시간).
+#
+# 🛑 하류는 전부 shorts.mp4/edit_plan.json 이라는 이름을 전제한다(검수 사본 업로더·인제스트·발행).
+# 그래서 고른 테이크가 변이면 **이름을 바꿔 정본 자리에 올린다**(promote). 파일을 고르는 대신
+# 하류에 '어느 파일인지'를 들려보내면 네 곳을 고쳐야 하고, 한 곳이라도 빠뜨리면 **다른 영상이
+# 발행된다.**
+
+def job_takes(job_dir):
+    """job 안의 테이크 목록 [(label, plan_path, video_path)] — 정본이 먼저, 그다음 변이 번호순."""
+    p = Path(job_dir)
+    takes = []
+    if (p / "edit_plan.json").exists():
+        takes.append(("shorts", p / "edit_plan.json", p / "shorts.mp4"))
+    for plan in sorted(p.glob("edit_plan_*.json"), key=lambda f: f.name):
+        n = plan.stem.split("_")[-1]
+        if n.isdigit():
+            takes.append((f"shorts_{n}", plan, p / f"shorts_{n}.mp4"))
+    return takes
+
+
+def take_label(job_label):
+    """job 안의 파일 이름('shorts' | 'shorts_2') → 상태·인제스트가 쓰는 라벨('shorts_1' | 'shorts_2').
+
+    정본만 이름이 어긋난다(shorts.mp4 ↔ short_label 'shorts_1'). 인제스트 멱등 키가 예전부터
+    'shorts_1' 이라 그 규약에 맞춘다 — 여기서 통일해 두지 않으면 하류가 파일을 못 찾는다."""
+    return "shorts_1" if job_label == "shorts" else job_label
+
+
+def take_files(job_dir, take):
+    """라벨 → (video, edit_plan) 경로. 하류가 '어느 파일인가'를 물을 때 단일 창구."""
+    p, n = Path(job_dir), str(take or "shorts_1")
+    if n in ("shorts_1", "shorts"):
+        return p / "shorts.mp4", p / "edit_plan.json"
+    return p / f"{n}.mp4", p / f"edit_plan_{n.split('_')[-1]}.json"
 
 
 def save_gen_output(outdir, cmd, rc, stdout, stderr):
@@ -1002,7 +1079,8 @@ def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_ro
         outdir = str(Path(ai_video_root) / "outputs" / "scene_loop" / slot_key(ch) /
                      episode_dir_name(ep_num) / f"try{attempt}_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
         Path(outdir).mkdir(parents=True, exist_ok=True)
-        cmd = build_cmd(gen_py, ch["work_title"], vp, outdir, gen_flags, ep_num, sub_path)
+        cmd = build_cmd(gen_py, ch["work_title"], vp, outdir, gen_flags, ep_num, sub_path,
+                        max_shorts=cfg.get("max_shorts_per_gen", 3))
         log(f"{tag}   시도 {attempt}/{attempts}: {' '.join(cmd[:6])} … → {outdir}")
         try:
             r = run_generation(cmd, worktree, ai_video_root, cfg["gen_timeout_sec"])
@@ -1013,27 +1091,62 @@ def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_ro
         job_dir = newest_job_dir(outdir)
         if r.returncode != 0 or not job_dir:
             saved = save_gen_output(outdir, cmd, r.returncode, r.stdout, r.stderr)
-            log(f"{tag}   ✗ 생성 실패 rc={r.returncode} → 이 채널 오늘 종료. 전문: {saved}\n"
-                f"      stderr꼬리: {(r.stderr or r.stdout or '')[-300:]}")
+            # 분석 체크포인트가 남아 있으면 처음부터가 아니라 거기서 재개한다(1회만).
+            rp = resume_point(any_job_dir(outdir))
+            if rp:
+                jid, step = rp
+                log(f"{tag}   ✗ 생성 실패 rc={r.returncode} (전문: {saved}) → "
+                    f"체크포인트에서 재개: --from-step {step} --job-id {jid}")
+                cmd = build_cmd(gen_py, ch["work_title"], vp, outdir, gen_flags, ep_num, sub_path,
+                                max_shorts=cfg.get("max_shorts_per_gen", 3),
+                                from_step=step, job_id=jid)
+                try:
+                    r = run_generation(cmd, worktree, ai_video_root, cfg["gen_timeout_sec"])
+                except subprocess.TimeoutExpired as e:
+                    saved = save_gen_output(outdir, cmd, "timeout", e.stdout, e.stderr)
+                    log(f"{tag}   ✗ 재개도 타임아웃 → 이 채널 오늘 종료. 전문: {saved}")
+                    return
+                job_dir = newest_job_dir(outdir)
+            if r.returncode != 0 or not job_dir:
+                saved = save_gen_output(outdir, cmd, r.returncode, r.stdout, r.stderr)
+                log(f"{tag}   ✗ 생성 실패 rc={r.returncode} → 이 채널 오늘 종료. 전문: {saved}\n"
+                    f"      stderr꼬리: {(r.stderr or r.stdout or '')[-300:]}")
+                return
+        # 이 job 이 낸 테이크 전부(정본 + 변이)를 후보로 본다. 분석 1회로 나온 것이라
+        # 대안 테이크를 얻는 값이 재생성보다 훨씬 싸다(2026-08-05 리와인드포차: 겹침 때문에
+        # 전 과정을 3번 돌려 3시간). 겹치지 않는 것은 **전부 장면으로 확정해 검수함에 올린다** —
+        # 사람이 대시보드에서 셋 중 쓸 것을 고르고 각각 다른 날로 예약한다(2026-08-06 합의).
+        takes = job_takes(job_dir)
+        if not takes:
+            log(f"{tag}   ✗ edit_plan 이 없습니다 → 이 채널 오늘 종료 (job={job_dir})")
             return
-        try:
-            plan = json.loads((Path(job_dir) / "edit_plan.json").read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as e:
-            log(f"{tag}   ✗ edit_plan 읽기 실패({e}) → 이 채널 오늘 종료")
-            return
-        span = scene_span(plan)
-        if span is None:
-            log(f"{tag}   ✗ 장면 구간 없음(timeline 비어있음) → 이 채널 오늘 종료 (job={job_dir})")
-            return
-        if is_duplicate(span, prior_spans, iou_th, ctol):
-            log(f"{tag}   ↻ 중복 장면 {span} (기존과 겹침) → 재생성")
+        run_id, accepted, seen_spans = _run_id_of(job_dir), [], list(prior_spans)
+        for label, plan_path, _video in takes:
+            try:
+                plan = json.loads(plan_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as e:
+                log(f"{tag}   ⚠ {plan_path.name} 읽기 실패({e}) → 이 테이크 건너뜀")
+                continue
+            sp = scene_span(plan)
+            if sp is None:
+                log(f"{tag}   ⚠ {label}: 장면 구간 없음(timeline 비어있음) → 이 테이크 건너뜀")
+                continue
+            # 기존 장면뿐 아니라 **같은 job 의 앞 테이크와도** 대조한다 — 변이끼리 같은 대목을
+            # 고르면 검수함에 사실상 같은 영상이 두 개 올라간다.
+            if is_duplicate(sp, seen_spans, iou_th, ctol):
+                log(f"{tag}   ↻ {label} 중복 장면 {sp} (기존/앞 테이크와 겹침)")
+                continue
+            seen_spans.append(sp)
+            accepted.append((label, sp))
+            record_scene(state, slot_key(ch), ch["work_title"], ep_num, vp, sp, run_id, job_dir,
+                         channel=ch["channel"], take=take_label(label))
+        if not accepted:
+            log(f"{tag}   ↻ 테이크 {len(takes)}개 모두 중복/무효 → 재생성")
             continue
-        run_id = _run_id_of(job_dir)
-        record_scene(state, slot_key(ch), ch["work_title"], ep_num, vp, span, run_id, job_dir,
-                     channel=ch["channel"])
         save_state(state)
-        log(f"{tag}   ✓ 새 장면 확정(미공개) {span} (run={run_id}) — 공개 {info['public']}/{quota} 유지."
-            f" 공개 처리하면 회차 카운트 반영")
+        log(f"{tag}   ✓ 새 장면 {len(accepted)}개 확정(미공개, run={run_id}): "
+            + " · ".join(f"{take_label(l)} {s}" for l, s in accepted)
+            + f" — 공개 {info['public']}/{quota} 유지. 검수·공개 처리하면 회차 카운트 반영")
         quick_review_upload(log)
         return
     log(f"{tag}   ⚠ {attempts}회 모두 이전과 같은 장면 → 보류(미확정). 다음날 재시도. 수동 확인 권장 (EP{ep_num})")
