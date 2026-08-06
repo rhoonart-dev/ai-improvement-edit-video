@@ -33,6 +33,34 @@ def test_missing_dim_is_none():
     assert j["rubric_scores"]["visual_hook"] is None
 
 
+def test_sensitive_fields_parsed_and_sanitized():
+    """민감 소재 감지(v2) — 표시 전용 필드. 종류는 정본 목록 밖 값을 버리고,
+    kinds 가 있으면 flag 를 켠다(모델이 flag 를 빼먹어도 종류가 증거)."""
+    j = rj.parse_judge_json(
+        '{"hook_3s":0.5,"visual_hook":0.5,"pacing":0.5,"completion_pull":0.5,'
+        '"sensitive_flag":true,"sensitive_kinds":["정치","엉뚱한값","성적표현"],'
+        '"sensitive_note":"대통령 패러디 콩트"}')
+    rs = j["rubric_scores"]
+    assert rs["sensitive_flag"] is True
+    assert rs["sensitive_kinds"] == ["정치", "성적표현"]      # 목록 밖 값 제거
+    assert rs["sensitive_note"] == "대통령 패러디 콩트"
+    # 점수는 민감 소재와 무관해야 한다 — 표시 전용
+    assert j["quality_score"] == 0.5
+
+
+def test_sensitive_defaults_when_absent():
+    """구버전 응답(민감 필드 없음)도 깨지지 않는다 — flag False·kinds []·note ''."""
+    j = rj.parse_judge_json('{"hook_3s":1,"visual_hook":1,"pacing":1,"completion_pull":1}')
+    rs = j["rubric_scores"]
+    assert rs["sensitive_flag"] is False and rs["sensitive_kinds"] == [] and rs["sensitive_note"] == ""
+
+
+def test_sensitive_kinds_without_flag_still_flags():
+    j = rj.parse_judge_json(
+        '{"hook_3s":1,"visual_hook":1,"pacing":1,"completion_pull":1,"sensitive_kinds":["정치"]}')
+    assert j["rubric_scores"]["sensitive_flag"] is True
+
+
 def test_no_json_raises():
     raised = False
     try:
