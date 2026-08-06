@@ -160,14 +160,18 @@ details.tail summary{cursor:pointer;font-size:11.5px;color:var(--ink2)}
 .macbox.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .macbox h4{margin:0 0 6px;font-size:13px}.macbox h4 small{color:var(--ink3);font-weight:400}
 .chrow{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:12.5px;min-width:0}
-.chhead{justify-content:flex-end;gap:9px;color:var(--ink3);font-size:10px;padding:0 0 2px}
-.dotpair{display:flex;gap:9px;margin-left:auto;flex:none}
+.chhead{justify-content:flex-end;gap:17px;color:var(--ink2);font-size:10.5px;font-weight:600;letter-spacing:.02em;padding:0 0 3px}
+.chhead span{width:11px;text-align:center;overflow:visible;white-space:nowrap}
+.lghelp{position:relative;margin-left:auto;color:var(--ink3);cursor:help;display:flex;align-items:center}
+.lgpop{position:absolute;top:20px;right:0;z-index:25;width:290px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:11.5px;line-height:1.75;color:var(--ink2);box-shadow:0 6px 22px rgba(0,0,0,.16);cursor:auto;text-align:left}
+.lgpop b{color:var(--ink)}
+.dotpair{display:flex;gap:17px;margin-left:auto;flex:none}
 .chdot{width:11px;height:11px;border-radius:50%;flex:none}
 .chdot.ok{background:var(--ok)}.chdot.warn{background:var(--dotwarn,var(--warn))}.chdot.bad{background:var(--bad)}.chdot.idle{background:var(--line)}
-.chdot.rej{background:transparent;border:3px solid var(--bad);width:9px;height:9px}
+.chdot.rej{background:transparent;border:3px solid var(--bad)}
 /* 링 = 재생성 사이클을 거친 상태(첫 시도 실패 후 다시 만든 것) */
-.chdot.warnr{background:transparent;border:3px solid var(--dotwarn,var(--warn));width:9px;height:9px}
-.chdot.okr{background:transparent;border:3px solid var(--ok);width:9px;height:9px}
+.chdot.warnr{background:transparent;border:3px solid var(--dotwarn,var(--warn))}
+.chdot.okr{background:transparent;border:3px solid var(--ok)}
 .chlink{display:flex;align-items:center;gap:6px;color:inherit;text-decoration:none;min-width:0}
 .chlink span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 a.chlink:hover span{text-decoration:underline}
@@ -306,6 +310,11 @@ function ChannelChip({ name, chmap, avatars }) {
     : html`<span class="chlink">${inner}</span>`;
 }
 
+// 점 툴팁 — 범례를 짧게 줄인 대신 정확한 뜻은 여기서(2026-08-06 운영자 합의)
+const GEN_TIP = { ok: "검수 통과", warn: "검수 대기", rej: "반려 (대체 장면 생성 예정)",
+  bad: "생성 실패", okr: "재생성 후 검수 통과", warnr: "재생성 후 검수 대기", idle: "오늘 신호 없음" };
+const PUB_TIP = { ok: "오늘 공개됨", warn: "공개 전환 대기 (Studio)", idle: "오늘 공개 없음" };
+
 // ── 홈: 6대 상태 보드 + 드릴다운 ──
 // 점 규칙: **오늘 일어난 일만** 반영한다(운영자 규칙 2026-08-05 — "신호등은 무조건 오늘 기준").
 // 채널당 점 2개 — 하나로는 "오늘 몫은 예약으로 채웠지만 오늘 생성은 실패"(2026-08-05 이불 속
@@ -317,6 +326,7 @@ function ChannelChip({ name, chmap, avatars }) {
 // 드릴다운은 카드 클릭 토글이되, 실패가 있는 맥은 자동으로 펼친다(문제가 먼저 보이게).
 function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl }) {
   const [manual, setManual] = useState({});   // machine_id → 수동 열림/닫힘 (자동값 덮어씀)
+  const [help, setHelp] = useState(false);   // 범례 ⓘ — 긴 설명은 여기로 접었다(2026-08-06)
   // accepted_at(맥 로컬시각, 오프셋 없음)과 created_at(UTC 오프셋 포함)이 섞인다 —
   // Date 파싱이 둘 다 브라우저 로컬(KST)로 맞춰주므로 날짜 비교는 toDateString 으로.
   const isToday = (iso) => {
@@ -420,18 +430,21 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl }
   return html`<div>
     <div class="boardlegend">
       ${dateCtl}
-      <b style=${{ color: "var(--ink2)" }}>생성</b>
-      <span class="lg"><span class="chdot ok"></span>검수 통과</span>
-      <span class="lg"><span class="chdot warn"></span>검수 대기</span>
+      <span class="lg"><span class="chdot ok"></span>완료</span>
+      <span class="lg"><span class="chdot warn"></span>대기</span>
       <span class="lg"><span class="chdot rej"></span>반려</span>
       <span class="lg"><span class="chdot bad"></span>실패</span>
-      <span class="lg"><span class="chdot warnr"></span><span class="chdot okr"></span>재생성 후 대기·통과</span>
-      <b style=${{ color: "var(--ink2)", marginLeft: "8px" }}>공개</b>
-      <span class="lg"><span class="chdot ok"></span>오늘 공개됨</span>
-      <span class="lg"><span class="chdot warn"></span>전환 대기</span>
-      <span class="lg"><span class="chdot idle"></span>없음</span>
-      <span style=${{ color: "var(--ink3)" }}>· 기준: 오늘 · 예약공개는 공개되는 순간 반영</span>
-      <span style=${{ marginLeft: "auto", color: "var(--ink3)" }}>카드를 누르면 상세 — 실패가 있는 맥은 자동으로 펼쳐집니다</span>
+      <span style=${{ color: "var(--ink3)" }}>○ 링 = 재생성 후</span>
+      <span class="lghelp" onMouseEnter=${() => setHelp(true)} onMouseLeave=${() => setHelp(false)}
+        onClick=${(e) => { e.stopPropagation(); setHelp(!help); }} title="신호등 읽는 법">ⓘ
+        ${help ? html`<div class="lgpop">
+          <b>색</b>은 그 단계의 상태 — 두 열에서 뜻이 같습니다.<br/>
+          <b>어느 단계</b>인지는 카드의 <b>생성 · 공개</b> 머리글이 알려줍니다.<br/>
+          예: 생성 열 초록 = 검수 통과, 공개 열 초록 = 오늘 공개됨<br/>
+          <span style=${{ color: "var(--ink3)" }}>· 기준은 항상 오늘 — 예약공개는 공개되는 순간 반영</span><br/>
+          <span style=${{ color: "var(--ink3)" }}>· 카드를 누르면 상세, 실패가 있는 맥은 자동으로 펼쳐집니다</span>
+        </div>` : null}
+      </span>
     </div>
     <div class="macboard">
       ${machines.map((m) => html`<div key=${m.machine_id} class=${"macbox" + (isOpen(m) ? " sel" : "")} onClick=${() => toggle(m)}>
@@ -439,8 +452,8 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl }
         ${chansOf(m.mac).length ? html`<div class="chrow chhead"><span>생성</span><span>공개</span></div>` : null}
         ${chansOf(m.mac).map((ch) => html`<div class="chrow" key=${ch}>
           <${ChannelChip} name=${ch} chmap=${chmap} avatars=${avatars} />
-          <span class="dotpair"><span class=${"chdot " + genStatus(ch)} title="오늘 생성"></span>
-            <span class=${"chdot " + pubStatus(ch)} title="오늘 공개"></span></span></div>`)}
+          <span class="dotpair"><span class=${"chdot " + genStatus(ch)} title=${"생성 — " + GEN_TIP[genStatus(ch)]}></span>
+            <span class=${"chdot " + pubStatus(ch)} title=${"공개 — " + PUB_TIP[pubStatus(ch)]}></span></span></div>`)}
         ${chansOf(m.mac).length === 0 ? html`<div class="chrow" style=${{ color: "var(--ink3)" }}>담당 채널 없음</div>` : null}
       </div>`)}
     </div>
@@ -469,8 +482,8 @@ function PastBoard({ snap, chmap, avatars }) {
         ${chansOf(m.mac).length ? html`<div class="chrow chhead"><span>생성</span><span>공개</span></div>` : null}
         ${chansOf(m.mac).map((ch) => html`<div class="chrow" key=${ch}>
           <${ChannelChip} name=${ch} chmap=${chmap} avatars=${avatars} />
-          <span class="dotpair"><span class=${"chdot " + b[ch].gen}></span>
-            <span class=${"chdot " + b[ch].pub}></span></span></div>`)}
+          <span class="dotpair"><span class=${"chdot " + b[ch].gen} title=${"생성 — " + (GEN_TIP[b[ch].gen] || "")}></span>
+            <span class=${"chdot " + b[ch].pub} title=${"공개 — " + (PUB_TIP[b[ch].pub] || "")}></span></span></div>`)}
         ${chansOf(m.mac).length === 0 ? html`<div class="chrow" style=${{ color: "var(--ink3)" }}>담당 채널 없음</div>` : null}
       </div>`)}
     </div>
