@@ -1,4 +1,4 @@
-// VES 운영 대시보드 — v4.1 API (v4.0 + 검수자 프로필 아이콘(0012) — 결정에 reviewer_icon 저장·반환)
+// VES 운영 대시보드 — v4.2 API (v4.1 + POST /api/note — 결정 불변, 사유만 수정/추가)
 // 배포: Supabase Edge Function `dashboard` (프로젝트 fdidiqdhcyctdbogxkdu, verify_jwt=false)
 // 화면: https://rhoonart-da.github.io/ves-ops-dashboard/ (GitHub Pages, React 단일 파일) — 이 함수는 API 전용.
 //   슈파베이스 기본 도메인은 text/html 을 text/plain 으로 강제해 HTML 서빙이 불가하다.
@@ -415,6 +415,22 @@ async function apiDecision(req: Request) {
   return json({ ok: true, clip_id: clipId, decision });
 }
 
+// ── 사유만 수정 (2026-08-06 운영자 요청) — 결정·시각·유형은 불변, note 만 덮어쓴다.
+//    이력 없음(마지막 값 보관, 운영자 합의). 결정이 없는 클립에는 만들지 않는다.
+async function apiNote(req: Request) {
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch { return json({ error: "JSON body 필요" }, 400); }
+  const clipId = String(body.clip_id ?? "");
+  if (!clipId) return json({ error: "clip_id 필요" }, 400);
+  const note = body.note ? String(body.note).slice(0, 500) : null;
+  const sb = createClient(SB_URL, SB_KEY);
+  const { data, error } = await sb.from("review_decisions")
+    .update({ note }).eq("clip_id", clipId).select("clip_id,note");
+  if (error) return json({ error: error.message }, 500);
+  if (!data?.length) return json({ error: "결정이 없는 클립 — 사유는 결정에만 붙는다" }, 404);
+  return json({ ok: true, clip_id: clipId, note: data[0].note });  // 저장된 값을 되돌려줘 화면이 DB 반영을 확인
+}
+
 async function apiCommits() {
   if (!GH_TOKEN) return json({ configured: false, repos: {} });
   const out: Record<string, unknown> = {};
@@ -556,7 +572,7 @@ Deno.serve(async (req) => {
   const path = url.pathname.replace(/^\/dashboard/, "") || "/";
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (!["GET", "HEAD", "POST"].includes(req.method)) return json({ error: "method" }, 405);
-  if (req.method === "POST" && !["/api/decision", "/api/snapshot-daily"].includes(path)) return json({ error: "method" }, 405);
+  if (req.method === "POST" && !["/api/decision", "/api/note", "/api/snapshot-daily"].includes(path)) return json({ error: "method" }, 405);
   if (path === "/" || path === "") {
     return json({ service: "VES OPS API", ui: "https://rhoonart-da.github.io/ves-ops-dashboard/", endpoints: ["/api/health", "/api/feed", "/api/perf", "/api/videos", "/api/ytstatus", "/api/chavatars", "/api/machines", "/api/commits"] });
   }
@@ -581,5 +597,6 @@ Deno.serve(async (req) => {
   if (path === "/api/snapshot-dates") return apiSnapshotDates();
   if (path === "/api/clip-url") return apiClipUrl(url);
   if (path === "/api/decision") return apiDecision(req);
+  if (path === "/api/note") return apiNote(req);
   return json({ error: "not found" }, 404);
 });
