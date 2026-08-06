@@ -93,6 +93,23 @@ def test_build_upsert_casts():
     assert vals[sql.split("(")[1].split(")")[0].split(", ").index("channels")].startswith("[")
 
 
+def test_parse_channels_marks_dup_hold():
+    """3회 모두 중복 → dup_hold. 'skipped'(할 일 없어 넘어감)와 반드시 구분돼야 한다.
+
+    2026-08-06 실측(맥4 이거보고자): 05:31·06:27·07:05 세 번 생성하고 전부 중복이라
+    보류했는데, 이 줄을 못 읽어 result=None → skipped → 대시보드에서 회색('신호 없음')."""
+    seg = "\n".join([
+        "[이거보고자 · 김부장] EP1: 공개 2/3 (렌더 6, 미공개 0) → 이번에 1장면 생성 (소스 x.mp4)",
+        "[이거보고자 · 김부장]   시도 1/3: … → try1",
+        "[이거보고자 · 김부장]   ↻ 중복 장면 [3790.0, 3936.0] (기존과 겹침) → 재생성",
+        "[이거보고자 · 김부장]   시도 3/3: … → try3",
+        "[이거보고자 · 김부장]   ⚠ 3회 모두 이전과 같은 장면 → 보류(미확정). 다음날 재시도. 수동 확인 권장 (EP1)",
+    ])
+    e = {c["channel"]: c for c in hb.parse_channels(seg)}["이거보고자"]
+    assert e["result"] == "dup_hold" and e["tries"] == 3
+    assert e["public"] == 2 and e["quota"] == 3
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_"):

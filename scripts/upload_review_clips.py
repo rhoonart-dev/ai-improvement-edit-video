@@ -140,7 +140,7 @@ def episode_pairs(scenes, rows):
     라벨(shorts_1)이라 회차가 아니다. 이 짝을 clips.source_episode 로 스탬프한다(0010)."""
     out = []
     for _ch, ep, sc, mine in scenes:
-        row = rows.get(sc.get("run_id")) if mine else None
+        row = rows.get((sc.get("run_id"), sc.get("take") or SHORT_LABEL)) if mine else None
         if not row:
             continue
         try:
@@ -170,17 +170,21 @@ def _db():
 
 
 def clip_rows(conn, run_ids):
-    """{run_id: (clip_id, video_external_id, storage_path)} — auto_edit + short_label 멱등 키."""
+    """{(run_id, take): (clip_id, video_external_id, storage_path)} — auto_edit 클립.
+
+    🛑 키가 run_id 하나였는데 **(run_id, take)** 로 바꿨다. --max-shorts 3 부터 한 job 이
+    테이크 3개를 내고 셋 다 같은 ai_video_run_id 를 쓴다(구분은 c.episode = short_label).
+    run_id 만으로 찾으면 세 장면이 같은 클립을 가리켜 **한 영상이 세 번 검수되고 나머지 둘은
+    영영 안 올라간다.**"""
     if not run_ids:
         return {}
     with conn.cursor() as cur:
         cur.execute(
-            """SELECT m.ai_video_run_id, c.id, c.video_external_id, c.storage_path
+            """SELECT m.ai_video_run_id, c.episode, c.id, c.video_external_id, c.storage_path
                FROM public.clip_metadata m JOIN public.clips c ON c.id = m.clip_id
-               WHERE m.ai_video_run_id = ANY(%s) AND c.source = 'auto_edit'
-                 AND c.episode = %s""",
-            (list(run_ids), SHORT_LABEL))
-        return {r[0]: (r[1], r[2], r[3]) for r in cur.fetchall()}
+               WHERE m.ai_video_run_id = ANY(%s) AND c.source = 'auto_edit'""",
+            (list(run_ids),))
+        return {(r[0], r[1] or SHORT_LABEL): (r[2], r[3], r[4]) for r in cur.fetchall()}
 
 
 def set_storage_path(conn, clip_id, value):
@@ -243,11 +247,24 @@ def storage_request(url, key, method, path, data=None, content_type=None):
         return r.status
 
 
-def run_ingest(job_dir, channel):
-    """ingest_aivideo_run.py 재사용 — 게이트·멱등 로직을 두 벌 만들지 않는다."""
+def take_files(job_dir, take):
+    """라벨 → (video, edit_plan). scene_loop.take_files 와 같은 규약(정본만 이름이 어긋난다)."""
+    p, n = pathlib.Path(job_dir), str(take or SHORT_LABEL)
+    if n in ("shorts_1", "shorts"):
+        return p / "shorts.mp4", p / "edit_plan.json"
+    return p / f"{n}.mp4", p / f"edit_plan_{n.split('_')[-1]}.json"
+
+
+def run_ingest(job_dir, channel, take=SHORT_LABEL):
+    """ingest_aivideo_run.py 재사용 — 게이트·멱등 로직을 두 벌 만들지 않는다.
+
+    테이크 2·3 은 편집안 파일이 따로 있으므로 --edit-plan 으로 짚어 준다. 안 그러면 세 장면이
+    정본 편집안으로 적재돼 **DB 상 같은 구간 클립 3개**가 된다."""
+    _video, plan = take_files(job_dir, take)
+    extra = ["--edit-plan", str(plan)] if take not in (SHORT_LABEL, "shorts") else []
     r = subprocess.run(
         [sys.executable, str(REPO_ROOT / "scripts" / "ingest_aivideo_run.py"),
-         "--run-dir", str(job_dir), "--short-label", SHORT_LABEL, "--channel", channel],
+         "--run-dir", str(job_dir), "--short-label", str(take), "--channel", channel, *extra],
         capture_output=True, text=True, timeout=300)
     return r.returncode == 0, (r.stdout + r.stderr)[-400:]
 
@@ -307,21 +324,22 @@ def _run(args):
                 continue
             if not within_days(sc.get("accepted_at"), args.since_days):
                 continue
-            row = rows.get(rid)
+            take = sc.get("take") or SHORT_LABEL
+            row = rows.get((rid, take))
             action = decide((row[1], row[2]) if row else None)
 
             if action == "ingest_upload":
                 job_dir = resolve_job_dir(sc.get("job_dir", ""), ai_video_root)
                 if args.dry_run:
-                    print(f"[review-upload] (dry) ingest+upload {ch} EP{ep} {rid}")
+                    print(f"[review-upload] (dry) ingest+upload {ch} EP{ep} {rid}/{take}")
                     n["ingest"] += 1
                     continue
-                ok, tail = run_ingest(job_dir, ch)
+                ok, tail = run_ingest(job_dir, ch, take)
                 if not ok:
                     print(f"[review-upload] ✗ ingest 실패 {rid}: {tail}")
                     continue
                 rows.update(clip_rows(conn, [rid]))
-                row = rows.get(rid)
+                row = rows.get((rid, take))
                 if row is None:
                     print(f"[review-upload] ✗ ingest 후에도 클립 조회 실패 {rid}")
                     continue
@@ -330,13 +348,10 @@ def _run(args):
 
             if action == "upload":
                 job_dir = resolve_job_dir(sc.get("job_dir", ""), ai_video_root)
-                mp4 = job_dir / "shorts.mp4"
+                mp4, _plan = take_files(job_dir, take)
                 if not mp4.exists():
-                    cands = sorted(job_dir.glob("*.mp4"))
-                    if not cands:
-                        print(f"[review-upload] ✗ mp4 없음 {rid} ({job_dir})")
-                        continue
-                    mp4 = cands[0]
+                    print(f"[review-upload] ✗ mp4 없음 {rid}/{take} ({mp4})")
+                    continue
                 opath = f"{BUCKET}/{object_path(machine_id, row[0])}"
                 if args.dry_run:
                     print(f"[review-upload] (dry) upload {ch} EP{ep} {rid} ← {mp4.name}")
@@ -382,11 +397,12 @@ def _run(args):
             for ch, ep, sc, mine in scenes:
                 if not mine or not within_days(sc.get("accepted_at"), args.since_days):
                     continue
-                row = rows2.get(sc["run_id"])
+                take = sc.get("take") or SHORT_LABEL
+                row = rows2.get((sc["run_id"], take))
                 if not needs_judge(row, judged, decided):
                     continue
                 job_dir = resolve_job_dir(sc.get("job_dir", ""), ai_video_root)
-                mp4 = job_dir / "shorts.mp4"
+                mp4, _plan = take_files(job_dir, take)
                 if not mp4.exists():
                     continue
                 if args.dry_run:

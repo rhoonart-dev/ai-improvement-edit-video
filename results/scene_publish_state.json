@@ -527,7 +527,11 @@
   "유미의_세포들_시즌3_e2": {
    "channel": "재미쇼츠",
    "slot": "재미쇼츠·유미의 세포들 시즌3",
-   "episode": 1
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-06T02:26:17.565000+00:00",
+   "review_note": "제목이 폴백 버전인 것 같음.",
+   "reject_type": "production"
   },
   "김부장_30": {
    "channel": "이거보고자",

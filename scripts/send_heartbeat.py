@@ -58,6 +58,10 @@ _RE_FAIL = re.compile(r"^\[(?P<ch>[^\]·]+)[^\]]*\]\s+✗ 생성 실패")
 _RE_GENLOG = re.compile(r"전문: (?P<path>\S+gen_output\.log)")
 _RE_EXC = re.compile(r"^\[(?P<ch>[^\]]+)\] 처리 중 예외: (?P<exc>.+)")
 _RE_WAIT_SRC = re.compile(r"^\[(?P<ch>[^\]·]+)[^\]]*\].*소스.*(없|대기)")
+# 3회 시도가 전부 중복이라 아무것도 못 건진 경우 — scene_loop 의 마지막 보류 줄.
+# 이 줄을 못 읽으면 result 가 None → 'skipped' 로 뭉뚱그려져 "아무 일 없음"과 구분이 안 된다
+# (2026-08-06 운영자 발견: 이거보고자 — 1시간 반 동안 3번 돌고 빈손인데 회색).
+_RE_DUP_HOLD = re.compile(r"^\[(?P<ch>[^\]·]+)[^\]]*\]\s+⚠ (?P<n>\d+)회 모두 이전과 같은 장면")
 _RE_WARN = re.compile(r"^\s*(※|⚠️|⛔)\s*(?P<msg>.+)")
 _RE_STAGE = re.compile(r"\[(\d+/\d+)\]\s*(\S[^.\n]*)")
 
@@ -143,6 +147,12 @@ def parse_channels(segment):
                 if e.get("result") == "failed" and "error_class" not in e:
                     e["error_class"] = classify_error(ln)
                     break
+        m = _RE_DUP_HOLD.match(ln)
+        if m:
+            e = ch_entry(m.group("ch"))
+            e["result"] = "dup_hold"          # 실행은 됐지만 중복만 나와 확정 실패
+            e["tries"] = max(e["tries"], int(m.group("n")))
+            continue
         m = _RE_WAIT_SRC.match(ln)
         if m and ch_entry(m.group("ch")).get("result") is None:
             ch_entry(m.group("ch"))["result"] = "waiting_source"

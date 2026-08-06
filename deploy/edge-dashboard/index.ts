@@ -1,4 +1,4 @@
-// VES 운영 대시보드 — v4.1 API (v4.0 + 검수자 프로필 아이콘(0012) — 결정에 reviewer_icon 저장·반환)
+// VES 운영 대시보드 — v4.6 API (v4.5 + holdsToday — 3회 전부 중복이라 보류된 채널을 회색 링으로)
 // 배포: Supabase Edge Function `dashboard` (프로젝트 fdidiqdhcyctdbogxkdu, verify_jwt=false)
 // 화면: https://rhoonart-da.github.io/ves-ops-dashboard/ (GitHub Pages, React 단일 파일) — 이 함수는 API 전용.
 //   슈파베이스 기본 도메인은 text/html 을 text/plain 으로 강제해 HTML 서빙이 불가하다.
@@ -291,8 +291,28 @@ async function apiMachines() {
       } : null,
     };
   });
+  // 오늘의 실패를 **모든 비트**에서 모은다 — machines[].beat 는 머신당 최신 1건이라,
+  // 재생성 실행이 새 비트를 남기면 새벽 실패가 통째로 사라진다(2026-08-06 운영자 발견:
+  // 커리어데이 숏츠 — 실패 후 재생성했는데 링이 안 그려짐). 신호등·스냅샷이 이 맵을 쓴다.
+  const todayKst = kstDayOf(new Date().toISOString());
+  const failuresToday: Record<string, string> = {};
+  // dup_hold = 실행은 됐지만 3회 전부 중복이라 아무것도 못 건진 것(send_heartbeat 파서, 2026-08-06).
+  // 'skipped'(할 일 없어 넘어감)와 달리 사람이 봐야 하는 상태라 따로 내려준다.
+  const holdsToday: Record<string, string> = {};
+  for (const b of beats ?? []) {
+    if (kstDayOf(b.run_started_at) !== todayKst) continue;
+    for (const c of (b.channels ?? []) as Record<string, unknown>[]) {
+      if (!c.channel) continue;
+      const ch = String(c.channel), t = String(b.run_started_at);
+      if (c.result === "failed" && (!failuresToday[ch] || t > failuresToday[ch])) failuresToday[ch] = t;
+      // 구 하트비트 소급: 파서 배포 전 비트는 result='skipped' 이지만 tries>0 이면 같은 상태다
+      // (할 일 없어 넘어간 채널은 tries=0). 맥들이 pull 하면 dup_hold 로 정확히 들어온다.
+      const isHold = c.result === "dup_hold" || (c.result === "skipped" && Number(c.tries ?? 0) > 0);
+      if (isHold && (!holdsToday[ch] || t > holdsToday[ch])) holdsToday[ch] = t;
+    }
+  }
   // channels: 정본 맵(이름→{id,mac}) 동봉 — 홈 보드가 담당 채널 목록·유튜브 링크에 쓴다
-  return json({ now: new Date().toISOString(), machines, queue, anomalies, channels: CHANNELS });
+  return json({ now: new Date().toISOString(), machines, queue, anomalies, channels: CHANNELS, failuresToday, holdsToday });
 }
 
 // ── API: 최신 커밋 (GITHUB_TOKEN 선택 — 없으면 configured:false, pull 매트릭스는 상호 비교로 동작) ──
@@ -312,9 +332,12 @@ async function apiReview() {
   // 최근 결정의 기준은 결정 테이블 — 합격작은 발행되면 사본이 정리돼(storage_path NULL) 위
   // clips 목록에서 빠지고, 그러면 "합격했는데 로그에 없다"가 된다(2026-08-05 운영자 발견).
   // 결정 최근 30건의 클립을 별도로 당겨 합친다.
+  // limit 이 곧 "최근 결정" 의 실제 창이다 — 발행된 합격작은 사본이 정리돼 위 clips 목록에서
+  // 빠지고 오직 이 창으로만 돌아온다. 30 이면 하루 이틀 결정에 밀려 사라지고, 맥 탭으로
+  // 나눠 보면 더 빨리 빈다(2026-08-06 운영자 발견: 맥1 어제 기록 실종). 넉넉히 200.
   const { data: decRows } = await sb.from("review_decisions")
     .select("clip_id,decision,decided_at,decided_by,note,reject_type,reviewer_icon")
-    .order("decided_at", { ascending: false }).limit(30);
+    .order("decided_at", { ascending: false }).limit(200);
   const have = new Set((clips ?? []).map((c: Record<string, unknown>) => c.id));
   const missing = (decRows ?? []).map((d: Record<string, unknown>) => d.clip_id).filter((id) => !have.has(id));
   if (missing.length) {
@@ -376,7 +399,7 @@ async function apiReview() {
     queue: items.filter((i) => !i.decision && !i.published),
     decided: items.filter((i) => i.decision)
       .sort((a, b) => String((b.decision as Record<string, unknown>).decided_at ?? "")
-        .localeCompare(String((a.decision as Record<string, unknown>).decided_at ?? ""))).slice(0, 30),
+        .localeCompare(String((a.decision as Record<string, unknown>).decided_at ?? ""))).slice(0, 100),
   });
 }
 
@@ -413,6 +436,22 @@ async function apiDecision(req: Request) {
   }, { onConflict: "clip_id" });
   if (error) return json({ error: error.message }, 500);
   return json({ ok: true, clip_id: clipId, decision });
+}
+
+// ── 사유만 수정 (2026-08-06 운영자 요청) — 결정·시각·유형은 불변, note 만 덮어쓴다.
+//    이력 없음(마지막 값 보관, 운영자 합의). 결정이 없는 클립에는 만들지 않는다.
+async function apiNote(req: Request) {
+  let body: Record<string, unknown>;
+  try { body = await req.json(); } catch { return json({ error: "JSON body 필요" }, 400); }
+  const clipId = String(body.clip_id ?? "");
+  if (!clipId) return json({ error: "clip_id 필요" }, 400);
+  const note = body.note ? String(body.note).slice(0, 500) : null;
+  const sb = createClient(SB_URL, SB_KEY);
+  const { data, error } = await sb.from("review_decisions")
+    .update({ note }).eq("clip_id", clipId).select("clip_id,note");
+  if (error) return json({ error: error.message }, 500);
+  if (!data?.length) return json({ error: "결정이 없는 클립 — 사유는 결정에만 붙는다" }, 404);
+  return json({ ok: true, clip_id: clipId, note: data[0].note });  // 저장된 값을 되돌려줘 화면이 DB 반영을 확인
 }
 
 async function apiCommits() {
@@ -474,11 +513,20 @@ async function buildDailySnapshot() {
       for (const it of data.items ?? []) yt[it.id] = { privacy: it.status?.privacyStatus ?? "unknown", published_at: it.snippet?.publishedAt ?? null };
     } catch { break; }
   }
-  const failedToday = new Set<string>();
-  for (const m of mx.machines ?? []) {
-    if (!m.beat || kstDayOf(m.beat.run_started_at) !== today) continue;
-    for (const c of m.beat.channels ?? []) if (c.result === "failed") failedToday.add(c.channel);
-  }
+  // 실패 시각 — apiMachines 가 오늘 전 비트에서 모아준 맵(재실행에 덮이지 않는다)
+  const failedAt: Record<string, string> = mx.failuresToday ?? {};
+  const holdAt: Record<string, string> = mx.holdsToday ?? {};
+  // 부정 이벤트(실패·중복보류) 중 더 나중 것이 그 채널의 '마지막 나쁜 소식'
+  const badAt = (ch: string) => {
+    const f = failedAt[ch], h = holdAt[ch];
+    return !f ? h : !h ? f : (f > h ? f : h);
+  };
+  const badKind = (ch: string) => (badAt(ch) === failedAt[ch] ? "bad" : "hold");
+  const failedToday = { has: (ch: string) => !!badAt(ch) };
+  const after = (ch: string, iso: unknown) => {
+    const f = badAt(ch);
+    return !f || (!!iso && new Date(String(iso)) > new Date(f));
+  };
   const pend: Record<string, Record<string, unknown>[]> = {};
   const decd: Record<string, Record<string, unknown>[]> = {};
   for (const i of rev.queue ?? []) (pend[i.channel] ??= []).push(i);
@@ -501,12 +549,22 @@ async function buildDailySnapshot() {
       .sort((a, b) => String((b.decision as Record<string, unknown>).decided_at)
         .localeCompare(String((a.decision as Record<string, unknown>).decided_at)));
     const d0 = decToday[0] ? (decToday[0].decision as Record<string, unknown>).decision : null;
-    const gen = failedToday.has(ch) ? "bad"
-      : (pend[ch] ?? []).some((i) => kstDayOf(i.created_at) === today) ? "warn"
-      : d0 === "rejected" ? "rej" : d0 === "approved" ? "ok" : "idle";
+    // 생성 점: 실패가 마지막 소식이면 solid 빨강, 실패 뒤 재생성분이 있으면 그 결과를 링으로
+    const waitToday = (pend[ch] ?? []).filter((i) => kstDayOf(i.created_at) === today);
+    const gen = !failedToday.has(ch)
+      ? (waitToday.length ? "warn" : d0 === "rejected" ? "rej" : d0 === "approved" ? "ok"
+         : (pubToday[ch] ?? []).length ? "ok" : "idle")
+      : waitToday.some((i) => after(ch, i.created_at)) ? "warnr"
+      : (decToday[0] && after(ch, (decToday[0].decision as Record<string, unknown>).decided_at))
+        ? (d0 === "approved" ? "okr" : "rej")
+      : (pubToday[ch] ?? []).some((f) => after(ch, yt[f.video_id as string]?.published_at ?? f.published_at)) ? "okr"
+      : badKind(ch);
     const pub = (pubToday[ch] ?? []).length ? "ok" : (waitPub[ch] ?? []).length ? "warn" : "idle";
     const rows: unknown[] = [];
-    if (failedToday.has(ch)) rows.push(["bad", "생성 실패", null, null]);
+    if (failedToday.has(ch)) rows.push([gen.endsWith("r") ? "warn" : gen === "hold" ? "warn" : "bad",
+      gen.endsWith("r") ? "생성 실패 → 재생성함"
+        : badKind(ch) === "hold" ? "재생성 반복했지만 전부 중복 → 보류(소재 소진 의심)" : "생성 실패",
+      null, badAt(ch)]);
     for (const i of pend[ch] ?? []) rows.push(["warn",
       `${i.work ?? "?"}${i.episode != null ? " " + i.episode + "회차" : ""} — 검수 대기`, null, i.created_at]);
     for (const i of decToday) {
@@ -524,7 +582,8 @@ async function buildDailySnapshot() {
   const payload = {
     date: today, generated_at: new Date().toISOString(),
     machines: Object.values(MACHINES).map((m) => ({ mac: m.mac, label: m.label })),
-    kpis: { review_wait: (rev.queue ?? []).length, failed: failedToday.size },
+    kpis: { review_wait: (rev.queue ?? []).length, failed: Object.keys(failedAt).length,
+            dup_hold: Object.keys(holdAt).length },
     board,
   };
   const sb = createClient(SB_URL, SB_KEY);
@@ -556,7 +615,7 @@ Deno.serve(async (req) => {
   const path = url.pathname.replace(/^\/dashboard/, "") || "/";
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (!["GET", "HEAD", "POST"].includes(req.method)) return json({ error: "method" }, 405);
-  if (req.method === "POST" && !["/api/decision", "/api/snapshot-daily"].includes(path)) return json({ error: "method" }, 405);
+  if (req.method === "POST" && !["/api/decision", "/api/note", "/api/snapshot-daily"].includes(path)) return json({ error: "method" }, 405);
   if (path === "/" || path === "") {
     return json({ service: "VES OPS API", ui: "https://rhoonart-da.github.io/ves-ops-dashboard/", endpoints: ["/api/health", "/api/feed", "/api/perf", "/api/videos", "/api/ytstatus", "/api/chavatars", "/api/machines", "/api/commits"] });
   }
@@ -581,5 +640,6 @@ Deno.serve(async (req) => {
   if (path === "/api/snapshot-dates") return apiSnapshotDates();
   if (path === "/api/clip-url") return apiClipUrl(url);
   if (path === "/api/decision") return apiDecision(req);
+  if (path === "/api/note") return apiNote(req);
   return json({ error: "not found" }, 404);
 });

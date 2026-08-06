@@ -211,11 +211,24 @@ def judge_run_exists(clip_id):
             return cur.fetchone() is not None
 
 
-def find_video(job_dir):
-    """job_dir → 최종 쇼츠 mp4. ai-video 규약은 shorts.mp4, 폴백은 가장 큰 mp4."""
-    p = Path(job_dir) / "shorts.mp4"
+def take_files(job_dir, take):
+    """라벨 → (video, edit_plan). 정본만 파일명(shorts.mp4)과 라벨(shorts_1)이 어긋난다.
+
+    scene_loop.take_files 와 같은 규약이다 — --max-shorts 3 부터 한 job 이 테이크 3개를 내고
+    장면마다 어느 것인지가 다르다. 🛑 이 값을 안 보면 테이크 2·3 자리에 **정본 영상이 발행된다.**"""
+    p, n = Path(job_dir), str(take or "shorts_1")
+    if n in ("shorts_1", "shorts"):
+        return p / "shorts.mp4", p / "edit_plan.json"
+    return p / f"{n}.mp4", p / f"edit_plan_{n.split('_')[-1]}.json"
+
+
+def find_video(job_dir, take="shorts_1"):
+    """job_dir(+테이크) → 쇼츠 mp4. 규약 이름이 없으면 폴백은 가장 큰 mp4."""
+    p = take_files(job_dir, take)[0]
     if p.exists():
         return str(p)
+    if str(take or "shorts_1") not in ("shorts_1", "shorts"):
+        return None     # 변이는 폴백하지 않는다 — 없는데 정본을 올리면 다른 영상이 나간다
     cands = [q for q in Path(job_dir).glob("*.mp4") if "_source" not in q.name]
     return str(max(cands, key=lambda q: q.stat().st_size)) if cands else None
 
@@ -282,7 +295,8 @@ def publish_scene(ch_name, ep_num, sc, rec, log, dry_run, ch_cfg=None, pub_state
     rid = sc["run_id"]
     ch_cfg = ch_cfg or {}
     job_dir = sc.get("job_dir")
-    video = find_video(job_dir) if job_dir else None
+    take = sc.get("take") or "shorts_1"
+    video = find_video(job_dir, take) if job_dir else None
     if not video:
         log(f"  ✗ {rid}: 영상 파일 없음 (job_dir={job_dir}) → 건너뜀")
         return rec
@@ -302,8 +316,10 @@ def publish_scene(ch_name, ep_num, sc, rec, log, dry_run, ch_cfg=None, pub_state
 
     # ingest (멱등 — 재실행 시 updated)
     if not rec.get("clip_id"):
+        _plan = take_files(job_dir, take)[1]
+        _extra = ["--edit-plan", str(_plan)] if take not in ("shorts_1", "shorts") else []
         rc, out = sh([PY, "scripts/ingest_aivideo_run.py", "--run-dir", job_dir,
-                      "--short-label", "shorts_1", "--channel", ch_name])
+                      "--short-label", take, "--channel", ch_name, *_extra])
         m = re.search(r"(?:inserted|updated) clip ([0-9a-f-]{36})", out)
         if rc != 0 or not m:
             log(f"  ✗ {tag} ingest 실패 rc={rc}: {out[-300:]}")
