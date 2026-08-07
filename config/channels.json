@@ -369,7 +369,8 @@
    "title_color": "white",
    "title_color2": "#FFD700",
    "work_color": "white",
-   "_note": "채널 템플릿(2026-08-07 luna4 초안): '션샤인' 컨셉 — 제목 2줄 골드(#FFD700), 작품명 white. 커리어데이 선례(3c1f114) 형식을 따름"
+   "_note": "채널 템플릿(2026-08-07 luna4 초안): '션샤인' 컨셉 — 제목 2줄 골드(#FFD700), 작품명 white. 커리어데이 선례(3c1f114) 형식을 따름 · 제목 폰트 JalnanGothic (2026-08-07 운영자 지정)",
+   "title_font": "JalnanGothic"
   }
  },
  {
@@ -452,7 +453,8 @@
    "title_color": "white",
    "title_color2": "#B39DFF",
    "work_color": "white",
-   "_note": "채널 템플릿(2026-08-07 luna4 초안): '자기 전' 밤 컨셉 — 제목 2줄 라벤더(#B39DFF), 작품명 white"
+   "_note": "채널 템플릿(2026-08-07 luna4 초안): '자기 전' 밤 컨셉 — 제목 2줄 라벤더(#B39DFF), 작품명 white · 제목 폰트 JalnanGothic (2026-08-07 운영자 지정)",
+   "title_font": "JalnanGothic"
   }
  },
  {
