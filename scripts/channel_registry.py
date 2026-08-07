@@ -273,7 +273,50 @@ def _parse_box(box, work):
     return w, h
 
 
-def _card_to_channel_config(channel, work, card, policy, sources_root, multi_work=False):
+# 채널 템플릿(channels.json 레코드의 "design" dict) → 생성 CLI 플래그.
+# 키는 ai-video 의 --design-* 플래그와 1:1 이라 새 채널 템플릿은 JSON 한 블록으로 끝난다
+# (2026-08-07 운영자 방침: 채널마다 다른 상단 제목 색·작품명 위치 등 템플릿을 둔다).
+# 작품 단위 branding(로고)과 별개 층이다 — 템플릿은 채널 정체성, 로고는 작품 권리물.
+CHANNEL_DESIGN_FLAGS = {
+    "title_y": "--design-title-y",
+    "title_font": "--design-title-font",
+    "title_size": "--design-title-size",
+    "title_color": "--design-title-color",      # 제목 1번째 줄
+    "title_color2": "--design-title-color2",    # 제목 2번째 줄
+    "subtitle_size": "--design-subtitle-size",
+    "subtitle_color": "--design-subtitle-color",
+    "subtitle_y_margin": "--design-subtitle-y-margin",
+    "subtitle_style": "--design-subtitle-style",
+    "tts_color": "--design-tts-color",
+    "tts_size": "--design-tts-size",
+    "tts_y_margin": "--design-tts-y-margin",
+    "work_title_y": "--design-work-title-y",    # 작품명(하단) Y
+    "work_font_size": "--design-work-font-size",
+    "work_color": "--design-work-color",        # 작품명 색
+    "aspect_ratio": "--design-aspect-ratio",
+}
+
+
+def channel_design_flags(design, channel):
+    """채널 'design' 템플릿 dict → CLI 플래그 리스트. 순수. '_' 시작 키(_note 등)는 무시.
+
+    모르는 키는 즉시 ValueError — 조용히 무시하면 오타 난 템플릿이 기본값으로 밤새 발행되고
+    아무도 모른다(로고 박스 _parse_box 와 같은 '생성 전에 크게 실패' 원칙. 러너의
+    check_assignments 게이트가 생성 비용을 쓰기 전에 잡는다)."""
+    flags = []
+    for k, v in (design or {}).items():
+        if k.startswith("_"):
+            continue
+        flag = CHANNEL_DESIGN_FLAGS.get(k)
+        if not flag:
+            raise ValueError(f"채널 '{channel}': 알 수 없는 design 키 {k!r} — "
+                             f"허용 키: {sorted(CHANNEL_DESIGN_FLAGS)}")
+        flags += [flag, str(v)]
+    return flags
+
+
+def _card_to_channel_config(channel, work, card, policy, sources_root, multi_work=False,
+                            channel_design=None):
     """작품 카드 + 정책 → scene_loop 가 아는 **예전 채널 dict 모양**.
 
     레거시 모양으로 내는 이유: channel_plan·discover_episodes_for·index_episodes·rendered_scenes·
@@ -287,6 +330,8 @@ def _card_to_channel_config(channel, work, card, policy, sources_root, multi_wor
     flags = list(policy.get("gen_flags_base") or [])
     if con.get("subtitles") == "none":
         flags.append("--no-subtitles")
+    # 채널 템플릿 — 같은 채널의 모든 작품에 일괄 적용 (channels.json 레코드 "design")
+    flags += channel_design_flags(channel_design, channel)
 
     # 로고 — 작품 카드에 branding.logo 가 있을 때만 붙인다(없으면 종전대로 작품명 텍스트).
     # 크기·정렬은 정책 전역값이 기본이고 작품이 예외를 덮는다: 로고 비율이 작품마다 달라 전역값이
@@ -377,7 +422,8 @@ def effective_channel_configs(machine_id=None, *, records=None, works=None,
                     f"작품 '{work}'(채널 {ch}) 카드가 config/works.json 에 없습니다"
                     + (f" — 후보: {cands}" if cands else ""))
             out.append(_card_to_channel_config(ch, work, card, pol, root,
-                                               multi_work=len(works_of_ch) > 1))
+                                               multi_work=len(works_of_ch) > 1,
+                                               channel_design=rec.get("design")))
     return out
 
 

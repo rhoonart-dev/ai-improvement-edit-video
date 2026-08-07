@@ -345,3 +345,41 @@ def test_card_to_channel_config_passes_ordinal_and_exclude():
     assert out["episode_order"] == "oldest_first"
     assert out["title_exclude_regex"] == "청문회"
     assert "--no-subtitles" in out["gen_flags"]
+
+
+# ── 채널 디자인 템플릿 (2026-08-07) ──────────────────────────
+
+
+def test_channel_design_flags_maps_keys():
+    flags = reg.channel_design_flags(
+        {"title_color": "white", "title_color2": "#4DA6FF",
+         "work_color": "white", "work_title_y": 1560, "_note": "메모는 무시"},
+        "커리어데이 숏츠")
+    assert flags == ["--design-title-color", "white", "--design-title-color2", "#4DA6FF",
+                     "--design-work-color", "white", "--design-work-title-y", "1560"]
+
+
+def test_channel_design_flags_empty_and_none():
+    assert reg.channel_design_flags(None, "x") == []
+    assert reg.channel_design_flags({}, "x") == []
+
+
+def test_channel_design_unknown_key_raises():
+    # 오타 난 템플릿이 기본값으로 조용히 발행되지 않게 즉시 실패 (로고 박스와 같은 원칙)
+    try:
+        reg.channel_design_flags({"title_colour": "white"}, "커리어데이 숏츠")
+    except ValueError as e:
+        assert "title_colour" in str(e)
+    else:
+        raise AssertionError("모르는 design 키가 통과함")
+
+
+def test_card_to_channel_config_applies_channel_design():
+    card = {"source": {"type": "local", "dir_slug": "x", "episode_regex": r"(\d+)"},
+            "constraints": {}}
+    out = reg._card_to_channel_config("커리어데이 숏츠", "커리어데이", card, {}, "/s",
+                                      channel_design={"title_color2": "#4DA6FF"})
+    assert "--design-title-color2" in out["gen_flags"]
+    # 템플릿 없는 채널은 종전과 동일
+    out2 = reg._card_to_channel_config("커리어데이 숏츠", "커리어데이", card, {}, "/s")
+    assert "--design-title-color2" not in out2["gen_flags"]

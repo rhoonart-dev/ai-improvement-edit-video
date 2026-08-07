@@ -376,7 +376,14 @@
       "취업",
       "이직",
       "커리어데이"
-    ]
+    ],
+    "design": {
+      "title_color": "white",
+      "title_color2": "#4DA6FF",
+      "work_color": "white",
+      "work_title_y": 1560,
+      "_note": "채널 전용 템플릿(2026-08-07 운영자 지정): 제목 1줄 white 유지·2줄 #4DA6FF(하늘색), 작품명 white·y=1560. 키 정의는 channel_registry.CHANNEL_DESIGN_FLAGS"
+    }
   },
   {
     "token_slug": "BGSUNSAK",
