@@ -294,7 +294,9 @@
       "title_color2": "#2EE6E6",
       "work_color": "white",
       "work_title_y": 1560,
-      "_note": "채널 템플릿(2026-08-07): 아이콘(네온 시안 마스크) 기반 2줄 네온시안 #2EE6E6, 작품명 white·y=1560"
+      "_note": "채널 템플릿(2026-08-07): 아이콘(네온 시안 마스크) 기반 2줄 네온시안 #2EE6E6, 작품명 white·y=1560 + 폰트 여기어때 잘난체 고딕(JalnanGothic): 제목·작품명(title_font 공유)·TTS(subtitle_font) (2026-08-07 사용자 지정)",
+      "title_font": "JalnanGothic",
+      "subtitle_font": "JalnanGothic"
     }
   },
   {
@@ -511,7 +513,9 @@
       "title_color2": "#FF5252",
       "work_color": "white",
       "work_title_y": 1560,
-      "_note": "채널 템플릿(2026-08-07): 아이콘(칠판 전술판·레드 언더라인) 기반 2줄 레드 #FF5252(블루는 커리어데이와 중복 회피), 작품명 white·y=1560"
+      "_note": "채널 템플릿(2026-08-07): 아이콘(칠판 전술판·레드 언더라인) 기반 2줄 레드 #FF5252(블루는 커리어데이와 중복 회피), 작품명 white·y=1560 + 폰트 여기어때 잘난체 고딕(JalnanGothic): 제목·작품명(title_font 공유)·TTS(subtitle_font) (2026-08-07 사용자 지정)",
+      "title_font": "JalnanGothic",
+      "subtitle_font": "JalnanGothic"
     }
   }
 ]
