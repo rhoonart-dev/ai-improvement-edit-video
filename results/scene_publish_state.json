@@ -1102,6 +1102,55 @@
    "rejected_at": "2026-08-07T06:51:21+00:00",
    "review_note": "연결된 두 장면이 술래가 다른 게임이어서 이어지지 않는 것 같고 광각렌즈에 잡힌 게 채령이 아님",
    "reject_type": "production"
+  },
+  "커리어데이_f6#shorts_2": {
+   "channel": "커리어데이 숏츠",
+   "slot": "커리어데이 숏츠",
+   "episode": 3,
+   "take": "shorts_2",
+   "clip_id": "25918ea0-4174-4cf5-bfee-7a43d860911f",
+   "stage": "published",
+   "video_id": "kAzOU66b_ZY",
+   "privacy": "scheduled",
+   "published_at": "2026-08-07T17:27:23",
+   "scheduled_publish_at": "2026-08-07T19:00:00+09:00"
+  },
+  "유미의_세포들_시즌3_f5#shorts_3": {
+   "channel": "재미쇼츠",
+   "slot": "재미쇼츠·유미의 세포들 시즌3",
+   "episode": 1,
+   "take": "shorts_3",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-07T07:19:11.203000+00:00",
+   "review_note": "첫인상인데, 유미랑 순록이 처음 인사를 나누는 장면이 잘림",
+   "reject_type": "scene"
+  },
+  "유미의_세포들_시즌3_6d": {
+   "channel": "재미쇼츠",
+   "slot": "재미쇼츠·유미의 세포들 시즌3",
+   "episode": 1,
+   "take": "shorts_1",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-07T07:18:07.684000+00:00",
+   "review_note": "중복 장면임",
+   "reject_type": "scene"
+  },
+  "유미의_세포들_시즌3_6d#shorts_2": {
+   "channel": "재미쇼츠",
+   "slot": "재미쇼츠·유미의 세포들 시즌3",
+   "episode": 1,
+   "take": "shorts_2"
+  },
+  "유미의_세포들_시즌3_6d#shorts_3": {
+   "channel": "재미쇼츠",
+   "slot": "재미쇼츠·유미의 세포들 시즌3",
+   "episode": 1,
+   "take": "shorts_3",
+   "clip_id": "6877545f-663b-4c6b-ba71-d87bce2dc565",
+   "stage": "published",
+   "video_id": "3NkYFQExTVE",
+   "privacy": "unlisted",
+   "published_at": "2026-08-07T16:27:13"
   }
  }
 }
