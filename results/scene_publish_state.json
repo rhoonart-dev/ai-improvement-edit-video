@@ -757,6 +757,66 @@
    "privacy": "scheduled",
    "published_at": "2026-08-06T11:52:05",
    "scheduled_publish_at": "2026-08-07T19:00:00+09:00"
+  },
+  "김부장_05": {
+   "channel": "이거보고자",
+   "slot": "이거보고자",
+   "episode": 1,
+   "clip_id": "40bcad46-4cbb-4059-8e2f-26d4b19ed53c",
+   "stage": "published",
+   "video_id": "2aJHcroCFLA",
+   "privacy": "scheduled",
+   "published_at": "2026-08-06T18:22:33",
+   "scheduled_publish_at": "2026-08-06T19:00:00+09:00"
+  },
+  "참교육_98": {
+   "channel": "쇼츠션샤인",
+   "slot": "쇼츠션샤인",
+   "episode": 1,
+   "clip_id": "9c1469bb-2614-4f4d-b1fe-ac714cf8f6d7",
+   "stage": "published",
+   "video_id": "kcATKONviCY",
+   "privacy": "scheduled",
+   "published_at": "2026-08-06T18:42:40",
+   "scheduled_publish_at": "2026-08-06T19:00:00+09:00"
+  },
+  "참교육_f5": {
+   "channel": "쇼츠션샤인",
+   "slot": "쇼츠션샤인",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-07T06:31:16.942000+00:00",
+   "review_note": "잡히면 안 되는 인트로(오프닝 시퀀스)가 잡혔음.",
+   "reject_type": "scene"
+  },
+  "하트시그널_시즌5_89": {
+   "channel": "엔딩순삭",
+   "slot": "엔딩순삭",
+   "episode": 2,
+   "clip_id": "0f347627-f1f7-4395-b3dd-3f9255119529",
+   "stage": "published",
+   "video_id": "6aoOjeP6TPQ",
+   "privacy": "scheduled",
+   "published_at": "2026-08-07T15:33:57",
+   "scheduled_publish_at": "2026-08-08T19:00:00+09:00"
+  },
+  "김부장_f1": {
+   "channel": "이거보고자",
+   "slot": "이거보고자",
+   "episode": 2,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-07T06:28:16.579000+00:00",
+   "review_note": "llm judge 말도 맞고 좋은 편집인데, TTS가 '회장 딸이라고 속이면?'이라고 했는데 실제 회장 딸인 캐릭터라서 속인 게 아님.",
+   "reject_type": "production"
+  },
+  "유재석_캠프_f0": {
+   "channel": "이불 속 극장",
+   "slot": "이불 속 극장",
+   "episode": 2,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-07T06:23:33.319000+00:00",
+   "review_note": "소재는 좋은데, 중간에 TTS가 '예은의 목소리가 싸늘해진다'고 했는데, 그런 장면이 제작된 쇼츠 영상에 나오지 않음.",
+   "reject_type": "production"
   }
  },
  "publicized": {
