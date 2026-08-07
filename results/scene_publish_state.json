@@ -743,6 +743,68 @@
    "published_at": "2026-08-06T17:11:43",
    "scheduled_publish_at": "2026-08-07T19:00:00+09:00"
   },
+  "피의_게임_X_1e": {
+   "channel": "명장면 세탁소",
+   "slot": "명장면 세탁소",
+   "episode": 2,
+   "stage": "published",
+   "video_id": "Dy2GVhF-Hu0",
+   "source": "db-reconciled"
+  },
+  "약한영웅_Class_1_1e#shorts_2": {
+   "channel": "리와인드포차",
+   "slot": "리와인드포차",
+   "episode": 1,
+   "take": "shorts_2",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-06T06:59:46.524000+00:00",
+   "review_note": "장면과 제목이 연결되지 않은 것 같음.",
+   "reject_type": "scene"
+  },
+  "피의_게임_X_1e#shorts_2": {
+   "channel": "명장면 세탁소",
+   "slot": "명장면 세탁소",
+   "episode": 2,
+   "take": "shorts_2",
+   "clip_id": "f42f5b82-e8a2-4fea-a65b-9d7a617fff13",
+   "stage": "published",
+   "video_id": "Dy2GVhF-Hu0",
+   "privacy": "scheduled",
+   "published_at": "2026-08-06T19:11:55",
+   "scheduled_publish_at": "2026-08-06T19:16:49.951064+09:00"
+  },
+  "피의_게임_X_2e": {
+   "channel": "명장면 세탁소",
+   "slot": "명장면 세탁소",
+   "episode": 2,
+   "take": "shorts_1"
+  },
+  "피의_게임_X_2e#shorts_2": {
+   "channel": "명장면 세탁소",
+   "slot": "명장면 세탁소",
+   "episode": 2,
+   "take": "shorts_2"
+  },
+  "약한영웅_Class_1_12#shorts_2": {
+   "channel": "리와인드포차",
+   "slot": "리와인드포차",
+   "episode": 1,
+   "take": "shorts_2",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-07T08:22:41.596000+00:00",
+   "review_note": "참교육이 벌어지지 않았고 이미 업로드 된 영상과 중복 장면임 ",
+   "reject_type": "scene"
+  },
+  "샤먼:_미신전_9a": {
+   "channel": "여운 보관소",
+   "slot": "여운 보관소",
+   "episode": 2,
+   "take": "shorts_1",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-07T07:39:37.955000+00:00",
+   "review_note": "제목이 폴백 경로로 생성된 버전임",
+   "reject_type": "production"
+  },
   "커리어데이_fc": {
    "channel": "커리어데이 숏츠",
    "slot": "커리어데이 숏츠",

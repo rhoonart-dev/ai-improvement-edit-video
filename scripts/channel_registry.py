@@ -283,6 +283,7 @@ CHANNEL_DESIGN_FLAGS = {
     "title_size": "--design-title-size",
     "title_color": "--design-title-color",      # 제목 1번째 줄
     "title_color2": "--design-title-color2",    # 제목 2번째 줄
+    "subtitle_font": "--design-subtitle-font",  # 자막·TTS 자막 공통(ai-video 6d0f433)
     "subtitle_size": "--design-subtitle-size",
     "subtitle_color": "--design-subtitle-color",
     "subtitle_y_margin": "--design-subtitle-y-margin",

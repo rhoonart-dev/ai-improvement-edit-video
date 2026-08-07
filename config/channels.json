@@ -222,7 +222,16 @@
       "티빙오리지널",
       "명장면",
       "다큐멘터리"
-    ]
+    ],
+    "design": {
+      "title_font": "여기어때 잘난체 고딕 TTF",
+      "subtitle_font": "여기어때 잘난체 고딕 TTF",
+      "title_color": "white",
+      "title_color2": "#B388FF",
+      "work_color": "white",
+      "work_title_y": 1560,
+      "_note": "오컬트(샤먼: 미신전) — 제목 2줄 보라. 2026-08-07 지정. 제목 폰트=여기어때 잘난체 고딕, 작품명 white·y=1560(커리어데이 숏츠와 통일). TTS·자막 폰트도 제목과 같은 고딕으로 통일(2026-08-07)."
+    }
   },
   {
     "token_slug": "SHOTCONE",
@@ -304,7 +313,16 @@
       "서바이벌",
       "웨이브",
       "하이라이트"
-    ]
+    ],
+    "design": {
+      "title_font": "여기어때 잘난체 고딕 TTF",
+      "subtitle_font": "여기어때 잘난체 고딕 TTF",
+      "title_color": "white",
+      "title_color2": "#FF3B30",
+      "work_color": "white",
+      "work_title_y": 1560,
+      "_note": "서바이벌(피의 게임 X) — 제목 2줄 레드로 긴장감. 2026-08-07 지정. 제목 폰트=여기어때 잘난체 고딕, 작품명 white·y=1560(커리어데이 숏츠와 통일). TTS·자막 폰트도 제목과 같은 고딕으로 통일(2026-08-07)."
+    }
   },
   {
     "token_slug": "REWINDPOCHA",
@@ -327,7 +345,16 @@
       "서바이벌",
       "웨이브",
       "몰아보기"
-    ]
+    ],
+    "design": {
+      "title_font": "여기어때 잘난체 고딕 TTF",
+      "subtitle_font": "여기어때 잘난체 고딕 TTF",
+      "title_color": "white",
+      "title_color2": "#00E5FF",
+      "work_color": "white",
+      "work_title_y": 1560,
+      "_note": "학원 액션(약한영웅) — 제목 2줄 시안. 2026-08-07 지정. 제목 폰트=여기어때 잘난체 고딕, 작품명 white·y=1560(커리어데이 숏츠와 통일). TTS·자막 폰트도 제목과 같은 고딕으로 통일(2026-08-07)."
+    }
   },
   {
     "token_slug": "ENDINGSUNSAK",
