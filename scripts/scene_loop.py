@@ -473,8 +473,31 @@ def is_duplicate(span, prior_spans, iou_th, center_tol):
     return False
 
 
+def state_key(run_id, take=None):
+    """상태·조회 키. 정본은 run_id 그대로(옛 상태 파일 호환), 변이는 run_id#take.
+
+    🛑 한 job 이 테이크 3편을 내면서(`--max-shorts 3`) run_id 하나에 장면이 여럿 달린다. 키를
+    run_id 로만 두면 테이크들이 **서로의 발행·반려 기록을 공유**한다 — 테이크1 이 발행되면
+    테이크2·3 도 '공개됨'으로 분류돼 회차가 조기 종료되고, 거꾸로 테이크2 의 반려 기록은
+    정본 자리에서 조회돼 엉뚱한 장면을 막는다. scene_publish_loop.state_key 와 같은 규약이다.
+    """
+    n = str(take or "shorts_1")
+    return run_id if n in ("shorts_1", "shorts") else f"{run_id}#{n}"
+
+
+def scene_keys(sc):
+    """장면(merge_scenes 결과)의 상태 키들.
+
+    옛 모양({'run_ids'} 만 있는 장면)도 받는다 — 테이크가 정본 하나뿐이던 시절엔 run_id 가 곧 키였다.
+    """
+    return sc.get("keys") or sc.get("run_ids") or ([sc["run_id"]] if sc.get("run_id") else [])
+
+
 def merge_scenes(raw, iou_th, center_tol):
-    """[{'span','run_id'}] → 같은 장면끼리 접어 [{'span','run_ids':[...]}]. (A/B treat/ctrl·재렌더 합침)"""
+    """[{'span','run_id','take'}] → 같은 장면끼리 접어 [{'span','run_ids','keys'}]. (A/B treat/ctrl·재렌더 합침)
+
+    `keys` 가 (run_id, take) 를 접은 상태 키다 — `run_ids` 는 옛 호출부 호환으로 남긴다.
+    """
     out = []
     for sc in raw:
         sp = sc["span"]
@@ -484,11 +507,13 @@ def merge_scenes(raw, iou_th, center_tol):
                abs((sp[0] + sp[1]) / 2 - (o["span"][0] + o["span"][1]) / 2) <= center_tol:
                 hit = o
                 break
-        if hit:
-            if sc.get("run_id"):
-                hit["run_ids"].append(sc["run_id"])
-        else:
-            out.append({"span": sp, "run_ids": [sc["run_id"]] if sc.get("run_id") else []})
+        tgt = hit if hit else None
+        if tgt is None:
+            tgt = {"span": sp, "run_ids": [], "keys": []}
+            out.append(tgt)
+        if sc.get("run_id"):
+            tgt["run_ids"].append(sc["run_id"])
+            tgt["keys"].append(state_key(sc["run_id"], sc.get("take")))
     return out
 
 
@@ -528,7 +553,9 @@ def existing_output_scenes(scan_roots, video_path):
                 continue
             sp = scene_span(d)
             if sp:
-                scenes.append({"span": sp, "run_id": _run_id_of(Path(ep).parent)})
+                # 변이 테이크의 플랜은 edit_plan_2.json·edit_plan_3.json 이라 여기 안 걸린다
+                # → 산출물 스캔이 잡는 건 항상 정본. 테이크의 정본 출처는 상태 파일이다.
+                scenes.append({"span": sp, "run_id": _run_id_of(Path(ep).parent), "take": "shorts_1"})
     return scenes
 
 
@@ -547,7 +574,9 @@ def episode_output_scenes(scan_roots, channel, ep_num):
                 continue
             sp = scene_span(d)
             if sp:
-                scenes.append({"span": sp, "run_id": _run_id_of(Path(ep).parent)})
+                # 변이 테이크의 플랜은 edit_plan_2.json·edit_plan_3.json 이라 여기 안 걸린다
+                # → 산출물 스캔이 잡는 건 항상 정본. 테이크의 정본 출처는 상태 파일이다.
+                scenes.append({"span": sp, "run_id": _run_id_of(Path(ep).parent), "take": "shorts_1"})
     return scenes
 
 
@@ -565,7 +594,8 @@ def rendered_scenes(state, channel, ep_num, video_path, scan_roots, iou_th, cent
       SCENE_LOOP_OPERATIONS.md §6-2 대로 상태 파일에 심어서 반영한다."""
     st = (((state.get("channels") or {}).get(channel) or {}).get("episodes") or {}) \
         .get(str(ep_num), {}).get("scenes", [])
-    raw = [{"span": s["span"], "run_id": s.get("run_id")} for s in st if s.get("span")]
+    raw = [{"span": s["span"], "run_id": s.get("run_id"), "take": s.get("take")}
+           for s in st if s.get("span")]
     raw += episode_output_scenes(scan_roots, channel, ep_num)
     return merge_scenes(raw, iou_th, center_tol)
 
@@ -594,21 +624,26 @@ def record_scene(state, slot, work_title, ep_num, video_path, span, run_id, job_
 # ─────────────────────────── 공개 여부 (DB + 유튜브 API키) ───────────────────────────
 
 def db_run_videos(conn, channel, run_ids):
-    """{run_id: [video_external_id,...]} — 이 채널에서 발행돼 링크된 영상ID. conn None/에러면 {}."""
+    """{(run_id, take): [video_external_id,...]} — 이 채널에서 발행돼 링크된 영상ID. conn None/에러면 {}.
+
+    🛑 **테이크를 같이 돌려준다.** run_id 로만 묶으면 한 job 의 테이크 3편이 영상 목록을 공유해,
+    테이크1 만 발행됐는데 테이크2·3 도 '공개됨'으로 분류된다(회차 조기 종료). `clips.episode` 가
+    테이크 라벨('shorts_1')이고 회차가 아니다 — 회차는 `clips.source_episode`(0010).
+    """
     if conn is None or not run_ids:
         return {}
     out = {}
     with conn.cursor() as c:
         c.execute("""
-            select m.ai_video_run_id, c.video_external_id
+            select m.ai_video_run_id, c.episode, c.video_external_id
             from clips c
             join clip_metadata m on m.clip_id = c.id
             join channels ch on ch.id = c.channel_id
             where ch.name = %s and m.ai_video_run_id = any(%s)
               and c.video_external_id is not null
         """, (channel, list(run_ids)))
-        for run_id, vid in c.fetchall():
-            out.setdefault(run_id, []).append(vid)
+        for run_id, take, vid in c.fetchall():
+            out.setdefault((run_id, take or "shorts_1"), []).append(vid)
     return out
 
 
@@ -763,19 +798,24 @@ def classify_scenes(scenes, conn, channel, api_key, publish_records=None,
     recs = load_publish_records() if publish_records is None else publish_records
     now = now or datetime.now().astimezone()
     run_ids = sorted({r for sc in scenes for r in sc["run_ids"]})
-    run2vid = db_run_videos(conn, channel, run_ids)
-    all_vids = [v for vs in run2vid.values() for v in vs]
+    # 🛑 조회는 run_id 로 하되 **판정은 (run_id,take) 로** 가른다 — 테이크1 발행이 테이크2·3 까지
+    # 공개로 물들이면 회차가 조기 종료되고, 반려 기록도 남의 자리에서 읽힌다.
+    key2vid = {}
+    for (rid, take), vids in db_run_videos(conn, channel, run_ids).items():
+        key2vid.setdefault(state_key(rid, take), []).extend(vids)
+    all_vids = [v for vs in key2vid.values() for v in vs]
     st, source = scene_statuses(all_vids, channel, api_key)
     if all_vids and source == SOURCE_PUBLIC_KEY:
         # 조용히 넘어가면 토큰 만료가 몇 주씩 묻힌다 — 유예 판정으로 낮아진 정확도를 알린다
         log(f"  ⚠ 채널 OAuth 조회 실패 → 공개 API 키 폴백(반려/예약 구분에 유예 {grace_days}일 적용)")
     kinds = []
     for sc in scenes:
-        vids = [v for r in sc["run_ids"] for v in run2vid.get(r, [])]
+        keys = scene_keys(sc)
+        vids = [v for k in keys for v in key2vid.get(k, [])]
         privacies = [(st.get(v) or (None, None)) for v in vids]
         if any(p == SCENE_PUBLIC for p, _ in privacies):
             kinds.append(SCENE_PUBLIC)
-        elif any((recs.get(r) or {}).get("rejected_at") for r in sc["run_ids"]):
+        elif any((recs.get(k) or {}).get("rejected_at") for k in keys):
             kinds.append(SCENE_REJECTED)          # 사람이 명시적으로 반려
         elif not vids:
             kinds.append(SCENE_PENDING)           # 아직 업로드 안 된 렌더
@@ -786,8 +826,8 @@ def classify_scenes(scenes, conn, channel, api_key, publish_records=None,
             kinds.append(SCENE_PENDING if waiting else SCENE_REJECTED)
         elif not any(v in st for v in vids):
             # 공개 키 폴백: 링크는 있는데 전부 조회 불가 = 비공개/삭제 **또는** 예약 공개 대기
-            awaiting = any(_awaiting_publish(recs.get(r) or {}, now, grace_days)
-                           for r in sc["run_ids"])
+            awaiting = any(_awaiting_publish(recs.get(k) or {}, now, grace_days)
+                           for k in keys)
             kinds.append(SCENE_PENDING if awaiting else SCENE_REJECTED)
         else:
             kinds.append(SCENE_PENDING)           # unlisted 로 조회됨 = 검수 대기
@@ -821,8 +861,8 @@ def dedup_spans(scenes, publish_records):
     recs = publish_records or {}
     out = []
     for sc in scenes:
-        rids = sc.get("run_ids") or ([sc["run_id"]] if sc.get("run_id") else [])
-        if rids and all((recs.get(r) or {}).get("reject_type") == "production" for r in rids):
+        keys = scene_keys(sc)
+        if keys and all((recs.get(k) or {}).get("reject_type") == "production" for k in keys):
             continue
         out.append(sc["span"])
     return out

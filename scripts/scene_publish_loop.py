@@ -114,11 +114,13 @@ def seed_published_from_db(gen_state, pub_state, log):
                            for sc in ep.get("scenes", []) if sc.get("run_id")})
             if not rids:
                 continue
-            for rid, vids in sl.db_run_videos(conn, ch_name, rids).items():
-                rec = pub_state.setdefault("scenes", {}).setdefault(rid, {})
+            for (rid, take), vids in sl.db_run_videos(conn, ch_name, rids).items():
+                # 🛑 키는 반드시 state_key(rid, take) — run_id 로만 심으면 테이크2·3 의 '이미 발행됨'
+                # 기록이 정본 자리에 들어가고, 정작 자기 자리는 빈 채로 남아 방어선이 죽는다.
+                rec = pub_state.setdefault("scenes", {}).setdefault(state_key(rid, take), {})
                 if rec.get("stage") in ("published", "blocked"):
                     continue
-                rec.update(channel=ch_name, slot=slot, stage="published",
+                rec.update(channel=ch_name, slot=slot, stage="published", take=take,
                            video_id=vids[0], source="db-reconciled")
                 n += 1
     finally:
@@ -149,7 +151,9 @@ def pending_scenes(gen_state, pub_state):
                 rid = sc.get("run_id")
                 if not rid:
                     continue
-                stage = (done.get(rid) or {}).get("stage")
+                # 🛑 테이크별 키로 봐야 한다 — run_id 로만 보면 정본이 발행되는 순간 같은 job 의
+                # 테이크2·3 이 목록에서 통째로 사라져 **합격작이 영영 안 나간다**(2026-08-07).
+                stage = (done.get(state_key(rid, sc.get("take"))) or {}).get("stage")
                 if stage in ("published", "blocked"):
                     continue
                 out.append((slot, ch_name, int(ep_num), sc))
@@ -173,13 +177,9 @@ def review_gate(decision):
     return REVIEW_GATE_PUBLISH if decision[0] == "approved" else REVIEW_GATE_REJECT
 
 
-def state_key(run_id, take=None):
-    """상태·조회 키. 정본은 run_id 그대로(옛 상태 파일 호환), 변이는 run_id#take.
-
-    한 job 이 테이크 3개를 내면서 run_id 하나에 장면이 여럿 달릴 수 있게 됐다. 키를 run_id 로만
-    두면 테이크들이 **서로의 발행 기록을 덮어쓴다.**"""
-    n = str(take or "shorts_1")
-    return run_id if n in ("shorts_1", "shorts") else f"{run_id}#{n}"
+# 상태 키 규약은 scene_loop 이 정본이다 — 두 루프가 **같은 상태 파일**(scene_publish_state.json)을
+# 쓰기 때문에 규약이 갈리면 한쪽이 심은 기록을 다른 쪽이 못 찾는다(2026-08-07 실제 사고).
+state_key = sl.state_key
 
 
 def fetch_review_decisions(run_ids):
