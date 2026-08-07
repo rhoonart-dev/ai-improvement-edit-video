@@ -25,7 +25,12 @@
     ],
     "_works_note": "운영은 유미의 세포들 시즌3 → 언더커버셰프 **순차**다. 둘 다 지오블락 필수라 지오블락 가능 채널인 여기에 묶여 있다. 진행 상태는 작품별 슬롯으로 갈리므로 (channel_registry 의 slot) 두 작품의 EP1 이 섞이지 않는다.",
     "publish_privacy": "unlisted",
-    "_note": "publish_privacy=unlisted 고정(2026-08-04): 지오블락 필수 작품 채널이라 예약 공개 금지 — 공개는 사람이 Studio 에서 지오블락 걸고 전환"
+    "_note": "publish_privacy=unlisted 고정(2026-08-04): 지오블락 필수 작품 채널이라 예약 공개 금지 — 공개는 사람이 Studio 에서 지오블락 걸고 전환",
+    "design": {
+      "title_color": "white",
+      "title_color2": "#FF7EB3",
+      "_note": "채널 전용 템플릿(2026-08-07 운영자 선택): 제목 1줄 white·2줄 #FF7EB3. 유미 로고 원색 #E84088(alpha 픽셀 최빈값) 계열을 한 단계 밝혀 검은 밴드 가독성 확보 — 커리어데이 #4DA6FF 와 밝기 톤 정렬. 작품명 자리는 로고(works.json branding)가 대체하므로 work_color/work_title_y 는 두지 않는다"
+    }
   },
   {
     "token_slug": "CINEMAINBED",
