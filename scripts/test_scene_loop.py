@@ -336,7 +336,7 @@ def test_classify_scenes_separates_public_pending_rejected():
               {"span": [6.0, 7.0], "run_ids": ["w_none"]}]
     old = _patch(
         # w_none 은 발행된 적이 없어 링크가 없다
-        db_run_videos=lambda conn, ch, rids: {"w_pub": ["v1"], "w_unl": ["v2"], "w_priv": ["v3"]},
+        db_run_videos=lambda conn, ch, rids: {("w_pub", "shorts_1"): ["v1"], ("w_unl", "shorts_1"): ["v2"], ("w_priv", "shorts_1"): ["v3"]},
         # v3 는 응답에 없다 = 공개 API 키로 조회 불가 = 비공개거나 삭제됨
         youtube_statuses=lambda vids, key: {"v1": "public", "v2": "unlisted"},
     )
@@ -351,7 +351,7 @@ def test_scene_keeps_pending_when_one_video_is_still_unlisted():
     """같은 장면에 반려분과 검수대기분이 섞이면 여전히 대기다 — 사람이 공개할 여지가 남아 있다."""
     scenes = [{"span": [0.0, 1.0], "run_ids": ["w_a", "w_b"]}]
     old = _patch(
-        db_run_videos=lambda conn, ch, rids: {"w_a": ["v_priv"], "w_b": ["v_unl"]},
+        db_run_videos=lambda conn, ch, rids: {("w_a", "shorts_1"): ["v_priv"], ("w_b", "shorts_1"): ["v_unl"]},
         youtube_statuses=lambda vids, key: {"v_unl": "unlisted"},
     )
     try:
@@ -378,7 +378,7 @@ def test_scheduled_publish_is_pending_not_rejected():
         "w_old": {"published_at": "2026-07-01T12:00:00+09:00"},
     }
     old = _patch(
-        db_run_videos=lambda conn, ch, rids: {r: [f"vid_{r}"] for r in rids},
+        db_run_videos=lambda conn, ch, rids: {(r, "shorts_1"): [f"vid_{r}"] for r in rids},
         youtube_statuses=lambda vids, key: {},   # 전부 조회 불가
     )
     try:
@@ -409,7 +409,7 @@ def test_owner_lookup_separates_scheduled_from_rejected_without_grace():
              "vid_w_rej": ("private", None),
              "vid_w_unl": ("unlisted", None)}
     old = _patch(
-        db_run_videos=lambda conn, ch, rids: {r: [f"vid_{r}"] for r in rids},
+        db_run_videos=lambda conn, ch, rids: {(r, "shorts_1"): [f"vid_{r}"] for r in rids},
         youtube_statuses_owner=lambda vids, ch: owner,
         # 폴백이 끼어들면 안 된다 — 끼어들면 유예 규칙이 적용돼 결과가 달라진다
         youtube_statuses=lambda vids, key: (_ for _ in ()).throw(AssertionError("폴백 금지")),
@@ -434,7 +434,7 @@ def test_owner_lookup_falls_back_to_public_key_on_failure():
     def _boom(vids, ch):
         raise RuntimeError("invalid_grant")
     old = _patch(
-        db_run_videos=lambda conn, ch, rids: {r: [f"vid_{r}"] for r in rids},
+        db_run_videos=lambda conn, ch, rids: {(r, "shorts_1"): [f"vid_{r}"] for r in rids},
         youtube_statuses_owner=_boom,
         youtube_statuses=lambda vids, key: {},   # 공개 키로는 private 이 안 보인다
     )
@@ -454,7 +454,7 @@ def test_explicit_rejected_at_beats_lookup_but_not_actual_public():
               {"span": [2.0, 3.0], "run_ids": ["w_public"]}]   # 공개인데 반려 표시
     owner = {"vid_w_marked": ("unlisted", None), "vid_w_public": ("public", None)}
     old = _patch(
-        db_run_videos=lambda conn, ch, rids: {r: [f"vid_{r}"] for r in rids},
+        db_run_videos=lambda conn, ch, rids: {(r, "shorts_1"): [f"vid_{r}"] for r in rids},
         youtube_statuses_owner=lambda vids, ch: owner,
     )
     try:
@@ -481,7 +481,7 @@ def test_rejected_scenes_do_not_block_generation():
     old = _patch(
         discover_episodes_for=lambda ch, gen_py, hours, log: [(1, "/srv/EP1.mp4")],
         rendered_scenes=lambda *a, **k: scenes,
-        db_run_videos=lambda conn, ch, rids: {r: [f"vid_{r}"] for r in rids},
+        db_run_videos=lambda conn, ch, rids: {(r, "shorts_1"): [f"vid_{r}"] for r in rids},
         youtube_statuses=lambda vids, key: {},          # 전부 조회 불가 = 전부 반려
     )
     try:
@@ -503,7 +503,7 @@ def test_unlisted_backlog_still_blocks_generation():
     old = _patch(
         discover_episodes_for=lambda ch, gen_py, hours, log: [(1, "/srv/EP1.mp4")],
         rendered_scenes=lambda *a, **k: scenes,
-        db_run_videos=lambda conn, ch, rids: {r: [f"vid_{r}"] for r in rids},
+        db_run_videos=lambda conn, ch, rids: {(r, "shorts_1"): [f"vid_{r}"] for r in rids},
         youtube_statuses=lambda vids, key: {v: "unlisted" for v in vids},
     )
     try:
@@ -703,3 +703,50 @@ def test_build_cmd_resume_args():
     assert cmd[cmd.index("--job-id") + 1] == "job_ab"
     # 재개가 아니면 인자가 아예 없어야 한다(빈 값으로 넘기면 ai-video 가 --job-id 요구로 죽는다)
     assert "--from-step" not in sl.build_cmd("py", "작품", "/src.mp4", "/out", [], ep_num=2)
+
+
+def test_takes_of_one_run_are_classified_independently():
+    """🛑 회귀 방지 — 한 job 의 테이크 3편이 서로의 발행 상태를 물려받으면 안 된다.
+
+    2026-08-06 `--max-shorts 3` 전환으로 run_id 하나에 장면이 3개 달리게 됐다. run_id 로만
+    묶으면 테이크1 이 공개되는 순간 테이크2·3 도 '공개됨'이 돼 **회차가 조기 종료**되고,
+    검수 대기분이 통계에서 사라진다.
+    """
+    scenes = sl.merge_scenes([{"span": [0.0, 1.0], "run_id": "R", "take": "shorts_1"},
+                              {"span": [200.0, 260.0], "run_id": "R", "take": "shorts_2"},
+                              {"span": [400.0, 460.0], "run_id": "R", "take": "shorts_3"}], 0.5, 15)
+    assert [s["keys"] for s in scenes] == [["R"], ["R#shorts_2"], ["R#shorts_3"]]
+    old = _patch(
+        db_run_videos=lambda conn, ch, rids: {("R", "shorts_1"): ["v1"], ("R", "shorts_2"): ["v2"]},
+        youtube_statuses=lambda vids, key: {"v1": "public", "v2": "unlisted"},
+    )
+    try:
+        kinds = sl.classify_scenes(scenes, None, "채널1", "KEY")
+    finally:
+        _restore(old)
+    # 테이크3 은 아직 업로드조차 안 됐다(링크 없음) → 대기
+    assert kinds == [sl.SCENE_PUBLIC, sl.SCENE_PENDING, sl.SCENE_PENDING]
+
+
+def test_reject_and_dedup_records_are_read_per_take():
+    """반려·제작반려 기록도 테이크 자리에서만 읽힌다 — 남의 테이크를 막거나 풀면 안 된다."""
+    scenes = sl.merge_scenes([{"span": [0.0, 1.0], "run_id": "R", "take": "shorts_1"},
+                              {"span": [200.0, 260.0], "run_id": "R", "take": "shorts_2"}], 0.5, 15)
+    recs = {"R#shorts_2": {"rejected_at": "2026-08-06T00:00:00", "reject_type": "production"}}
+    old = _patch(
+        db_run_videos=lambda conn, ch, rids: {("R", "shorts_1"): ["v1"], ("R", "shorts_2"): ["v2"]},
+        youtube_statuses=lambda vids, key: {"v1": "public"},
+    )
+    try:
+        kinds = sl.classify_scenes(scenes, None, "채널1", "KEY", publish_records=recs)
+    finally:
+        _restore(old)
+    assert kinds == [sl.SCENE_PUBLIC, sl.SCENE_REJECTED]
+    # 제작반려는 중복 회피에서 빠지고(0009), 정본 구간은 그대로 남는다
+    assert sl.dedup_spans(scenes, recs) == [[0.0, 1.0]]
+
+
+def test_scene_keys_accepts_legacy_scene_shape():
+    """옛 상태 파일로 만든 장면({'run_ids'} 만 있음)도 그대로 동작해야 한다."""
+    assert sl.scene_keys({"run_ids": ["X", "Y"]}) == ["X", "Y"]
+    assert sl.scene_keys({"run_id": "Z"}) == ["Z"]

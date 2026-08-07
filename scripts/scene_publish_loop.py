@@ -114,11 +114,13 @@ def seed_published_from_db(gen_state, pub_state, log):
                            for sc in ep.get("scenes", []) if sc.get("run_id")})
             if not rids:
                 continue
-            for rid, vids in sl.db_run_videos(conn, ch_name, rids).items():
-                rec = pub_state.setdefault("scenes", {}).setdefault(rid, {})
+            for (rid, take), vids in sl.db_run_videos(conn, ch_name, rids).items():
+                # 🛑 키는 반드시 state_key(rid, take) — run_id 로만 심으면 테이크2·3 의 '이미 발행됨'
+                # 기록이 정본 자리에 들어가고, 정작 자기 자리는 빈 채로 남아 방어선이 죽는다.
+                rec = pub_state.setdefault("scenes", {}).setdefault(state_key(rid, take), {})
                 if rec.get("stage") in ("published", "blocked"):
                     continue
-                rec.update(channel=ch_name, slot=slot, stage="published",
+                rec.update(channel=ch_name, slot=slot, stage="published", take=take,
                            video_id=vids[0], source="db-reconciled")
                 n += 1
     finally:
@@ -149,7 +151,9 @@ def pending_scenes(gen_state, pub_state):
                 rid = sc.get("run_id")
                 if not rid:
                     continue
-                stage = (done.get(rid) or {}).get("stage")
+                # 🛑 테이크별 키로 봐야 한다 — run_id 로만 보면 정본이 발행되는 순간 같은 job 의
+                # 테이크2·3 이 목록에서 통째로 사라져 **합격작이 영영 안 나간다**(2026-08-07).
+                stage = (done.get(state_key(rid, sc.get("take"))) or {}).get("stage")
                 if stage in ("published", "blocked"):
                     continue
                 out.append((slot, ch_name, int(ep_num), sc))
@@ -173,8 +177,18 @@ def review_gate(decision):
     return REVIEW_GATE_PUBLISH if decision[0] == "approved" else REVIEW_GATE_REJECT
 
 
+# 상태 키 규약은 scene_loop 이 정본이다 — 두 루프가 **같은 상태 파일**(scene_publish_state.json)을
+# 쓰기 때문에 규약이 갈리면 한쪽이 심은 기록을 다른 쪽이 못 찾는다(2026-08-07 실제 사고).
+state_key = sl.state_key
+
+
 def fetch_review_decisions(run_ids):
-    """{run_id: (decision, decided_at_iso, note, reject_type)} — review_decisions 를 run_id 로 조회.
+    """{(run_id, take): (decision, decided_at_iso, note, reject_type)} — 테이크별 검수 결정.
+
+    🛑 예전에는 `c.episode = 'shorts_1'` 로 못 박고 run_id 로만 키를 잡았다. 그래서 변이 테이크가
+    합격해도 조회에 안 잡혀 **영영 '검수 대기'로 발행이 보류됐다**(2026-08-06 실측: 맥3 명장면
+    세탁소 shorts_2 · 맥2 스트릿 레스토랑 파이터 shorts_2). 안전 방향 실패라 잘못된 발행은 없었지만,
+    합격작이 안 나가는 것도 사고다.
 
     실패 시 예외를 그대로 올린다 — 결정을 못 읽는 상태에서 발행하면 미검수분이 올라간다
     (seed_published_from_db 와 같은 '안전 방향으로만 실패' 원칙).
@@ -188,14 +202,13 @@ def fetch_review_decisions(run_ids):
     with pg.connect(os.environ["PIPELINE_DB_URL"], connect_timeout=10) as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """SELECT m.ai_video_run_id, r.decision, r.decided_at, r.note, r.reject_type
+                """SELECT m.ai_video_run_id, r.decision, r.decided_at, r.note, r.reject_type, c.episode
                    FROM public.review_decisions r
                    JOIN public.clips c ON c.id = r.clip_id
                    JOIN public.clip_metadata m ON m.clip_id = c.id
-                   WHERE m.ai_video_run_id = ANY(%s)
-                     AND c.source = 'auto_edit' AND c.episode = 'shorts_1'""",
+                   WHERE m.ai_video_run_id = ANY(%s) AND c.source = 'auto_edit'""",
                 (list(run_ids),))
-            return {r[0]: (r[1], r[2].isoformat() if r[2] else None, r[3], r[4])
+            return {(r[0], r[5] or "shorts_1"): (r[1], r[2].isoformat() if r[2] else None, r[3], r[4])
                     for r in cur.fetchall()}
 
 
@@ -485,16 +498,18 @@ def main():
                     f"(config/scene_loop.json 에 없음) → 발행 건너뜀")
                 continue
             ch_cfg = ch_cfgs.get(slot) or ch_cfgs.get(ch_name, {})
-            rec = pub_state["scenes"].setdefault(rid, {"channel": ch_name, "slot": slot,
-                                                       "episode": ep_num})
+            take = sc.get("take") or "shorts_1"
+            skey = state_key(rid, take)
+            rec = pub_state["scenes"].setdefault(skey, {"channel": ch_name, "slot": slot,
+                                                        "episode": ep_num, "take": take})
             rec.setdefault("channel", ch_name)
             if decisions is not None:
-                gate = review_gate(decisions.get(rid))
+                gate = review_gate(decisions.get((rid, take)))
                 if gate == REVIEW_GATE_HOLD:
                     log(f"  ⏸ [{ch_name} EP{ep_num} run={rid[:12]}] 검수 대기(결정 없음) → 발행 보류")
                     continue
                 if gate == REVIEW_GATE_REJECT:
-                    d = decisions[rid]
+                    d = decisions[(rid, take)]
                     if not rec.get("rejected_at"):
                         # rejected_at 은 scene_loop classify_scenes 가 최우선으로 읽는 필드 —
                         # 다음 생성 실행에서 유튜브 조회 없이 즉시 슬롯이 해제된다(8/4 훅 재사용).

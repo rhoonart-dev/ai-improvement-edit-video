@@ -1,14 +1,5 @@
 {
  "scenes": {
-  "혜미리예채파_75": {
-   "channel": "숏콘",
-   "episode": 1,
-   "clip_id": "4e6004e8-9cba-4999-9da6-0f97c28a2b97",
-   "stage": "published",
-   "video_id": "jRyFSSKy4kk",
-   "privacy": "unlisted",
-   "published_at": "2026-07-27T05:05:01"
-  },
   "커리어데이_b9": {
    "channel": "커리어데이 숏츠",
    "episode": 1,
@@ -107,6 +98,95 @@
    "video_id": "0VcKkec1UqA",
    "privacy": "unlisted",
    "published_at": "2026-07-31T16:48:28"
+  },
+  "샤먼:_미신전_5b": {
+   "channel": "여운 보관소",
+   "slot": "여운 보관소",
+   "stage": "published",
+   "video_id": "xXuCd6b5Fow",
+   "source": "db-reconciled"
+  },
+  "약한영웅_Class_1_4c": {
+   "channel": "리와인드포차",
+   "slot": "리와인드포차",
+   "episode": 1,
+   "clip_id": "3fb533c7-2d9c-4df3-92bd-bf96c96e480d",
+   "stage": "published",
+   "video_id": "e_5985rJYDk",
+   "privacy": "unlisted",
+   "published_at": "2026-08-03T16:07:27"
+  },
+  "혜미리예채파_9c": {
+   "channel": "ショトコン",
+   "slot": "ショトコン",
+   "episode": 1,
+   "clip_id": "aa4b022f-3154-4f3f-9f06-ed81a0d46456",
+   "stage": "published",
+   "video_id": "ozsNAiYJAPc",
+   "privacy": "private",
+   "published_at": "2026-08-04T17:08:56",
+   "_localized": "ja (video-localization-project, 2026-08-04)",
+   "_note": "구판(h1fM3p8Vg7E) 2026-08-04 사용자 Studio 삭제·API 검증 완료. 현 영상은 사용자가 private 로 전환해 둔 상태 — 공개는 사람 몫."
+  },
+  "피의_게임_X_da": {
+   "channel": "명장면 세탁소",
+   "slot": "명장면 세탁소",
+   "episode": 1,
+   "clip_id": "e26562a9-1076-46e2-ac48-f0c8f5b9552f",
+   "stage": "published",
+   "video_id": "YYqyqaDhiIw",
+   "privacy": "unlisted",
+   "published_at": "2026-08-03T16:08:24"
+  },
+  "약한영웅_Class_1_5c": {
+   "channel": "리와인드포차",
+   "slot": "리와인드포차",
+   "episode": 1,
+   "clip_id": "b15e10da-f650-47e4-acf3-718edd167c93",
+   "stage": "published",
+   "video_id": "tXNa5nm1Jv8",
+   "privacy": "unlisted",
+   "published_at": "2026-08-03T16:09:03"
+  },
+  "샤먼:_미신전_49": {
+   "channel": "여운 보관소",
+   "slot": "여운 보관소",
+   "episode": 1,
+   "clip_id": "344d2512-7d0b-4dee-991d-33f40255c6a3",
+   "stage": "published",
+   "video_id": "_DSs5hPb17U",
+   "privacy": "unlisted",
+   "published_at": "2026-08-03T16:09:33"
+  },
+  "샤먼:_미신전_ae": {
+   "channel": "여운 보관소",
+   "slot": "여운 보관소",
+   "episode": 1,
+   "clip_id": "f658d943-3baa-42de-9b94-dc7b76f6efd7",
+   "stage": "published",
+   "video_id": "IVF4xXcQD5c",
+   "privacy": "unlisted",
+   "published_at": "2026-08-03T16:10:03"
+  },
+  "혜미리예채파_74": {
+   "channel": "ショトコン",
+   "slot": "ショトコン",
+   "episode": 1,
+   "clip_id": "edbd01ac-4ecb-4578-8946-14aa19c27fa6",
+   "stage": "published",
+   "video_id": "4VPrKKRKXAg",
+   "privacy": "public",
+   "published_at": "2026-08-04T17:08:56",
+   "_localized": "ja (video-localization-project, 2026-08-04)"
+  },
+  "혜미리예채파_75": {
+   "channel": "숏콘",
+   "episode": 1,
+   "clip_id": "4e6004e8-9cba-4999-9da6-0f97c28a2b97",
+   "stage": "published",
+   "video_id": "jRyFSSKy4kk",
+   "privacy": "unlisted",
+   "published_at": "2026-07-27T05:05:01"
   },
   "커리어데이_50": {
    "channel": "커리어데이 숏츠",
@@ -239,6 +319,62 @@
    "video_id": "n9esAaHzTtQ",
    "privacy": "unlisted",
    "published_at": "2026-08-03T14:55:22"
+  },
+  "피의_게임_X_7d": {
+   "channel": "명장면 세탁소",
+   "slot": "명장면 세탁소",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-05T09:46:46.230000+00:00",
+   "review_note": "기존 업로드 영상과 중복된 주제와 장면",
+   "reject_type": "scene"
+  },
+  "피의_게임_X_fb": {
+   "channel": "명장면 세탁소",
+   "slot": "명장면 세탁소",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-05T09:46:51.740000+00:00",
+   "review_note": "기존 업로드 영상과 중복된 주제와 장면",
+   "reject_type": "scene"
+  },
+  "약한영웅_Class_1_07": {
+   "channel": "리와인드포차",
+   "slot": "리와인드포차",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-05T09:07:25.019000+00:00",
+   "review_note": "스토리 구성 문제 - 제목은 '모범생의 성적을 건드리면 물리 법칙으로 응징한다'인데, 어떻게 성적을 건드렸다는 건지 모르겠고, TTS로 '사건은 시험 시작 직후였다.'로 나오는데 정작 그 장면은 나오지 않음. ",
+   "reject_type": "production"
+  },
+  "혜미리예채파_39": {
+   "channel": "ショトコン",
+   "slot": "ショトコン",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-06T03:37:06.167000+00:00",
+   "review_note": null,
+   "reject_type": "scene"
+  },
+  "샤먼:_미신전_46": {
+   "channel": "여운 보관소",
+   "slot": "여운 보관소",
+   "episode": 2,
+   "clip_id": "09357610-a0f7-4c14-8b02-f480fcfb94a0",
+   "stage": "published",
+   "video_id": "Y8lOD6j4QTs",
+   "privacy": "scheduled",
+   "published_at": "2026-08-05T18:40:14",
+   "scheduled_publish_at": "2026-08-05T19:00:00+09:00"
+  },
+  "약한영웅_Class_1_fb": {
+   "channel": "리와인드포차",
+   "slot": "리와인드포차",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-05T13:23:55.847000+00:00",
+   "review_note": "이미 올린 장면과 같은 장면임",
+   "reject_type": "scene"
   },
   "언니네_산지직송_in_칼라페_8f": {
    "channel": "너굴안방",
@@ -494,6 +630,44 @@
    "review_note": "이미 올라온 장면과 중복임.",
    "reject_type": "scene"
   },
+  "피의_게임_X_47": {
+   "channel": "명장면 세탁소",
+   "slot": "명장면 세탁소",
+   "episode": 2,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-06T02:56:13.208000+00:00",
+   "review_note": "누구를 배신한 건지, 저게 왜 배신 행동인지 이해가 안 됨",
+   "reject_type": "scene"
+  },
+  "약한영웅_Class_1_9d": {
+   "channel": "리와인드포차",
+   "slot": "리와인드포차",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-06T02:55:47.692000+00:00",
+   "review_note": "업로드 돼있는 영상과 중복 장면임",
+   "reject_type": "scene"
+  },
+  "샤먼:_미신전_56": {
+   "channel": "여운 보관소",
+   "slot": "여운 보관소",
+   "episode": 2,
+   "clip_id": "72d3904c-de3f-41f7-949c-fea1907055d4",
+   "stage": "published",
+   "video_id": "_TQJ0xAykas",
+   "privacy": "scheduled",
+   "published_at": "2026-08-06T11:31:09",
+   "scheduled_publish_at": "2026-08-06T19:00:00+09:00"
+  },
+  "혜미리예채파_29": {
+   "channel": "ショトコン",
+   "slot": "ショトコン",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-06T03:37:04.515000+00:00",
+   "review_note": null,
+   "reject_type": "scene"
+  },
   "커리어데이_2c": {
    "channel": "커리어데이 숏츠",
    "slot": "커리어데이 숏츠",
@@ -531,6 +705,90 @@
    "stage": "review_rejected",
    "rejected_at": "2026-08-06T02:26:17.565000+00:00",
    "review_note": "제목이 폴백 버전인 것 같음.",
+   "reject_type": "production"
+  },
+  "약한영웅_Class_1_1e": {
+   "channel": "리와인드포차",
+   "slot": "리와인드포차",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-06T07:00:37.563000+00:00",
+   "review_note": "일진을 박살낸 이유가 제목인데 이유가 안나옴 ",
+   "reject_type": "scene"
+  },
+  "피의_게임_X_db": {
+   "channel": "명장면 세탁소",
+   "slot": "명장면 세탁소",
+   "episode": 2,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-06T07:37:12.730000+00:00",
+   "review_note": "쇼츠만 봐서는 무슨 맥락인지 잘 이해가 안 됨",
+   "reject_type": "scene"
+  },
+  "약한영웅_Class_1_d0": {
+   "channel": "리와인드포차",
+   "slot": "리와인드포차",
+   "episode": 1,
+   "clip_id": "0fb77875-6877-42f3-9640-4d1ec1bb160a",
+   "stage": "published",
+   "video_id": "ywp60bmzd8k",
+   "privacy": "scheduled",
+   "published_at": "2026-08-06T17:11:43",
+   "scheduled_publish_at": "2026-08-07T19:00:00+09:00"
+  },
+  "커리어데이_fc": {
+   "channel": "커리어데이 숏츠",
+   "slot": "커리어데이 숏츠",
+   "episode": 2,
+   "clip_id": "e48d4e70-5756-4ac7-a37b-b62b17022add",
+   "stage": "published",
+   "video_id": "Isx9crB3P_M",
+   "privacy": "scheduled",
+   "published_at": "2026-08-06T15:36:11",
+   "scheduled_publish_at": "2026-08-06T19:00:00+09:00"
+  },
+  "유미의_세포들_시즌3_c7": {
+   "channel": "재미쇼츠",
+   "slot": "재미쇼츠·유미의 세포들 시즌3",
+   "stage": "published",
+   "video_id": "XBkvHH6xF4o",
+   "source": "db-reconciled"
+  },
+  "유미의_세포들_시즌3_75": {
+   "channel": "재미쇼츠",
+   "slot": "재미쇼츠·유미의 세포들 시즌3",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-06T08:26:33.088000+00:00",
+   "review_note": "제목이 폴백 버전임.",
+   "reject_type": "scene"
+  },
+  "유미의_세포들_시즌3_de": {
+   "channel": "재미쇼츠",
+   "slot": "재미쇼츠·유미의 세포들 시즌3",
+   "episode": 1
+  },
+  "유미의_세포들_시즌3_1b": {
+   "channel": "재미쇼츠",
+   "slot": "재미쇼츠·유미의 세포들 시즌3",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-07T06:42:50.312000+00:00",
+   "review_note": "이어폰 끼고 무시하는 장면이 안 나옴. 그리고 중복된 구간이 너무 많아 잘못 만들어진 영상 같음.",
+   "reject_type": "production"
+  },
+  "커리어데이_f6": {
+   "channel": "커리어데이 숏츠",
+   "slot": "커리어데이 숏츠",
+   "episode": 3
+  },
+  "유미의_세포들_시즌3_f5": {
+   "channel": "재미쇼츠",
+   "slot": "재미쇼츠·유미의 세포들 시즌3",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-07T06:44:32.061000+00:00",
+   "review_note": "초반에 필요없는 장면이 들어간 것 같음.",
    "reject_type": "production"
   },
   "김부장_30": {

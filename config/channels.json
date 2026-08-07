@@ -235,7 +235,9 @@
       "日本",
       "K-POPアイドル",
       "ヘミリイェチェパ"
-    ]
+    ],
+    "publish_privacy": "unlisted",
+    "_publish_note": "일본 현지화 채널 — 발행 루프가 현지화(기계번역)를 거쳐 올리므로, 일본어 품질을 사람이 확인할 때까지 unlisted 고정(공개는 Studio 에서 사람이). 번역 신뢰가 쌓이면 이 키를 지워 예약 공개(publish_times)로 전환한다. 2026-08-05, video-localization-project Phase 2."
   },
   {
     "token_slug": "MOLIPDODUK",
@@ -374,7 +376,14 @@
       "취업",
       "이직",
       "커리어데이"
-    ]
+    ],
+    "design": {
+      "title_color": "white",
+      "title_color2": "#4DA6FF",
+      "work_color": "white",
+      "work_title_y": 1560,
+      "_note": "채널 전용 템플릿(2026-08-07 운영자 지정): 제목 1줄 white 유지·2줄 #4DA6FF(하늘색), 작품명 white·y=1560. 키 정의는 channel_registry.CHANNEL_DESIGN_FLAGS"
+    }
   },
   {
     "token_slug": "BGSUNSAK",

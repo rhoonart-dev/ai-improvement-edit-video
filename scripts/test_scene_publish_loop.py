@@ -42,7 +42,7 @@ def test_db_linked_scene_is_not_republished():
     pub_state = {"scenes": {}}
     old_sl = _patch(sl,
                     _connect_db=lambda log: _StubConn(),
-                    db_run_videos=lambda conn, ch, rids: {"작품_pub": ["vidAAA"]})
+                    db_run_videos=lambda conn, ch, rids: {("작품_pub", "shorts_1"): ["vidAAA"]})
     try:
         assert pl.seed_published_from_db(_gen_state(), pub_state, lambda m: None) is True
     finally:
@@ -115,6 +115,68 @@ if __name__ == "__main__":
 def test_review_gate_routes_all_cases():
     """4단계(2026-08-05): 합격작만 발행. 결정 없음=보류, 반려=해제 — 발행은 approved 뿐이다."""
     import scene_publish_loop as spl
-    assert spl.review_gate(None) == spl.REVIEW_GATE_HOLD                       # 미검수 → 보류
-    assert spl.review_gate(("approved", "2026-08-05T00:00:00", None)) == spl.REVIEW_GATE_PUBLISH
-    assert spl.review_gate(("rejected", "2026-08-05T00:00:00", "TTS 안 맞음")) == spl.REVIEW_GATE_REJECT
+    assert pl.review_gate(None) == pl.REVIEW_GATE_HOLD                       # 미검수 → 보류
+    assert pl.review_gate(("approved", "2026-08-05T00:00:00", None)) == pl.REVIEW_GATE_PUBLISH
+    assert pl.review_gate(("rejected", "2026-08-05T00:00:00", "TTS 안 맞음")) == pl.REVIEW_GATE_REJECT
+
+
+# ── 테이크별 검수 결정·상태 키 ──
+# 변이 테이크가 합격해도 조회에 안 잡혀 영영 보류되던 문제(2026-08-06 명장면 세탁소 shorts_2).
+
+def test_state_key_keeps_canonical_backward_compatible():
+    assert pl.state_key("피의_게임_X_1e") == "피의_게임_X_1e"
+    assert pl.state_key("피의_게임_X_1e", "shorts_1") == "피의_게임_X_1e"
+    # 변이는 분리 — 같은 run_id 의 테이크들이 서로의 발행 기록을 덮어쓰면 안 된다
+    assert pl.state_key("피의_게임_X_1e", "shorts_2") == "피의_게임_X_1e#shorts_2"
+
+
+def test_take_files_picks_variant_video():
+    v, plan = pl.take_files("/job", "shorts_2")
+    assert v.name == "shorts_2.mp4" and plan.name == "edit_plan_2.json"
+    v1, plan1 = pl.take_files("/job", "shorts_1")
+    assert v1.name == "shorts.mp4" and plan1.name == "edit_plan.json"
+
+
+def test_find_video_does_not_fall_back_for_variants(tmp_path):
+    # 변이 파일이 없는데 정본으로 폴백하면 **다른 영상이 발행된다**
+    (tmp_path / "shorts.mp4").write_text("canonical")
+    assert pl.find_video(str(tmp_path), "shorts_2") is None
+    assert pl.find_video(str(tmp_path), "shorts_1").endswith("shorts.mp4")
+
+
+def test_db_seed_keys_variant_takes_separately():
+    """🛑 회귀 방지 — DB 정합이 변이 테이크를 **자기 키**에 심어야 재업로드를 막는다.
+
+    2026-08-07 실측: seed 가 run_id 로만 심어서 테이크2·3 의 '이미 발행됨' 기록이 정본 자리에
+    들어갔다. 그러면 테이크2 자리는 빈 채로 남아 재업로드 방어선이 통째로 죽는다.
+    """
+    gen = {"channels": {"채널1": {"work_title": "작품", "episodes": {"1": {"scenes": [
+        {"run_id": "작품_x", "span": [0.0, 1.0], "job_dir": "/out/a", "take": "shorts_1",
+         "accepted_at": "2026-08-06T00:00:00"},
+        {"run_id": "작품_x", "span": [200.0, 260.0], "job_dir": "/out/a", "take": "shorts_2",
+         "accepted_at": "2026-08-06T00:00:00"},
+    ]}}}}}
+    # 정본만 발행돼 있고 테이크2 는 아직이다 — 이 비대칭이 키 사고를 드러낸다
+    pub_state = {"scenes": {}}
+    old_sl = _patch(sl, _connect_db=lambda log: _StubConn(),
+                    db_run_videos=lambda conn, ch, rids: {("작품_x", "shorts_1"): ["vid1"]})
+    try:
+        assert pl.seed_published_from_db(gen, pub_state, lambda m: None) is True
+    finally:
+        _restore(sl, old_sl)
+
+    assert pub_state["scenes"]["작품_x"]["video_id"] == "vid1"
+    assert "작품_x#shorts_2" not in pub_state["scenes"]
+    # 🛑 정본이 발행됐다고 테이크2 가 목록에서 사라지면 그 합격작은 영영 안 나간다
+    assert [sc["take"] for _, _, _, sc in pl.pending_scenes(gen, pub_state)] == ["shorts_2"]
+
+    # 테이크2 까지 발행되면 그때 비로소 둘 다 빠진다
+    old_sl = _patch(sl, _connect_db=lambda log: _StubConn(),
+                    db_run_videos=lambda conn, ch, rids: {("작품_x", "shorts_1"): ["vid1"],
+                                                          ("작품_x", "shorts_2"): ["vid2"]})
+    try:
+        assert pl.seed_published_from_db(gen, pub_state, lambda m: None) is True
+    finally:
+        _restore(sl, old_sl)
+    assert pub_state["scenes"]["작품_x#shorts_2"]["video_id"] == "vid2"
+    assert pl.pending_scenes(gen, pub_state) == []
