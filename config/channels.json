@@ -70,7 +70,14 @@
       "웃긴영상",
       "하이라이트",
       "리얼리티"
-    ]
+    ],
+    "design": {
+      "title_color": "white",
+      "title_color2": "#FF9F45",
+      "work_color": "white",
+      "work_title_y": 1560,
+      "_note": "채널 템플릿(2026-08-07): 아이콘(도토리 다람쥐·웜톤) 기반 2줄 웜오렌지 #FF9F45, 작품명 white·y=1560(커리어데이와 동일 규격)"
+    }
   },
   {
     "token_slug": "NEOGULBANG",
@@ -139,7 +146,14 @@
       "웃긴영상",
       "명장면",
       "개그"
-    ]
+    ],
+    "design": {
+      "title_color": "white",
+      "title_color2": "#FFD84D",
+      "work_color": "white",
+      "work_title_y": 1560,
+      "_note": "채널 템플릿(2026-08-07): 아이콘(골드 ㅋㅋ·극장 커튼) 기반 2줄 골드 #FFD84D, 작품명 white·y=1560"
+    }
   },
   {
     "token_slug": "HEUNGHAENG",
@@ -260,7 +274,14 @@
       "명장면",
       "웃긴영상",
       "하이라이트"
-    ]
+    ],
+    "design": {
+      "title_color": "white",
+      "title_color2": "#2EE6E6",
+      "work_color": "white",
+      "work_title_y": 1560,
+      "_note": "채널 템플릿(2026-08-07): 아이콘(네온 시안 마스크) 기반 2줄 네온시안 #2EE6E6, 작품명 white·y=1560"
+    }
   },
   {
     "token_slug": "SCENELAUNDRY",
@@ -452,6 +473,13 @@
       "국대",
       "월드컵",
       "명장면"
-    ]
+    ],
+    "design": {
+      "title_color": "white",
+      "title_color2": "#FF5252",
+      "work_color": "white",
+      "work_title_y": 1560,
+      "_note": "채널 템플릿(2026-08-07): 아이콘(칠판 전술판·레드 언더라인) 기반 2줄 레드 #FF5252(블루는 커리어데이와 중복 회피), 작품명 white·y=1560"
+    }
   }
 ]
