@@ -1,4 +1,11 @@
 {
+ "publicized": {
+  "2026-07-27": {
+   "쇼츠션샤인": 0,
+   "숏콘": 0,
+   "커리어데이 숏츠": 0
+  }
+ },
  "scenes": {
   "커리어데이_b9": {
    "channel": "커리어데이 숏츠",
@@ -790,13 +797,249 @@
    "rejected_at": "2026-08-07T06:44:32.061000+00:00",
    "review_note": "초반에 필요없는 장면이 들어간 것 같음.",
    "reject_type": "production"
-  }
- },
- "publicized": {
-  "2026-07-27": {
-   "쇼츠션샤인": 0,
-   "숏콘": 0,
-   "커리어데이 숏츠": 0
+  },
+  "SNL_코리아_리부트_시즌8_3b": {
+   "channel": "몰입도둑",
+   "slot": "몰입도둑",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-05T05:52:30.979000+00:00",
+   "review_note": "TTS 타이밍과 영상에 나오는 장면이 안 맞음."
+  },
+  "원희는_스무살_7e": {
+   "channel": "다람쥐 숏토리",
+   "slot": "다람쥐 숏토리",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-05T06:03:59.363000+00:00",
+   "review_note": "제목 작성 오류인 것 같음 "
+  },
+  "SNL_코리아_리부트_시즌8_60": {
+   "channel": "킥킥극장",
+   "slot": "킥킥극장",
+   "episode": 1,
+   "clip_id": "49cd8ffd-1a26-4ea3-8efc-e371cc1df3ce",
+   "stage": "published",
+   "video_id": "7-0cAeP8uRs",
+   "privacy": "scheduled",
+   "published_at": "2026-08-05T15:07:30",
+   "scheduled_publish_at": "2026-08-05T19:00:00+09:00"
+  },
+  "SNL_코리아_리부트_시즌8_6c": {
+   "channel": "몰입도둑",
+   "slot": "몰입도둑",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-05T06:14:16.177000+00:00",
+   "review_note": "제목이 잘못 나온 것 같음 "
+  },
+  "국대:_로드_투_노스_아메리카_6c": {
+   "channel": "락커룸",
+   "slot": "락커룸",
+   "episode": 1,
+   "clip_id": "c179dd4e-eb16-4238-a86e-442e8817fd96",
+   "stage": "published",
+   "video_id": "5MkgAnYMf2M",
+   "privacy": "scheduled",
+   "published_at": "2026-08-05T15:07:55",
+   "scheduled_publish_at": "2026-08-05T19:00:00+09:00"
+  },
+  "SNL_코리아_리부트_시즌8_8a": {
+   "channel": "몰입도둑",
+   "slot": "몰입도둑",
+   "episode": 1,
+   "clip_id": "da95f1d7-8765-4e05-84bf-6fdc35c3b82c",
+   "stage": "published",
+   "video_id": "da5zMGEAWPM",
+   "privacy": "scheduled",
+   "published_at": "2026-08-05T18:38:27",
+   "scheduled_publish_at": "2026-08-05T19:00:00+09:00"
+  },
+  "원희는_스무살_fb": {
+   "channel": "다람쥐 숏토리",
+   "slot": "다람쥐 숏토리",
+   "episode": 1,
+   "clip_id": "fb2d901f-e1d8-4c3e-98c7-21fa973fc1ac",
+   "stage": "published",
+   "video_id": "96hxSP7iLb0",
+   "privacy": "scheduled",
+   "published_at": "2026-08-05T19:18:35",
+   "scheduled_publish_at": "2026-08-06T19:00:00+09:00"
+  },
+  "원희는_스무살_8e": {
+   "channel": "다람쥐 숏토리",
+   "slot": "다람쥐 숏토리",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-06T02:51:41.520000+00:00",
+   "review_note": "업로드했던 영상과 중복 장면임",
+   "reject_type": "scene"
+  },
+  "SNL_코리아_리부트_시즌8_7e": {
+   "channel": "킥킥극장",
+   "slot": "킥킥극장",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-06T02:51:59.482000+00:00",
+   "review_note": "업로드했던 영상과 중복장면임 ",
+   "reject_type": "scene"
+  },
+  "SNL_코리아_리부트_시즌8_75": {
+   "channel": "몰입도둑",
+   "slot": "몰입도둑",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-06T03:17:34.009000+00:00",
+   "review_note": "주제가 민감할 수 있음",
+   "reject_type": "scene"
+  },
+  "국대:_로드_투_노스_아메리카_19": {
+   "channel": "락커룸",
+   "slot": "락커룸",
+   "episode": 1,
+   "clip_id": "45f54021-beb8-40ab-aae3-911c7b3714b1",
+   "stage": "published",
+   "video_id": "A7N6bE-pXn0",
+   "privacy": "scheduled",
+   "published_at": "2026-08-06T16:29:53",
+   "scheduled_publish_at": "2026-08-06T19:00:00+09:00"
+  },
+  "SNL_코리아_리부트_시즌8_c1": {
+   "channel": "몰입도둑",
+   "slot": "몰입도둑",
+   "episode": 1,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-06T09:38:29.977000+00:00",
+   "review_note": "제목에 '잘못 알아듣고 진짜 빨아버린'이라고 되어 있는데 실제로 영상에선 진짜 빨지는 않고 그렇게 보이도록 은근히 유도하고 있음. 영상의 자세한 맥락을 llm이 완벽하게 이해하지는 못함.",
+   "reject_type": "scene"
+  },
+  "SNL_코리아_리부트_시즌8_61": {
+   "channel": "몰입도둑",
+   "slot": "몰입도둑",
+   "episode": 1,
+   "stage": "published",
+   "rejected_at": "2026-08-06T10:27:28.493000+00:00",
+   "review_note": "도입부도 아쉽고, 이미 업로드 된 영상과 같은 장면과 내용임.",
+   "reject_type": "scene",
+   "video_id": "90iBsZc1p4g",
+   "source": "db-reconciled"
+  },
+  "SNL_코리아_리부트_시즌8_2a": {
+   "channel": "킥킥극장",
+   "slot": "킥킥극장",
+   "episode": 1,
+   "stage": "published",
+   "video_id": "WgPYXskYCHE",
+   "source": "db-reconciled"
+  },
+  "원희는_스무살_5a": {
+   "channel": "다람쥐 숏토리",
+   "slot": "다람쥐 숏토리",
+   "episode": 1,
+   "clip_id": "108c31cf-8a2d-4105-815c-6585d29fe800",
+   "stage": "published",
+   "video_id": "wUwLmQXCQ4Q",
+   "privacy": "scheduled",
+   "published_at": "2026-08-06T23:41:23",
+   "scheduled_publish_at": "2026-08-07T19:00:00+09:00"
+  },
+  "샤먼:_미신전_1b#shorts_2": {
+   "channel": "여운 보관소",
+   "slot": "여운 보관소",
+   "stage": "published",
+   "take": "shorts_2",
+   "video_id": "SLereobSk4M",
+   "source": "db-reconciled"
+  },
+  "샤먼:_미신전_1b#shorts_3": {
+   "channel": "여운 보관소",
+   "slot": "여운 보관소",
+   "stage": "published",
+   "take": "shorts_3",
+   "video_id": "K88VyA9LZeE",
+   "source": "db-reconciled"
+  },
+  "SNL_코리아_리부트_시즌8_2a#shorts_2": {
+   "channel": "킥킥극장",
+   "slot": "킥킥극장",
+   "stage": "published",
+   "take": "shorts_2",
+   "video_id": "WgPYXskYCHE",
+   "source": "db-reconciled"
+  },
+  "SNL_코리아_리부트_시즌8_61#shorts_2": {
+   "channel": "몰입도둑",
+   "slot": "몰입도둑",
+   "stage": "published",
+   "take": "shorts_2",
+   "video_id": "90iBsZc1p4g",
+   "source": "db-reconciled"
+  },
+  "SNL_코리아_리부트_시즌8_61#shorts_3": {
+   "channel": "몰입도둑",
+   "slot": "몰입도둑",
+   "episode": 1,
+   "take": "shorts_3",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-07T08:41:03.528000+00:00",
+   "review_note": null,
+   "reject_type": "scene"
+  },
+  "SNL_코리아_리부트_시즌8_2a#shorts_3": {
+   "channel": "킥킥극장",
+   "slot": "킥킥극장",
+   "episode": 1,
+   "take": "shorts_3",
+   "clip_id": "3f966c53-f240-4d43-97d8-24467e01dc32",
+   "stage": "published",
+   "video_id": "AVnUAecYerk",
+   "privacy": "scheduled",
+   "published_at": "2026-08-07T12:42:52",
+   "scheduled_publish_at": "2026-08-07T19:00:00+09:00"
+  },
+  "원희는_스무살_5a#shorts_2": {
+   "channel": "다람쥐 숏토리",
+   "slot": "다람쥐 숏토리",
+   "episode": 1,
+   "take": "shorts_2"
+  },
+  "원희는_스무살_5a#shorts_3": {
+   "channel": "다람쥐 숏토리",
+   "slot": "다람쥐 숏토리",
+   "episode": 1,
+   "take": "shorts_3"
+  },
+  "원희는_스무살_10": {
+   "channel": "다람쥐 숏토리",
+   "slot": "다람쥐 숏토리",
+   "episode": 2,
+   "take": "shorts_1",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-07T06:54:38.030000+00:00",
+   "review_note": "제목이 전체 내용을 잘 못담는 것 같아서 아쉽고, 참사를 피하지 못한 주인공이 영상 맥락상 게임 패배자 예지 같은데 제목에서는 원희라고 말하고 있음.",
+   "reject_type": "production"
+  },
+  "원희는_스무살_10#shorts_2": {
+   "channel": "다람쥐 숏토리",
+   "slot": "다람쥐 숏토리",
+   "episode": 2,
+   "take": "shorts_2",
+   "clip_id": "d97d0c2f-6045-4cc5-bb97-06e22b5316de",
+   "stage": "published",
+   "video_id": "7i_7eiwrsP8",
+   "privacy": "scheduled",
+   "published_at": "2026-08-07T16:03:17",
+   "scheduled_publish_at": "2026-08-08T19:00:00+09:00"
+  },
+  "원희는_스무살_10#shorts_3": {
+   "channel": "다람쥐 숏토리",
+   "slot": "다람쥐 숏토리",
+   "episode": 2,
+   "take": "shorts_3",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-07T06:51:21+00:00",
+   "review_note": "연결된 두 장면이 술래가 다른 게임이어서 이어지지 않는 것 같고 광각렌즈에 잡힌 게 채령이 아님",
+   "reject_type": "production"
   }
  }
 }
