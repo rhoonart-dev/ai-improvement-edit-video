@@ -1,457 +1,481 @@
 [
-  {
-    "token_slug": "JAEMISHOTS",
-    "name": "재미쇼츠",
-    "handle": "@재미쇼츠-e2c7u",
-    "channel_id": "UC7eXwtR1TyUVe2ts6BUjXGA",
-    "gcp_project": "SEAN",
-    "genre": "드라마",
-    "works": [
-      "유미의 세포들 시즌3",
-      "언더커버셰프"
-    ],
-    "geoblock_capable": true,
-    "country": "KR",
-    "description": "시청자에게 더 많은 재미를 드리기 위해 노력하겠습니다!\n\n작품에 대한 저작권 허락을 받고 영상을 제작하고 있습니다.",
-    "keywords": [
-      "쇼츠",
-      "드라마",
-      "예능",
-      "명장면",
-      "유미의세포들",
-      "언더커버셰프",
-      "하이라이트",
-      "몰아보기"
-    ],
-    "_works_note": "운영은 유미의 세포들 시즌3 → 언더커버셰프 **순차**다. 둘 다 지오블락 필수라 지오블락 가능 채널인 여기에 묶여 있다. 진행 상태는 작품별 슬롯으로 갈리므로 (channel_registry 의 slot) 두 작품의 EP1 이 섞이지 않는다.",
-    "publish_privacy": "unlisted",
-    "_note": "publish_privacy=unlisted 고정(2026-08-04): 지오블락 필수 작품 채널이라 예약 공개 금지 — 공개는 사람이 Studio 에서 지오블락 걸고 전환"
-  },
-  {
-    "token_slug": "CINEMAINBED",
-    "name": "이불 속 극장",
-    "handle": "@cinema-in-bed",
-    "channel_id": "UC_Wwj7NRZ5ohbuHfJ5-4LOg",
-    "gcp_project": "VES04",
-    "genre": "드라마",
-    "works": [
-      "유재석 캠프"
-    ],
-    "geoblock_capable": false,
-    "country": "KR",
-    "description": "이불 속에서 보는 오늘의 명장면. '유재석 캠프' 공식 라이선스 기반 쇼츠 채널입니다.",
-    "keywords": [
-      "쇼츠",
-      "명장면",
-      "유재석캠프",
-      "유재석",
-      "몰아보기",
-      "하이라이트"
-    ]
-  },
-  {
-    "token_slug": "DARAMJI",
-    "name": "다람쥐 숏토리",
-    "handle": "@다람쥐숏토리",
-    "channel_id": "UCDxftplNleQQRkw6CCjjSWA",
-    "gcp_project": "VES01",
-    "genre": "예능",
-    "works": [
-      "원희는 스무살"
-    ],
-    "geoblock_capable": false,
-    "country": "KR",
-    "description": "도토리 모으듯 알짜 예능 장면만 쏙쏙. '원희는 스무살' 공식 라이선스 기반 쇼츠 채널입니다.",
-    "keywords": [
-      "예능",
-      "쇼츠",
-      "명장면",
-      "원희는스무살",
-      "웃긴영상",
-      "하이라이트",
-      "리얼리티"
-    ]
-  },
-  {
-    "token_slug": "NEOGULBANG",
-    "name": "너굴안방",
-    "handle": "@너굴안방",
-    "channel_id": "UC9AyTd-Z1qUd3-qQ3VUdNkQ",
-    "gcp_project": "CJENM",
-    "genre": "드라마, 영화",
-    "works": [
-      "언니네 산지직송 in 칼라페"
-    ],
-    "geoblock_capable": false,
-    "country": "KR",
-    "description": "안방에서 즐기는 오늘의 명장면. '언니네 산지직송 in 칼라페' 공식 라이선스 기반 쇼츠 채널입니다.",
-    "keywords": [
-      "예능",
-      "쇼츠",
-      "명장면",
-      "언니네산지직송",
-      "칼라페",
-      "여행예능",
-      "하이라이트"
-    ]
-  },
-  {
-    "token_slug": "TETOCHIP",
-    "name": "숏테토칩",
-    "handle": "@숏테토칩",
-    "channel_id": "UCiLSQd9OZMr7F5ZwpMUm0Lg",
-    "gcp_project": "CJENM",
-    "genre": "예능",
-    "works": [
-      "도깨비 10주년 여행"
-    ],
-    "geoblock_capable": false,
-    "country": "KR",
-    "description": "한 번 열면 멈출 수 없는 예능 명장면. '도깨비 10주년 여행' 공식 라이선스 기반 쇼츠 채널입니다.",
-    "keywords": [
-      "예능",
-      "쇼츠",
-      "명장면",
-      "도깨비",
-      "여행예능",
-      "웃긴영상",
-      "하이라이트"
-    ]
-  },
-  {
-    "token_slug": "KIKKIK",
-    "name": "킥킥극장",
-    "handle": "@킥킥극장",
-    "channel_id": "UClwzc75sBxl_nYCFQz-FZ4A",
-    "gcp_project": "VES01",
-    "genre": "예능",
-    "works": [
-      "SNL 코리아 리부트 시즌8"
-    ],
-    "geoblock_capable": false,
-    "country": "KR",
-    "description": "킥킥대다 하루가 갑니다. 'SNL 코리아 리부트 시즌8' 공식 라이선스 기반 코미디 쇼츠 채널입니다.",
-    "keywords": [
-      "예능",
-      "코미디",
-      "쇼츠",
-      "SNL코리아",
-      "웃긴영상",
-      "명장면",
-      "개그"
-    ]
-  },
-  {
-    "token_slug": "HEUNGHAENG",
-    "name": "흥행수집",
-    "handle": "@흥행수집",
-    "channel_id": "UCgho6A2Qom_tm5i_g3m8-Xg",
-    "gcp_project": "CJENM",
-    "genre": "예능",
-    "works": [
-      "스트릿 레스토랑 파이터"
-    ],
-    "geoblock_capable": false,
-    "country": "KR",
-    "description": "흥행 보증 장면만 수집합니다. '스트릿 레스토랑 파이터' 공식 라이선스 기반 쇼츠 채널입니다.",
-    "keywords": [
-      "예능",
-      "쇼츠",
-      "명장면",
-      "스트릿레스토랑파이터",
-      "요리예능",
-      "먹방",
-      "하이라이트"
-    ]
-  },
-  {
-    "token_slug": "SHOTNOW",
-    "name": "숏나우저",
-    "handle": "@숏나우저",
-    "channel_id": "UCrMMrUGcN2gh4_HlWwkMcqQ",
-    "gcp_project": "CJENM",
-    "genre": "예능",
-    "works": [
-      "놀라운 토요일"
-    ],
-    "geoblock_capable": false,
-    "country": "KR",
-    "description": "지금 바로 보는 예능 명장면. '놀라운 토요일' 공식 라이선스 기반 쇼츠 채널입니다.",
-    "keywords": [
-      "예능",
-      "쇼츠",
-      "명장면",
-      "놀라운토요일",
-      "놀토",
-      "웃긴영상",
-      "하이라이트"
-    ]
-  },
-  {
-    "token_slug": "YEOWOON",
-    "name": "여운 보관소",
-    "handle": "@여운보관소-n6y",
-    "channel_id": "UCJekZr2s1wz4e51Z8dFiKNA",
-    "gcp_project": "VES03",
-    "genre": "다큐",
-    "works": [
-      "샤먼: 미신전"
-    ],
-    "geoblock_capable": false,
-    "country": "KR",
-    "description": "오래 남는 장면을 보관합니다. 티빙 오리지널 '샤먼: 미신전' 공식 라이선스 기반 쇼츠 채널입니다.",
-    "keywords": [
-      "다큐",
-      "쇼츠",
-      "샤먼",
-      "미스터리",
-      "티빙오리지널",
-      "명장면",
-      "다큐멘터리"
-    ]
-  },
-  {
-    "token_slug": "SHOTCONE",
-    "name": "ショトコン",
-    "handle": "@shorts-cone",
-    "channel_id": "UCY41EN1sP9CIJE_U-JonziA",
-    "gcp_project": "VES03",
-    "genre": "일본 타깃 아이돌·예능",
-    "works": [
-      "혜미리예채파"
-    ],
-    "geoblock_capable": false,
-    "country": "JP",
-    "description": "韓国バラエティ＆アイドルの名場面をショートでお届け！『ヘミリイェチェパ（헤미리예채파）』公式ライセンスに基づくショートチャンネルです。推しの瞬間を短く、毎日更新。",
-    "keywords": [
-      "アイドル",
-      "K-POP",
-      "韓国アイドル",
-      "韓国バラエティ",
-      "推し活",
-      "ショート",
-      "アイドルバラエティ",
-      "헤미리예채파",
-      "日本",
-      "K-POPアイドル",
-      "ヘミリイェチェパ"
-    ],
-    "publish_privacy": "unlisted",
-    "_publish_note": "일본 현지화 채널 — 발행 루프가 현지화(기계번역)를 거쳐 올리므로, 일본어 품질을 사람이 확인할 때까지 unlisted 고정(공개는 Studio 에서 사람이). 번역 신뢰가 쌓이면 이 키를 지워 예약 공개(publish_times)로 전환한다. 2026-08-05, video-localization-project Phase 2."
-  },
-  {
-    "token_slug": "MOLIPDODUK",
-    "name": "몰입도둑",
-    "handle": "@몰입도둑",
-    "channel_id": "UC3M7-h4yAwL9D_Fs4rkld-A",
-    "gcp_project": "VES01",
-    "genre": "예능",
-    "works": [
-      "SNL 코리아 리부트 시즌8"
-    ],
-    "geoblock_capable": false,
-    "country": "KR",
-    "description": "드라마·영화·예능에서 몰입이 터지는 순간만 골라 훔쳐옵니다. 명장면만 모아보는 채널, 몰입도둑.",
-    "keywords": [
-      "예능",
-      "코미디",
-      "쇼츠",
-      "SNL코리아",
-      "명장면",
-      "웃긴영상",
-      "하이라이트"
-    ]
-  },
-  {
-    "token_slug": "SCENELAUNDRY",
-    "name": "명장면 세탁소",
-    "handle": "@명장면세탁소",
-    "channel_id": "UC1uw6CqG61VtHTQ6lKxH8Tg",
-    "gcp_project": "VES03",
-    "genre": "예능",
-    "works": [
-      "피의 게임 X"
-    ],
-    "geoblock_capable": false,
-    "country": "KR",
-    "description": "흩어진 드라마·영화·예능 명장면을 깨끗하게 정리해 드립니다. 오늘도 한 통 돌립니다. 명장면 세탁소.",
-    "keywords": [
-      "예능",
-      "쇼츠",
-      "명장면",
-      "피의게임X",
-      "서바이벌",
-      "웨이브",
-      "하이라이트"
-    ]
-  },
-  {
-    "token_slug": "REWINDPOCHA",
-    "name": "리와인드포차",
-    "handle": "@리와인드포차",
-    "channel_id": "UCukKseuxHZyB3g2hlkrkzgQ",
-    "gcp_project": "VES03",
-    "genre": "예능",
-    "works": [
-      "약한영웅 Class 1"
-    ],
-    "geoblock_capable": false,
-    "country": "KR",
-    "description": "밤에 꺼내 먹는 그 시절 명장면. 드라마·영화·예능 정주행 안주 채널, 리와인드포차.",
-    "keywords": [
-      "예능",
-      "쇼츠",
-      "명장면",
-      "피의게임X",
-      "서바이벌",
-      "웨이브",
-      "몰아보기"
-    ]
-  },
-  {
-    "token_slug": "ENDINGSUNSAK",
-    "name": "엔딩순삭",
-    "handle": "@엔딩순삭",
-    "channel_id": "UCfDNT0621f2SJuiAo3jEsBg",
-    "gcp_project": "VES04",
-    "genre": "예능",
-    "works": [
-      "하트시그널 시즌5"
-    ],
-    "geoblock_capable": false,
-    "country": "KR",
-    "description": "결말까지 순식간에. 드라마·영화·예능을 가장 빠르게 몰아보는 채널, 엔딩순삭.",
-    "keywords": [
-      "예능",
-      "코미디",
-      "쇼츠",
-      "SNL코리아",
-      "명장면",
-      "웃긴영상",
-      "몰아보기"
-    ]
-  },
-  {
-    "token_slug": "SHORTSSUNSHINE",
-    "name": "쇼츠션샤인",
-    "handle": "@쇼츠션샤인",
-    "channel_id": "UCGTCfnuEupJkd57cvaFJAYA",
-    "gcp_project": "VES04",
-    "genre": "드라마",
-    "works": [
-      "참교육"
-    ],
-    "geoblock_capable": false,
-    "country": "KR",
-    "description": "보고 나면 속이 뻥 뚫리는 사이다 장면 모음. '참교육' 공식 라이선스 기반 쇼츠 채널입니다.",
-    "keywords": [
-      "드라마",
-      "쇼츠",
-      "명장면",
-      "참교육",
-      "사이다",
-      "액션",
-      "하이라이트"
-    ]
-  },
-  {
-    "token_slug": "CAREERDAY",
-    "name": "커리어데이 숏츠",
-    "handle": "@careerday_shorts",
-    "channel_id": "UCHlZ7D5yoVq8PuxJX6_AUxQ",
-    "gcp_project": "SEAN",
-    "genre": "커리어·인터뷰",
-    "works": [
-      "커리어데이"
-    ],
-    "geoblock_capable": false,
-    "country": "KR",
-    "description": "일과 커리어의 결정적 조언만 짧게. '커리어데이' 공식 인터뷰 영상 기반 쇼츠 채널입니다.",
-    "keywords": [
-      "커리어",
-      "직장인",
-      "인터뷰",
-      "쇼츠",
-      "자기계발",
-      "취업",
-      "이직",
-      "커리어데이"
-    ],
-    "design": {
-      "title_color": "white",
-      "title_color2": "#4DA6FF",
-      "work_color": "white",
-      "work_title_y": 1560,
-      "_note": "채널 전용 템플릿(2026-08-07 운영자 지정): 제목 1줄 white 유지·2줄 #4DA6FF(하늘색), 작품명 white·y=1560. 키 정의는 channel_registry.CHANNEL_DESIGN_FLAGS"
-    }
-  },
-  {
-    "token_slug": "BGSUNSAK",
-    "name": "B급 순삭",
-    "handle": "@b급순삭",
-    "channel_id": "UCXEWaNqCRwA0rk-Ywg-B7Ow",
-    "gcp_project": "SEAN",
-    "genre": "예능",
-    "works": [
-      "B급 스튜디오"
-    ],
-    "geoblock_capable": false,
-    "country": "KR",
-    "description": "B급 스튜디오 롱폼에서 제일 웃긴 구간만 순삭으로. 자사 콘텐츠 기반 쇼츠 채널입니다.",
-    "keywords": [
-      "B급",
-      "예능",
-      "쇼츠",
-      "하이라이트",
-      "명장면",
-      "순삭",
-      "웃긴영상"
-    ]
-  },
-  {
-    "token_slug": "IGEOBOGOJA",
-    "name": "이거보고자",
-    "handle": "@이거보고자-g5u",
-    "channel_id": "UCTF5QnpKrcghe31e1q0EQAQ",
-    "gcp_project": "VES04",
-    "genre": "예능",
-    "works": [
-      "김부장"
-    ],
-    "geoblock_capable": false,
-    "country": "KR",
-    "description": "자기 전에 딱 하나만 더. 밤마다 찾아오는 짧은 명장면 — '놀라운 토요일' 공식 라이선스 기반 쇼츠 채널입니다.",
-    "keywords": [
-      "예능",
-      "쇼츠",
-      "명장면",
-      "놀라운토요일",
-      "놀토",
-      "웃긴영상",
-      "자기전"
-    ]
-  },
-  {
-    "token_slug": "LOCKERROOM",
-    "name": "락커룸",
-    "handle": "@lockerroom_kr",
-    "channel_id": "UCik7rpfsa_MbvaHEdEOzzrQ",
-    "gcp_project": "VES01",
-    "genre": "스포츠 다큐",
-    "works": [
-      "국대: 로드 투 노스 아메리카"
-    ],
-    "geoblock_capable": false,
-    "country": "KR",
-    "description": "국가대표의 안쪽 — 전술, 라커룸 연설, 승부의 순간을 짧게 담습니다. '국대: 로드 투 노스 아메리카' 공식 라이선스 기반 쇼츠 채널입니다.",
-    "keywords": [
-      "축구",
-      "국가대표",
-      "스포츠다큐",
-      "쇼츠",
-      "국대",
-      "월드컵",
-      "명장면"
-    ]
+ {
+  "token_slug": "JAEMISHOTS",
+  "name": "재미쇼츠",
+  "handle": "@재미쇼츠-e2c7u",
+  "channel_id": "UC7eXwtR1TyUVe2ts6BUjXGA",
+  "gcp_project": "SEAN",
+  "genre": "드라마",
+  "works": [
+   "유미의 세포들 시즌3",
+   "언더커버셰프"
+  ],
+  "geoblock_capable": true,
+  "country": "KR",
+  "description": "시청자에게 더 많은 재미를 드리기 위해 노력하겠습니다!\n\n작품에 대한 저작권 허락을 받고 영상을 제작하고 있습니다.",
+  "keywords": [
+   "쇼츠",
+   "드라마",
+   "예능",
+   "명장면",
+   "유미의세포들",
+   "언더커버셰프",
+   "하이라이트",
+   "몰아보기"
+  ],
+  "_works_note": "운영은 유미의 세포들 시즌3 → 언더커버셰프 **순차**다. 둘 다 지오블락 필수라 지오블락 가능 채널인 여기에 묶여 있다. 진행 상태는 작품별 슬롯으로 갈리므로 (channel_registry 의 slot) 두 작품의 EP1 이 섞이지 않는다.",
+  "publish_privacy": "unlisted",
+  "_note": "publish_privacy=unlisted 고정(2026-08-04): 지오블락 필수 작품 채널이라 예약 공개 금지 — 공개는 사람이 Studio 에서 지오블락 걸고 전환"
+ },
+ {
+  "token_slug": "CINEMAINBED",
+  "name": "이불 속 극장",
+  "handle": "@cinema-in-bed",
+  "channel_id": "UC_Wwj7NRZ5ohbuHfJ5-4LOg",
+  "gcp_project": "VES04",
+  "genre": "드라마",
+  "works": [
+   "유재석 캠프"
+  ],
+  "geoblock_capable": false,
+  "country": "KR",
+  "description": "이불 속에서 보는 오늘의 명장면. '유재석 캠프' 공식 라이선스 기반 쇼츠 채널입니다.",
+  "keywords": [
+   "쇼츠",
+   "명장면",
+   "유재석캠프",
+   "유재석",
+   "몰아보기",
+   "하이라이트"
+  ],
+  "design": {
+   "title_color": "white",
+   "title_color2": "#FFA94D",
+   "work_color": "white",
+   "_note": "채널 템플릿(2026-08-07 luna4 초안): 아늑한 조명 컨셉 — 제목 2줄 웜오렌지(#FFA94D), 작품명 white"
   }
+ },
+ {
+  "token_slug": "DARAMJI",
+  "name": "다람쥐 숏토리",
+  "handle": "@다람쥐숏토리",
+  "channel_id": "UCDxftplNleQQRkw6CCjjSWA",
+  "gcp_project": "VES01",
+  "genre": "예능",
+  "works": [
+   "원희는 스무살"
+  ],
+  "geoblock_capable": false,
+  "country": "KR",
+  "description": "도토리 모으듯 알짜 예능 장면만 쏙쏙. '원희는 스무살' 공식 라이선스 기반 쇼츠 채널입니다.",
+  "keywords": [
+   "예능",
+   "쇼츠",
+   "명장면",
+   "원희는스무살",
+   "웃긴영상",
+   "하이라이트",
+   "리얼리티"
+  ]
+ },
+ {
+  "token_slug": "NEOGULBANG",
+  "name": "너굴안방",
+  "handle": "@너굴안방",
+  "channel_id": "UC9AyTd-Z1qUd3-qQ3VUdNkQ",
+  "gcp_project": "CJENM",
+  "genre": "드라마, 영화",
+  "works": [
+   "언니네 산지직송 in 칼라페"
+  ],
+  "geoblock_capable": false,
+  "country": "KR",
+  "description": "안방에서 즐기는 오늘의 명장면. '언니네 산지직송 in 칼라페' 공식 라이선스 기반 쇼츠 채널입니다.",
+  "keywords": [
+   "예능",
+   "쇼츠",
+   "명장면",
+   "언니네산지직송",
+   "칼라페",
+   "여행예능",
+   "하이라이트"
+  ]
+ },
+ {
+  "token_slug": "TETOCHIP",
+  "name": "숏테토칩",
+  "handle": "@숏테토칩",
+  "channel_id": "UCiLSQd9OZMr7F5ZwpMUm0Lg",
+  "gcp_project": "CJENM",
+  "genre": "예능",
+  "works": [
+   "도깨비 10주년 여행"
+  ],
+  "geoblock_capable": false,
+  "country": "KR",
+  "description": "한 번 열면 멈출 수 없는 예능 명장면. '도깨비 10주년 여행' 공식 라이선스 기반 쇼츠 채널입니다.",
+  "keywords": [
+   "예능",
+   "쇼츠",
+   "명장면",
+   "도깨비",
+   "여행예능",
+   "웃긴영상",
+   "하이라이트"
+  ]
+ },
+ {
+  "token_slug": "KIKKIK",
+  "name": "킥킥극장",
+  "handle": "@킥킥극장",
+  "channel_id": "UClwzc75sBxl_nYCFQz-FZ4A",
+  "gcp_project": "VES01",
+  "genre": "예능",
+  "works": [
+   "SNL 코리아 리부트 시즌8"
+  ],
+  "geoblock_capable": false,
+  "country": "KR",
+  "description": "킥킥대다 하루가 갑니다. 'SNL 코리아 리부트 시즌8' 공식 라이선스 기반 코미디 쇼츠 채널입니다.",
+  "keywords": [
+   "예능",
+   "코미디",
+   "쇼츠",
+   "SNL코리아",
+   "웃긴영상",
+   "명장면",
+   "개그"
+  ]
+ },
+ {
+  "token_slug": "HEUNGHAENG",
+  "name": "흥행수집",
+  "handle": "@흥행수집",
+  "channel_id": "UCgho6A2Qom_tm5i_g3m8-Xg",
+  "gcp_project": "CJENM",
+  "genre": "예능",
+  "works": [
+   "스트릿 레스토랑 파이터"
+  ],
+  "geoblock_capable": false,
+  "country": "KR",
+  "description": "흥행 보증 장면만 수집합니다. '스트릿 레스토랑 파이터' 공식 라이선스 기반 쇼츠 채널입니다.",
+  "keywords": [
+   "예능",
+   "쇼츠",
+   "명장면",
+   "스트릿레스토랑파이터",
+   "요리예능",
+   "먹방",
+   "하이라이트"
+  ]
+ },
+ {
+  "token_slug": "SHOTNOW",
+  "name": "숏나우저",
+  "handle": "@숏나우저",
+  "channel_id": "UCrMMrUGcN2gh4_HlWwkMcqQ",
+  "gcp_project": "CJENM",
+  "genre": "예능",
+  "works": [
+   "놀라운 토요일"
+  ],
+  "geoblock_capable": false,
+  "country": "KR",
+  "description": "지금 바로 보는 예능 명장면. '놀라운 토요일' 공식 라이선스 기반 쇼츠 채널입니다.",
+  "keywords": [
+   "예능",
+   "쇼츠",
+   "명장면",
+   "놀라운토요일",
+   "놀토",
+   "웃긴영상",
+   "하이라이트"
+  ]
+ },
+ {
+  "token_slug": "YEOWOON",
+  "name": "여운 보관소",
+  "handle": "@여운보관소-n6y",
+  "channel_id": "UCJekZr2s1wz4e51Z8dFiKNA",
+  "gcp_project": "VES03",
+  "genre": "다큐",
+  "works": [
+   "샤먼: 미신전"
+  ],
+  "geoblock_capable": false,
+  "country": "KR",
+  "description": "오래 남는 장면을 보관합니다. 티빙 오리지널 '샤먼: 미신전' 공식 라이선스 기반 쇼츠 채널입니다.",
+  "keywords": [
+   "다큐",
+   "쇼츠",
+   "샤먼",
+   "미스터리",
+   "티빙오리지널",
+   "명장면",
+   "다큐멘터리"
+  ]
+ },
+ {
+  "token_slug": "SHOTCONE",
+  "name": "ショトコン",
+  "handle": "@shorts-cone",
+  "channel_id": "UCY41EN1sP9CIJE_U-JonziA",
+  "gcp_project": "VES03",
+  "genre": "일본 타깃 아이돌·예능",
+  "works": [
+   "혜미리예채파"
+  ],
+  "geoblock_capable": false,
+  "country": "JP",
+  "description": "韓国バラエティ＆アイドルの名場面をショートでお届け！『ヘミリイェチェパ（헤미리예채파）』公式ライセンスに基づくショートチャンネルです。推しの瞬間を短く、毎日更新。",
+  "keywords": [
+   "アイドル",
+   "K-POP",
+   "韓国アイドル",
+   "韓国バラエティ",
+   "推し活",
+   "ショート",
+   "アイドルバラエティ",
+   "헤미리예채파",
+   "日本",
+   "K-POPアイドル",
+   "ヘミリイェチェパ"
+  ],
+  "publish_privacy": "unlisted",
+  "_publish_note": "일본 현지화 채널 — 발행 루프가 현지화(기계번역)를 거쳐 올리므로, 일본어 품질을 사람이 확인할 때까지 unlisted 고정(공개는 Studio 에서 사람이). 번역 신뢰가 쌓이면 이 키를 지워 예약 공개(publish_times)로 전환한다. 2026-08-05, video-localization-project Phase 2."
+ },
+ {
+  "token_slug": "MOLIPDODUK",
+  "name": "몰입도둑",
+  "handle": "@몰입도둑",
+  "channel_id": "UC3M7-h4yAwL9D_Fs4rkld-A",
+  "gcp_project": "VES01",
+  "genre": "예능",
+  "works": [
+   "SNL 코리아 리부트 시즌8"
+  ],
+  "geoblock_capable": false,
+  "country": "KR",
+  "description": "드라마·영화·예능에서 몰입이 터지는 순간만 골라 훔쳐옵니다. 명장면만 모아보는 채널, 몰입도둑.",
+  "keywords": [
+   "예능",
+   "코미디",
+   "쇼츠",
+   "SNL코리아",
+   "명장면",
+   "웃긴영상",
+   "하이라이트"
+  ]
+ },
+ {
+  "token_slug": "SCENELAUNDRY",
+  "name": "명장면 세탁소",
+  "handle": "@명장면세탁소",
+  "channel_id": "UC1uw6CqG61VtHTQ6lKxH8Tg",
+  "gcp_project": "VES03",
+  "genre": "예능",
+  "works": [
+   "피의 게임 X"
+  ],
+  "geoblock_capable": false,
+  "country": "KR",
+  "description": "흩어진 드라마·영화·예능 명장면을 깨끗하게 정리해 드립니다. 오늘도 한 통 돌립니다. 명장면 세탁소.",
+  "keywords": [
+   "예능",
+   "쇼츠",
+   "명장면",
+   "피의게임X",
+   "서바이벌",
+   "웨이브",
+   "하이라이트"
+  ]
+ },
+ {
+  "token_slug": "REWINDPOCHA",
+  "name": "리와인드포차",
+  "handle": "@리와인드포차",
+  "channel_id": "UCukKseuxHZyB3g2hlkrkzgQ",
+  "gcp_project": "VES03",
+  "genre": "예능",
+  "works": [
+   "약한영웅 Class 1"
+  ],
+  "geoblock_capable": false,
+  "country": "KR",
+  "description": "밤에 꺼내 먹는 그 시절 명장면. 드라마·영화·예능 정주행 안주 채널, 리와인드포차.",
+  "keywords": [
+   "예능",
+   "쇼츠",
+   "명장면",
+   "피의게임X",
+   "서바이벌",
+   "웨이브",
+   "몰아보기"
+  ]
+ },
+ {
+  "token_slug": "ENDINGSUNSAK",
+  "name": "엔딩순삭",
+  "handle": "@엔딩순삭",
+  "channel_id": "UCfDNT0621f2SJuiAo3jEsBg",
+  "gcp_project": "VES04",
+  "genre": "예능",
+  "works": [
+   "하트시그널 시즌5"
+  ],
+  "geoblock_capable": false,
+  "country": "KR",
+  "description": "결말까지 순식간에. 드라마·영화·예능을 가장 빠르게 몰아보는 채널, 엔딩순삭.",
+  "keywords": [
+   "예능",
+   "코미디",
+   "쇼츠",
+   "SNL코리아",
+   "명장면",
+   "웃긴영상",
+   "몰아보기"
+  ],
+  "design": {
+   "title_color": "white",
+   "title_color2": "#FF5C8A",
+   "work_color": "white",
+   "_note": "채널 템플릿(2026-08-07 luna4 초안): 연애 리얼리티(하트시그널) 담당 — 제목 2줄 핑크(#FF5C8A), 작품명 white"
+  }
+ },
+ {
+  "token_slug": "SHORTSSUNSHINE",
+  "name": "쇼츠션샤인",
+  "handle": "@쇼츠션샤인",
+  "channel_id": "UCGTCfnuEupJkd57cvaFJAYA",
+  "gcp_project": "VES04",
+  "genre": "드라마",
+  "works": [
+   "참교육"
+  ],
+  "geoblock_capable": false,
+  "country": "KR",
+  "description": "보고 나면 속이 뻥 뚫리는 사이다 장면 모음. '참교육' 공식 라이선스 기반 쇼츠 채널입니다.",
+  "keywords": [
+   "드라마",
+   "쇼츠",
+   "명장면",
+   "참교육",
+   "사이다",
+   "액션",
+   "하이라이트"
+  ],
+  "design": {
+   "title_color": "white",
+   "title_color2": "#FFD700",
+   "work_color": "white",
+   "_note": "채널 템플릿(2026-08-07 luna4 초안): '션샤인' 컨셉 — 제목 2줄 골드(#FFD700), 작품명 white. 커리어데이 선례(3c1f114) 형식을 따름"
+  }
+ },
+ {
+  "token_slug": "CAREERDAY",
+  "name": "커리어데이 숏츠",
+  "handle": "@careerday_shorts",
+  "channel_id": "UCHlZ7D5yoVq8PuxJX6_AUxQ",
+  "gcp_project": "SEAN",
+  "genre": "커리어·인터뷰",
+  "works": [
+   "커리어데이"
+  ],
+  "geoblock_capable": false,
+  "country": "KR",
+  "description": "일과 커리어의 결정적 조언만 짧게. '커리어데이' 공식 인터뷰 영상 기반 쇼츠 채널입니다.",
+  "keywords": [
+   "커리어",
+   "직장인",
+   "인터뷰",
+   "쇼츠",
+   "자기계발",
+   "취업",
+   "이직",
+   "커리어데이"
+  ],
+  "design": {
+   "title_color": "white",
+   "title_color2": "#4DA6FF",
+   "work_color": "white",
+   "work_title_y": 1560,
+   "_note": "채널 전용 템플릿(2026-08-07 운영자 지정): 제목 1줄 white 유지·2줄 #4DA6FF(하늘색), 작품명 white·y=1560. 키 정의는 channel_registry.CHANNEL_DESIGN_FLAGS"
+  }
+ },
+ {
+  "token_slug": "BGSUNSAK",
+  "name": "B급 순삭",
+  "handle": "@b급순삭",
+  "channel_id": "UCXEWaNqCRwA0rk-Ywg-B7Ow",
+  "gcp_project": "SEAN",
+  "genre": "예능",
+  "works": [
+   "B급 스튜디오"
+  ],
+  "geoblock_capable": false,
+  "country": "KR",
+  "description": "B급 스튜디오 롱폼에서 제일 웃긴 구간만 순삭으로. 자사 콘텐츠 기반 쇼츠 채널입니다.",
+  "keywords": [
+   "B급",
+   "예능",
+   "쇼츠",
+   "하이라이트",
+   "명장면",
+   "순삭",
+   "웃긴영상"
+  ]
+ },
+ {
+  "token_slug": "IGEOBOGOJA",
+  "name": "이거보고자",
+  "handle": "@이거보고자-g5u",
+  "channel_id": "UCTF5QnpKrcghe31e1q0EQAQ",
+  "gcp_project": "VES04",
+  "genre": "예능",
+  "works": [
+   "김부장"
+  ],
+  "geoblock_capable": false,
+  "country": "KR",
+  "description": "자기 전에 딱 하나만 더. 밤마다 찾아오는 짧은 명장면 — '놀라운 토요일' 공식 라이선스 기반 쇼츠 채널입니다.",
+  "keywords": [
+   "예능",
+   "쇼츠",
+   "명장면",
+   "놀라운토요일",
+   "놀토",
+   "웃긴영상",
+   "자기전"
+  ],
+  "design": {
+   "title_color": "white",
+   "title_color2": "#B39DFF",
+   "work_color": "white",
+   "_note": "채널 템플릿(2026-08-07 luna4 초안): '자기 전' 밤 컨셉 — 제목 2줄 라벤더(#B39DFF), 작품명 white"
+  }
+ },
+ {
+  "token_slug": "LOCKERROOM",
+  "name": "락커룸",
+  "handle": "@lockerroom_kr",
+  "channel_id": "UCik7rpfsa_MbvaHEdEOzzrQ",
+  "gcp_project": "VES01",
+  "genre": "스포츠 다큐",
+  "works": [
+   "국대: 로드 투 노스 아메리카"
+  ],
+  "geoblock_capable": false,
+  "country": "KR",
+  "description": "국가대표의 안쪽 — 전술, 라커룸 연설, 승부의 순간을 짧게 담습니다. '국대: 로드 투 노스 아메리카' 공식 라이선스 기반 쇼츠 채널입니다.",
+  "keywords": [
+   "축구",
+   "국가대표",
+   "스포츠다큐",
+   "쇼츠",
+   "국대",
+   "월드컵",
+   "명장면"
+  ]
+ }
 ]
