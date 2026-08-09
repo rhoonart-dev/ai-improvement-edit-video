@@ -1000,10 +1000,11 @@
    "episode": 1,
    "clip_id": "108c31cf-8a2d-4105-815c-6585d29fe800",
    "stage": "published",
-   "video_id": "wUwLmQXCQ4Q",
-   "privacy": "scheduled",
+   "video_id": "Xkj7AG2lA5o",
+   "privacy": "public",
    "published_at": "2026-08-06T23:41:23",
-   "scheduled_publish_at": "2026-08-07T19:00:00+09:00"
+   "scheduled_publish_at": "2026-08-07T19:00:00+09:00",
+   "_note": "2026-08-09 재링크: 파이프라인 발행본 wUwLmQXCQ4Q 이 비공개 전환되고 사람이 올린 공개 사본 Xkj7AG2lA5o 가 정본이 됨 (link_published 로 DB 도 갱신)"
   },
   "샤먼:_미신전_1b#shorts_2": {
    "channel": "여운 보관소",
@@ -1151,6 +1152,112 @@
    "video_id": "3NkYFQExTVE",
    "privacy": "unlisted",
    "published_at": "2026-08-07T16:27:13"
+  },
+  "원희는_스무살_79": {
+   "channel": "다람쥐 숏토리",
+   "slot": "다람쥐 숏토리",
+   "episode": 1,
+   "take": "shorts_1"
+  },
+  "원희는_스무살_79#shorts_3": {
+   "channel": "다람쥐 숏토리",
+   "slot": "다람쥐 숏토리",
+   "episode": 1,
+   "take": "shorts_3"
+  },
+  "SNL_코리아_리부트_시즌8_a0": {
+   "channel": "킥킥극장",
+   "slot": "킥킥극장",
+   "episode": 2,
+   "take": "shorts_1",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-09T13:49:27.249000+00:00",
+   "review_note": "제목이 폴백 경로로 생성된 제목임 ",
+   "reject_type": "scene"
+  },
+  "SNL_코리아_리부트_시즌8_6d": {
+   "channel": "몰입도둑",
+   "slot": "몰입도둑",
+   "episode": 2,
+   "take": "shorts_1",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-09T13:53:09.759000+00:00",
+   "review_note": "뒷부분에 필요 없는 장면이 너무 길게 나옴 ",
+   "reject_type": "production"
+  },
+  "SNL_코리아_리부트_시즌8_6d#shorts_2": {
+   "channel": "몰입도둑",
+   "slot": "몰입도둑",
+   "episode": 2,
+   "take": "shorts_2",
+   "clip_id": "6df01d9b-d466-43b9-90f4-0f39271acf33",
+   "stage": "published",
+   "video_id": "bXAa5U3eHSQ",
+   "privacy": "scheduled",
+   "published_at": "2026-08-09T22:56:08",
+   "scheduled_publish_at": "2026-08-09T23:01:01.661097+09:00"
+  },
+  "SNL_코리아_리부트_시즌8_6d#shorts_3": {
+   "channel": "몰입도둑",
+   "slot": "몰입도둑",
+   "episode": 2,
+   "take": "shorts_3",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-09T13:52:15.949000+00:00",
+   "review_note": "서로 안 이어지는 장면끼리 이어져서 부자연스러움.",
+   "reject_type": "production"
+  },
+  "국대:_로드_투_노스_아메리카_0a": {
+   "channel": "락커룸",
+   "slot": "락커룸",
+   "episode": 2,
+   "take": "shorts_1"
+  },
+  "SNL_코리아_리부트_시즌8_62": {
+   "channel": "킥킥극장",
+   "slot": "킥킥극장",
+   "episode": 2,
+   "take": "shorts_1",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-09T13:58:07.049000+00:00",
+   "review_note": null,
+   "reject_type": "scene"
+  },
+  "SNL_코리아_리부트_시즌8_62#shorts_2": {
+   "channel": "킥킥극장",
+   "slot": "킥킥극장",
+   "episode": 2,
+   "take": "shorts_2",
+   "clip_id": "b0fd931f-02d2-4018-9369-7749eb7e5f77",
+   "stage": "published",
+   "video_id": "dbG08XokpPs",
+   "privacy": "scheduled",
+   "published_at": "2026-08-09T23:06:15",
+   "scheduled_publish_at": "2026-08-09T23:11:09.337446+09:00"
+  },
+  "국대:_로드_투_노스_아메리카_62": {
+   "channel": "락커룸",
+   "slot": "락커룸",
+   "episode": 2,
+   "take": "shorts_1",
+   "clip_id": "d4843a5e-9beb-4f4e-a890-958bb4bf2bd1",
+   "stage": "published",
+   "video_id": "yw09f_N_Tuc",
+   "privacy": "scheduled",
+   "published_at": "2026-08-09T23:06:24",
+   "scheduled_publish_at": "2026-08-09T23:11:15.890731+09:00"
+  },
+  "국대:_로드_투_노스_아메리카_62#shorts_2": {
+   "channel": "락커룸",
+   "slot": "락커룸",
+   "episode": 2,
+   "take": "shorts_2"
+  },
+  "국대:_로드_투_노스_아메리카_62#shorts_3": {
+   "channel": "락커룸",
+   "slot": "락커룸",
+   "episode": 2,
+   "take": "shorts_3"
   }
  }
 }
