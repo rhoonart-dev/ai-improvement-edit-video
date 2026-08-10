@@ -105,7 +105,12 @@
       "칼라페",
       "여행예능",
       "하이라이트"
-    ]
+    ],
+    "design": {
+      "title_color2": "#3ECFB2",
+      "work_color": "white",
+      "_note": "채널 전용 템플릿(2026-08-07 운영자 지정, 맥2): 제목 2줄 청록 #3ECFB2 — 산지직송 로고(청록/그린)와 톤 일치. 작품명 white(로고 사용 중이라 폴백용). 키 정의는 channel_registry.CHANNEL_DESIGN_FLAGS"
+    }
   },
   {
     "token_slug": "TETOCHIP",
@@ -128,7 +133,12 @@
       "여행예능",
       "웃긴영상",
       "하이라이트"
-    ]
+    ],
+    "design": {
+      "title_color2": "#FF5A5A",
+      "work_color": "white",
+      "_note": "채널 전용 템플릿(2026-08-07 운영자 지정, 맥2): 제목 2줄 레드 #FF5A5A — 도깨비 상징색(빨간 문·목도리). 작품명 white(로고 사용 중이라 폴백용). 키 정의는 channel_registry.CHANNEL_DESIGN_FLAGS"
+    }
   },
   {
     "token_slug": "KIKKIK",
@@ -181,7 +191,13 @@
       "요리예능",
       "먹방",
       "하이라이트"
-    ]
+    ],
+    "design": {
+      "title_font": "JalnanGothic",
+      "title_color2": "#FF8C00",
+      "work_color": "white",
+      "_note": "채널 전용 템플릿(2026-08-07 운영자 지정, 맥2): 제목 폰트 여기어때 잘난체 고딕(JalnanGothic.ttf, ai-video 번들 확인) + 2줄 오렌지 #FF8C00(불/음식 톤). 작품명 white(로고 사용 중이라 폴백용). 키 정의는 channel_registry.CHANNEL_DESIGN_FLAGS"
+    }
   },
   {
     "token_slug": "SHOTNOW",
@@ -204,7 +220,13 @@
       "놀토",
       "웃긴영상",
       "하이라이트"
-    ]
+    ],
+    "design": {
+      "title_color2": "#FFD400",
+      "work_color": "white",
+      "work_title_y": 1560,
+      "_note": "채널 전용 템플릿(2026-08-07 운영자 지정, 맥2): 제목 2줄 진노랑 #FFD400(현행 노랑 계열 유지). 작품명은 커리어데이와 동일하게 white·y=1560 — 이 채널은 로고 없이 텍스트 렌더라 실제 적용됨. 키 정의는 channel_registry.CHANNEL_DESIGN_FLAGS"
+    }
   },
   {
     "token_slug": "YEOWOON",
