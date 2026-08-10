@@ -23,7 +23,14 @@ echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
 eval "$(/opt/homebrew/bin/brew shellenv)"
 
 # 2) 핵심 패키지 한 번에
-brew install gh git ffmpeg rclone
+#    ⚠️ ffmpeg 는 반드시 ffmpeg@7 로 깐다. 버전 없는 `brew install ffmpeg` 는 글꼴·자막
+#    라이브러리(libfreetype·libass)를 뺀 슬림 빌드가 와서 drawtext·ass 필터가 아예 없고,
+#    생성 15단계 중 14단계(렌더)에서 죽는다. 이유는 §11-4 참고.
+brew install gh git ffmpeg@7 rclone
+brew link --overwrite --force ffmpeg@7      # /opt/homebrew/bin/ffmpeg 를 7 로
+
+# 2-1) 확인 — 한 줄 나오면 정상, 아무것도 안 나오면 위 링크가 안 걸린 것
+ffmpeg -filters | grep -w drawtext || echo "⛔ drawtext 없음 — 렌더가 14단계에서 죽는다"
 
 # 3) GitHub 로그인 (브라우저 one-time code 방식)
 gh auth login --hostname github.com --git-protocol https --web
@@ -243,20 +250,36 @@ $PY scripts/m4_ab_analysis.py --experiment loudness_v1 --window-days 7
 | 1 | ai-video venv 설치 통째 실패 | `fastapi==0.135.1`이 **Python ≥3.10** 요구, 시스템은 3.9.6 | ai-video venv만 **brew Python 3.11**로 재생성(핀 미변경). brain venv는 3.9 유지 |
 | 2 | `ModuleNotFoundError: yt_dlp` (`--youtube-url` 경로) | requirements.txt에 **yt-dlp 누락** (코드 `app/modules/youtube_downloader.py`는 import) | ai-video venv에 `pip install yt-dlp` |
 | 3 | 얼굴검출 `haarcascade_frontalface_default.xml` 없음 (13/15단계 reframe) | `opencv-python>=4.9.0.80`이 **5.0.0**을 잡음 → OpenCV 5.x는 번들 cascade 제거 | `opencv-python==4.11.0.86`으로 다운그레이드 |
-| 4 | 렌더 실패 `ass filter … Invalid argument` (14/15 render) | brew **ffmpeg 8.1.2**가 자막 필터(`ass=…:fontsdir=…`)/`-filter_complex_script` 문법 거부 | **ffmpeg@7 (7.1.5)** 설치 후 `/opt/homebrew/bin/ffmpeg` 링크 교체 |
+| 4 | 렌더 실패 `ass filter … Invalid argument` (14/15 render) | ~~brew ffmpeg 8.1.2가 문법 거부~~ → **버전이 아니라 빌드 문제**(2026-08-10 정정, 아래) | **ffmpeg@7 (7.1.5)** 설치 후 `/opt/homebrew/bin/ffmpeg` 링크 교체 |
+
+**#4 원인 정정 (2026-08-10 실측).** 8.1.2 가 문법을 거부한 게 아니라, **Homebrew 코어 `ffmpeg` 포뮬러가 글꼴·자막 라이브러리 없이 빌드**돼 있어서 필터 자체가 존재하지 않았던 것이다. 같은 8.1.2 라도 `ffmpeg-full` 은 멀쩡히 돈다:
+
+| 포뮬러 | 버전 | fontconfig·freetype·harfbuzz·libass | 결과 |
+|---|---|---|---|
+| `ffmpeg` (코어) | 8.1.2 | **넷 다 없음** (`brew deps` 확인) | `No such filter: 'drawtext'` rc=8 · ass 필터 rc=234 |
+| `ffmpeg-full` | **8.1.2 (동일)** | 넷 다 있음 | 정상 |
+| `ffmpeg@7` | 7.1.5 | 넷 다 있음 | 정상 (현재 6대 구성) |
+
+따라서 **"8 미지원"이 아니라 "슬림 빌드 미지원"** 이다. 7 로 고정한 대응은 결과적으로 맞았지만 이유가 달랐고, 렌더러를 고칠 문제도 아니다(문법 변화가 아니므로). 판단 기준은 버전 번호가 아니라 이 한 줄이다:
+
+```bash
+ffmpeg -filters | grep -w drawtext || echo "⛔ drawtext 없음 — 렌더가 14단계에서 죽는다"
+```
+
+없으면 `brew install ffmpeg@7 && brew link --overwrite --force ffmpeg@7`. 실패는 **조용하지 않다** — 렌더가 그 자리에서 rc≠0 으로 죽으므로 산출물이 잘못 나가지는 않는다.
 
 부수 함정: `--from-step render` 재개 시 `--video`를 **상대경로**로 주면 ffmpeg가 job 폴더 기준으로 소스를 못 찾음 → **절대경로**로 줄 것.
 
 ### requirements.txt 대조 — 근본 원인
 - **느슨한 `>=` 상한 없음**: `opencv-python>=4.9.0.80` → 메이저 5.x 유입(#3 직접 원인).
 - **누락 런타임 의존성**: `yt-dlp` 없음(#2).
-- **환경 전제 미기재**: fastapi 핀이 사실상 Python 3.10+ 요구인데 명시 없음(#1). ffmpeg는 시스템 바이너리라 pip으로 관리 안 되지만 "6~7 필요, 8 미지원"이 어디에도 없음(#4).
+- **환경 전제 미기재**: fastapi 핀이 사실상 Python 3.10+ 요구인데 명시 없음(#1). ffmpeg는 시스템 바이너리라 pip으로 관리 안 되지만 필요한 빌드 조건이 어디에도 없음(#4).
 
 ### 어떻게 했어야 했나 (개발자가 레포에 반영할 항목)
-1. **메이저 상한 고정**: `opencv-python>=4.9.0.80,<5`.
-2. **누락 의존성 추가**: `yt-dlp`(핀과 함께).
-3. **Python 버전 선언**: ai-video `requires-python=">=3.10"` 명시. brain=3.9 / ai-video=3.10+ 로 다르다는 점도 기록.
-4. **ffmpeg 버전 기록/고정**: "ffmpeg 7 사용, 8 미지원" 명시. 이상적으론 렌더러를 ffmpeg 8 필터 문법 변화에도 견디게 수정.
+1. ✅ **메이저 상한 고정**: `opencv-python>=4.9.0.80,<5` — 2026-08-10 ai-video `requirements.txt` 반영.
+2. ✅ **누락 의존성 추가**: `yt-dlp>=2026.7.4` — 2026-08-10 반영. 상한은 두지 않았다(낡으면 유튜브 다운로드가 그냥 실패하므로 최신을 따라간다).
+3. ✅ **Python 버전 선언**: 2026-08-10 반영 — `requirements.txt` 머리말 + `app/__init__.py` 가 실행 시점에 3.10 미만이면 즉시 멈춘다(핀만으론 설치 실패 메시지가 원인을 안 알려준다). brain=3.9 / ai-video=3.10+ 로 다르다.
+4. ✅ **ffmpeg 조건 기록**: 2026-08-10 반영 — 위 #4 정정 참고. 기록할 것은 "7 쓰고 8 금지"가 아니라 **"libfreetype·libass 포함 빌드일 것"**(`ffmpeg@7` 또는 `ffmpeg-full`). §2 설치 단계도 `ffmpeg@7` + 확인 명령으로 교체했다. 렌더러 수정은 불필요 — 필터 문법 변화가 아니었다.
 5. **락파일 도입**: `>=`로 흘리지 말고 `pip freeze`/`uv lock`로 정확한 버전 고정 — 위 4건 전부 락파일이면 안 터졌다.
 6. **셋업 검증에 ai-video 스모크 추가**: 현재 검증은 brain `pytest`만. 긴 생성(15~30분) 전에 **짧은 클립 end-to-end 스모크 렌더 1회**를 셋업 체크리스트에 넣으면 #2~#4를 미리 잡는다.
 
