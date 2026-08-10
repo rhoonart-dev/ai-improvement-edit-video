@@ -236,7 +236,7 @@
         "url": "https://www.youtube.com/@careerday_official/videos",
         "episode_order": "oldest_first",
         "title_exclude_regex": "",
-        "start_episode": 1,
+        "start_episode": 4,
         "min_source_duration_sec": 300
       },
       "constraints": {
@@ -244,7 +244,7 @@
         "subtitles": "none"
       },
       "_guide": "laeebly 미등재 — 레이블리 자사 채널(커리어데이) 롱폼이라 외부 권리사 가이드가 없다. 소스 범위는 운영자 지시(2026-07-30): 커리어데이 유튜브 채널 롱폼 전체.",
-      "_note": "제목에 회차 표기가 없어 episode_order='oldest_first'(업로드 오래된 순 서수)를 쓴다. 길이 하한 300초로 쇼츠·예고를 거른다(2026-07-30 실측 82건 중 80회차 통과). 자막: 제공 자막이 없고 유튜브 자동자막은 오자막이 박히므로 none. title_exclude_regex 는 \"\"(제외 없음)로 **명시**했다 — 자사 채널이고 롱폼 전체가 소스라 제외할 코너가 없다(빈 값이 아니라 미지정이면 '검토 안 함'과 구분되지 않는다)."
+      "_note": "제목에 회차 표기가 없어 episode_order='oldest_first'(업로드 오래된 순 서수)를 쓴다. 길이 하한 300초로 쇼츠·예고를 거른다(2026-07-30 실측 82건 중 80회차 통과). 자막: 제공 자막이 없고 유튜브 자동자막은 오자막이 박히므로 none. title_exclude_regex 는 \"\"(제외 없음)로 **명시**했다 — 자사 채널이고 롱폼 전체가 소스라 제외할 코너가 없다(빈 값이 아니라 미지정이면 '검토 안 함'과 구분되지 않는다). | 2026-08-10 start_episode 1→4(운영자 결정): EP1·EP2 는 공개 3/3 완료, EP3 는 공개 2/3 에서 소재 소진(소스 379초를 공개 2편이 17.5~349.6 으로 덮어 3회 연속 중복 보류)이라 접고 다음 화로 넘어간다. 서수 번호는 enumerate 고정이라 EP4 는 여전히 '업로드 4번째 오래된 영상'이다"
     },
     "B급 스튜디오": {
       "identification_code": "NVSHx",
