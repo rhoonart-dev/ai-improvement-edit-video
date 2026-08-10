@@ -45,6 +45,7 @@ STATE_PATH = REPO_ROOT / "results" / "scene_loop_state.json"
 BUCKET = "review-clips"
 SHORT_LABEL = "shorts_1"  # scene_loop 은 실행당 1쇼츠 — ingest 멱등 키와 일치해야 한다
 HTTP_TIMEOUT = 120  # 업로드 ~30MB — 넉넉히
+STALE_SKIP_DAYS = 2  # skip 판정 시 "장면 확정일 vs DB 클립 생성일" 허용 간격 (run_id 충돌 탐지)
 
 
 # ── 순수 로직 (테스트 대상) ──────────────────────────────────
@@ -82,6 +83,26 @@ def within_days(accepted_at, since_days, today=None):
     except ValueError:
         return True
     return ((today or dt.date.today()) - d).days < since_days
+
+
+def stale_skip_days(accepted_at, clip_created_at):
+    """장면 확정일과 DB 클립 생성일의 간격(일). 어느 쪽이든 못 읽으면 None.
+
+    **run_id 충돌 탐지용**(2026-08-10 맥2·맥4 실측 후속). 정상 장면은 확정 직후 적재되므로
+    두 날짜가 붙어 있다. 크게 벌어졌다면 이 run_id 로 조회된 클립이 **다른(옛) run 의 것**일
+    가능성이 높다 — ai-video 의 job_id 접미가 짧아 충돌하면 신규 장면이 옛 기록에 가려져
+    '업로드 0 · skip N' 으로 조용히 지나갔다. 접미 확대(hex[:8]) 이후에도 옛 충돌분이 남아
+    있으므로, 침묵 대신 경고로 드러내는 것이 이 함수의 목적이다.
+
+    ※ 헛경보가 나올 수 있는 정상 경우 하나: 옛 job 을 `--from-step render` 로 재렌더하면
+    run_id 는 그대로인데 장면이 새로 확정돼 간격이 벌어진다(A/B 재렌더). 경고일 뿐 동작은
+    바꾸지 않으므로 그대로 둔다 — 놓치는 쪽이 더 비싸다."""
+    try:
+        a = dt.date.fromisoformat(str(accepted_at)[:10])
+        c = dt.date.fromisoformat(str(clip_created_at)[:10])
+    except (ValueError, TypeError):
+        return None
+    return abs((a - c).days)
 
 
 def object_path(machine_id, clip_id):
@@ -128,7 +149,7 @@ def needs_judge(clip_row, clip_id_judged, clip_id_decided):
     """
     if clip_row is None:
         return False
-    clip_id, video_id, _ = clip_row
+    clip_id, video_id = clip_row[0], clip_row[1]  # 인덱스 접근 — clip_rows 가 created_at 을 덧붙인다
     return (not video_id and clip_id not in clip_id_judged
             and clip_id not in clip_id_decided)
 
@@ -170,21 +191,25 @@ def _db():
 
 
 def clip_rows(conn, run_ids):
-    """{(run_id, take): (clip_id, video_external_id, storage_path)} — auto_edit 클립.
+    """{(run_id, take): (clip_id, video_external_id, storage_path, created_at)} — auto_edit 클립.
 
     🛑 키가 run_id 하나였는데 **(run_id, take)** 로 바꿨다. --max-shorts 3 부터 한 job 이
     테이크 3개를 내고 셋 다 같은 ai_video_run_id 를 쓴다(구분은 c.episode = short_label).
     run_id 만으로 찾으면 세 장면이 같은 클립을 가리켜 **한 영상이 세 번 검수되고 나머지 둘은
-    영영 안 올라간다.**"""
+    영영 안 올라간다.**
+
+    created_at 은 run_id 충돌 탐지용(stale_skip_days) — 소비자는 인덱스로 읽으므로
+    3튜플을 기대하는 옛 호출부와도 호환된다."""
     if not run_ids:
         return {}
     with conn.cursor() as cur:
         cur.execute(
-            """SELECT m.ai_video_run_id, c.episode, c.id, c.video_external_id, c.storage_path
+            """SELECT m.ai_video_run_id, c.episode, c.id, c.video_external_id, c.storage_path,
+                      c.created_at
                FROM public.clip_metadata m JOIN public.clips c ON c.id = m.clip_id
                WHERE m.ai_video_run_id = ANY(%s) AND c.source = 'auto_edit'""",
             (list(run_ids),))
-        return {(r[0], r[1] or SHORT_LABEL): (r[2], r[3], r[4]) for r in cur.fetchall()}
+        return {(r[0], r[1] or SHORT_LABEL): (r[2], r[3], r[4], r[5]) for r in cur.fetchall()}
 
 
 def set_storage_path(conn, clip_id, value):
@@ -381,6 +406,14 @@ def _run(args):
                 n["cleanup"] += 1
 
             else:
+                # skip 이 곧 "이 장면은 이미 처리됨"이라는 뜻이라, run_id 충돌은 여기서 침묵한다.
+                # 날짜가 크게 어긋나면 옛 run 의 클립을 보고 있는 것이므로 경고로 드러낸다.
+                gap = stale_skip_days(sc.get("accepted_at"), row[3] if row and len(row) > 3 else None)
+                if gap is not None and gap > STALE_SKIP_DAYS:
+                    print(f"[review-upload] ⚠ {action} 인데 장면 확정일과 DB 클립 생성일이 {gap}일 차 "
+                          f"— run_id 충돌 의심 {ch} EP{ep} {rid}/{take} (clip={row[0]}). "
+                          f"검수함 누락일 수 있으니 확인 필요")
+                    n["warn"] += 1
                 n["skip"] += 1
         # ── 회차 스탬프 (2026-08-05, 0010): 회차는 상태파일에만 있다 — DB 일급 컬럼으로 ──
         rows2 = clip_rows(conn, [sc["run_id"] for _, _, sc, mine in scenes if mine])

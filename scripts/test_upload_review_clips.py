@@ -155,6 +155,25 @@ def test_take_files_resolves_variant_paths():
     assert v1.name == "shorts.mp4" and plan1.name == "edit_plan.json"
 
 
+def test_stale_skip_days_detects_run_id_collision():
+    """skip 판정 시 옛 run 의 클립을 보고 있는지 — 날짜 간격으로 드러낸다(2026-08 실측 후속)."""
+    # 정상: 확정 직후 적재라 같은 날
+    assert up.stale_skip_days("2026-08-10T04:12:00", dt.datetime(2026, 8, 10, 5, 0)) == 0
+    # 충돌: 8/10 확정 장면인데 조회된 클립은 7/30 run 의 것
+    assert up.stale_skip_days("2026-08-10T04:12:00", dt.datetime(2026, 7, 30, 3, 0)) == 11
+    assert up.stale_skip_days("2026-08-10T04:12:00", "2026-07-30 03:00:00+09") == 11
+    # 못 읽으면 조용히 넘어간다 — 경고를 못 내는 것보다 헛경보가 나쁘다
+    assert up.stale_skip_days(None, dt.datetime(2026, 8, 10)) is None
+    assert up.stale_skip_days("2026-08-10", None) is None
+
+
+def test_needs_judge_accepts_row_with_created_at():
+    """clip_rows 가 created_at 을 덧붙여도 judge 선실행 판정은 그대로여야 한다."""
+    row = ("cid1", None, None, dt.datetime(2026, 8, 10))
+    assert up.needs_judge(row, set(), set()) is True
+    assert up.needs_judge(("cid1", "yt123", None, dt.datetime(2026, 8, 10)), set(), set()) is False
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_"):
