@@ -339,7 +339,7 @@
     "gcp_project": "VES03",
     "genre": "예능",
     "works": [
-      "약한영웅 Class 1"
+      "유부녀 킬러"
     ],
     "geoblock_capable": false,
     "country": "KR",
@@ -361,7 +361,8 @@
       "work_color": "white",
       "work_title_y": 1560,
       "_note": "학원 액션(약한영웅) — 제목 2줄 시안. 2026-08-07 지정. 제목 폰트=여기어때 잘난체 고딕, 작품명 white·y=1560(커리어데이 숏츠와 통일). TTS·자막 폰트도 제목과 같은 고딕으로 통일(2026-08-07)."
-    }
+    },
+    "_works_note": "2026-08-10 작품 교체 → 유부녀 킬러 (laeebly 정본 표기 공백 포함 — R14)"
   },
   {
     "token_slug": "ENDINGSUNSAK",
