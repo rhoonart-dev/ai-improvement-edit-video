@@ -438,7 +438,8 @@
       "title_color2": "#4DA6FF",
       "work_color": "white",
       "work_title_y": 1560,
-      "_note": "채널 전용 템플릿(2026-08-07 운영자 지정): 제목 1줄 white 유지·2줄 #4DA6FF(하늘색), 작품명 white·y=1560. 키 정의는 channel_registry.CHANNEL_DESIGN_FLAGS"
+      "_note": "채널 전용 템플릿(2026-08-07 운영자 지정, 08-10 제목 폰트 추가): 제목 폰트 여기어때 잘난체 고딕 · 1줄 white · 2줄 #4DA6FF · 작품명 white y=1560. 폰트 표기는 config.FONT_NAME_MAP 키(→JalnanGothic.ttf) — 맥3 채널들과 같은 규약. 자막 폰트는 그대로 둔다(운영자 지시는 제목만)",
+      "title_font": "여기어때 잘난체 고딕 TTF"
     }
   },
   {
