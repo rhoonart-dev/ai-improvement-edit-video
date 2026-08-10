@@ -1075,6 +1075,146 @@
    "rejected_at": "2026-08-07T06:23:33.319000+00:00",
    "review_note": "소재는 좋은데, 중간에 TTS가 '예은의 목소리가 싸늘해진다'고 했는데, 그런 장면이 제작된 쇼츠 영상에 나오지 않음.",
    "reject_type": "production"
+  },
+  "김부장_5a": {
+   "channel": "이거보고자",
+   "slot": "이거보고자",
+   "episode": 2,
+   "take": "shorts_1",
+   "clip_id": "7e161d8e-5e3a-4fc7-b5b6-4dce89bed4ed",
+   "stage": "published",
+   "video_id": "46HezaXLmo4",
+   "privacy": "scheduled",
+   "published_at": "2026-08-07T22:34:24",
+   "scheduled_publish_at": "2026-08-07T22:39:18.030868+09:00"
+  },
+  "참교육_00": {
+   "channel": "쇼츠션샤인",
+   "slot": "쇼츠션샤인",
+   "episode": 1,
+   "take": "shorts_1",
+   "clip_id": "45c6f8b6-bed6-439b-818d-acb8cbc75af4",
+   "stage": "published",
+   "video_id": "nOPWEAWA7BA",
+   "privacy": "scheduled",
+   "published_at": "2026-08-07T22:34:30",
+   "scheduled_publish_at": "2026-08-07T22:39:24.201949+09:00"
+  },
+  "참교육_2e": {
+   "channel": "쇼츠션샤인",
+   "slot": "쇼츠션샤인",
+   "episode": 2,
+   "take": "shorts_1",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-09T13:45:31.708000+00:00",
+   "review_note": "제목이 혈서 쓰게 만든 참선생인데 혈서를 직접 쓰게 하지 않았음 ",
+   "reject_type": "scene"
+  },
+  "하트시그널_시즌5_69": {
+   "channel": "엔딩순삭",
+   "slot": "엔딩순삭",
+   "episode": 2,
+   "take": "shorts_1",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-09T13:47:24.913000+00:00",
+   "review_note": "중복 장면 ",
+   "reject_type": "scene"
+  },
+  "김부장_55": {
+   "channel": "이거보고자",
+   "slot": "이거보고자",
+   "episode": 2,
+   "take": "shorts_1",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-09T13:47:05.602000+00:00",
+   "review_note": "과거회상 장면이 앞 장면과 이어지지 않고 지문 조회하는 장면만 나오고, 제목과 달리 국가 기밀 요원으로 밝혀지는 장면은 나오지 않음,",
+   "reject_type": "scene"
+  },
+  "유재석_캠프_40": {
+   "channel": "이불 속 극장",
+   "slot": "이불 속 극장",
+   "episode": 2,
+   "take": "shorts_1",
+   "clip_id": "3b0b438f-31f5-4932-be00-1691f5f38d5a",
+   "stage": "published",
+   "video_id": "QTQzYpvrAvw",
+   "privacy": "scheduled",
+   "published_at": "2026-08-09T22:46:49",
+   "scheduled_publish_at": "2026-08-09T22:51:42.249753+09:00"
+  },
+  "참교육_09": {
+   "channel": "쇼츠션샤인",
+   "slot": "쇼츠션샤인",
+   "episode": 2,
+   "take": "shorts_1",
+   "clip_id": "f3be5bb2-d4d4-4205-ac28-1b08a737d51f",
+   "stage": "published",
+   "video_id": "6YeS1pLMCYk",
+   "privacy": "scheduled",
+   "published_at": "2026-08-10T11:17:38",
+   "scheduled_publish_at": "2026-08-10T19:00:00+09:00"
+  },
+  "하트시그널_시즌5_04": {
+   "channel": "엔딩순삭",
+   "slot": "엔딩순삭",
+   "episode": 2,
+   "take": "shorts_1",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-10T02:12:45.376000+00:00",
+   "review_note": "중복 장면",
+   "reject_type": "scene"
+  },
+  "김부장_63": {
+   "channel": "이거보고자",
+   "slot": "이거보고자",
+   "episode": 2,
+   "take": "shorts_1",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-10T02:12:39.532000+00:00",
+   "review_note": "상대가 촉법 소년이 아니라 조폭들이라 설명과 맞지 않고, LLM judge 말대로 단순히 정적인 얼굴 클로즈업 장면이 너무 긺. 적절히 잘렸으면 좋았을 것 같음.",
+   "reject_type": "production"
+  },
+  "유재석_캠프_bb": {
+   "channel": "이불 속 극장",
+   "slot": "이불 속 극장",
+   "episode": 2,
+   "take": "shorts_1",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-10T02:33:59.199000+00:00",
+   "review_note": "제목, tts와 전혀 다른 장면이 나오는 것 같음 ",
+   "reject_type": "production"
+  },
+  "김부장_bc": {
+   "channel": "이거보고자",
+   "slot": "이거보고자",
+   "episode": 2,
+   "take": "shorts_1",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-10T06:09:41.812000+00:00",
+   "review_note": "지문 조회 장면이 안 나옴",
+   "reject_type": "production"
+  },
+  "유재석_캠프_d7": {
+   "channel": "이불 속 극장",
+   "slot": "이불 속 극장",
+   "episode": 2,
+   "take": "shorts_1",
+   "clip_id": "674075b3-0b7a-426c-b184-dff4dbb42e80",
+   "stage": "published",
+   "video_id": "fMJtgEMBu2g",
+   "privacy": "scheduled",
+   "published_at": "2026-08-10T15:28:23",
+   "scheduled_publish_at": "2026-08-10T19:00:00+09:00"
+  },
+  "하트시그널_시즌5_6d": {
+   "channel": "엔딩순삭",
+   "slot": "엔딩순삭",
+   "episode": 2,
+   "take": "shorts_1",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-10T07:45:03.584000+00:00",
+   "review_note": "중복 장면임",
+   "reject_type": "scene"
   }
  },
  "publicized": {
