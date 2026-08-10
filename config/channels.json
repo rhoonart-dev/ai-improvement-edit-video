@@ -52,7 +52,13 @@
       "유재석",
       "몰아보기",
       "하이라이트"
-    ]
+    ],
+    "design": {
+      "title_color": "white",
+      "title_color2": "#FFA94D",
+      "work_color": "white",
+      "_note": "채널 템플릿(2026-08-07 luna4 초안): 아늑한 조명 컨셉 — 제목 2줄 웜오렌지(#FFA94D), 작품명 white"
+    }
   },
   {
     "token_slug": "DARAMJI",
@@ -407,7 +413,13 @@
       "명장면",
       "웃긴영상",
       "몰아보기"
-    ]
+    ],
+    "design": {
+      "title_color": "white",
+      "title_color2": "#FF5C8A",
+      "work_color": "white",
+      "_note": "채널 템플릿(2026-08-07 luna4 초안): 연애 리얼리티(하트시그널) 담당 — 제목 2줄 핑크(#FF5C8A), 작품명 white"
+    }
   },
   {
     "token_slug": "SHORTSSUNSHINE",
@@ -430,7 +442,14 @@
       "사이다",
       "액션",
       "하이라이트"
-    ]
+    ],
+    "design": {
+      "title_color": "white",
+      "title_color2": "#FFD700",
+      "work_color": "white",
+      "_note": "채널 템플릿(2026-08-07 luna4 초안): '션샤인' 컨셉 — 제목 2줄 골드(#FFD700), 작품명 white. 커리어데이 선례(3c1f114) 형식을 따름 · 제목 폰트 JalnanGothic (2026-08-07 운영자 지정)",
+      "title_font": "JalnanGothic"
+    }
   },
   {
     "token_slug": "CAREERDAY",
@@ -509,7 +528,14 @@
       "놀토",
       "웃긴영상",
       "자기전"
-    ]
+    ],
+    "design": {
+      "title_color": "white",
+      "title_color2": "#B39DFF",
+      "work_color": "white",
+      "_note": "채널 템플릿(2026-08-07 luna4 초안): '자기 전' 밤 컨셉 — 제목 2줄 라벤더(#B39DFF), 작품명 white · 제목 폰트 JalnanGothic (2026-08-07 운영자 지정)",
+      "title_font": "JalnanGothic"
+    }
   },
   {
     "token_slug": "LOCKERROOM",
