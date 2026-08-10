@@ -485,6 +485,36 @@ def state_key(run_id, take=None):
     return run_id if n in ("shorts_1", "shorts") else f"{run_id}#{n}"
 
 
+def run_id_conflicts(state, publish_records, run_id, take, span, iou_th, center_tol):
+    """이 (run_id, take) 를 새 장면으로 확정해도 되는가 — 충돌 근거 목록(빈 리스트면 확정 가능).
+
+    **왜 필요한가** (2026-08 맥4·맥2 실측): ai-video 의 job_id 접미가 짧아 다른 run 이 같은
+    run_id 를 재발급받는 일이 실제로 일어났다. 상태 파일·발행 상태·DB·검수함 업로더가 전부
+    이 키를 쓰기 때문에, 충돌한 신규 장면은 옛 run 의 기록(발행됨/반려됨)을 상속해 **에러 한 줄
+    없이** 검수도 발행도 안 되는 좀비가 된다. ai-video 쪽 접미 확대(hex[:8])가 확률을 없애지만,
+    이 가드는 '조용히 잘못되느니 크게 실패한다'는 원칙의 최종 방어선이라 접미와 무관하게 남긴다.
+
+    충돌로 보는 것:
+      - 발행 상태에 이미 이 키의 기록이 있다 — 새로 만든 장면이 이미 발행/반려돼 있을 수는 없다.
+      - 상태 파일에 같은 (run_id, take) 가 있는데 **장면 구간이 다르다** — 같은 구간이면 재개·
+        재렌더로 같은 장면을 다시 적은 정상 경우라 통과시킨다.
+    """
+    hits = []
+    key = state_key(run_id, take)
+    if key in (publish_records or {}):
+        hits.append(f"발행 상태(scene_publish_state)에 '{key}' 기록이 이미 있음")
+    n = str(take or "shorts_1")
+    for slot, cdata in (state.get("channels") or {}).items():
+        for ep, edata in (cdata.get("episodes") or {}).items():
+            for sc in edata.get("scenes") or []:
+                if sc.get("run_id") != run_id or str(sc.get("take") or "shorts_1") != n:
+                    continue
+                old = sc.get("span")
+                if old and span and not is_duplicate(span, [old], iou_th, center_tol):
+                    hits.append(f"상태파일 {slot} EP{ep} 에 같은 run_id 의 다른 장면 {old}")
+    return hits
+
+
 def scene_keys(sc):
     """장면(merge_scenes 결과)의 상태 키들.
 
@@ -1161,6 +1191,7 @@ def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_ro
             log(f"{tag}   ✗ edit_plan 이 없습니다 → 이 채널 오늘 종료 (job={job_dir})")
             return
         run_id, accepted, seen_spans = _run_id_of(job_dir), [], list(prior_spans)
+        pub_records = load_publish_records()   # 확정 직전 최신값 — 충돌 가드용
         for label, plan_path, _video in takes:
             try:
                 plan = json.loads(plan_path.read_text(encoding="utf-8"))
@@ -1176,6 +1207,18 @@ def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_ro
             if is_duplicate(sp, seen_spans, iou_th, ctol):
                 log(f"{tag}   ↻ {label} 중복 장면 {sp} (기존/앞 테이크와 겹침)")
                 continue
+            # run_id 충돌 가드 — 확정 전에 크게 실패한다. 통과시키면 이 장면은 옛 run 의
+            # 발행/반려 기록을 뒤집어쓴 채 검수함에도 안 뜨는 좀비가 된다(맥4 8/7·맥2 8/10).
+            conflicts = run_id_conflicts(state, pub_records, run_id, take_label(label), sp,
+                                         iou_th, ctol)
+            if conflicts:
+                if accepted:
+                    save_state(state)   # 앞 테이크까지는 정상 확정분 — 잃지 않는다
+                log(f"{tag}   ✗ run_id 충돌 — 장면 확정 거부 (run={run_id}, {take_label(label)}, {sp})\n"
+                    + "".join(f"      · {h}\n" for h in conflicts)
+                    + f"      이 채널 오늘 종료. 산출물은 그대로 두었습니다(job={job_dir}) — "
+                    f"SCENE_LOOP_OPERATIONS §6-4 로 격리 후 재실행하세요.")
+                return
             seen_spans.append(sp)
             accepted.append((label, sp))
             record_scene(state, slot_key(ch), ch["work_title"], ep_num, vp, sp, run_id, job_dir,

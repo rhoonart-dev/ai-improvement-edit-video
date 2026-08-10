@@ -750,3 +750,38 @@ def test_scene_keys_accepts_legacy_scene_shape():
     """옛 상태 파일로 만든 장면({'run_ids'} 만 있음)도 그대로 동작해야 한다."""
     assert sl.scene_keys({"run_ids": ["X", "Y"]}) == ["X", "Y"]
     assert sl.scene_keys({"run_id": "Z"}) == ["Z"]
+
+
+# ── run_id 충돌 가드 (2026-08 맥4·맥2 실측) ──
+
+def _state_with(run_id, span, take="shorts_1", slot="채널1", ep="1"):
+    state = {}
+    sl.record_scene(state, slot, "작품", ep, "/srv/EP1.mp4", span, run_id, "/out/job", take=take)
+    return state
+
+
+def test_run_id_conflicts_flags_same_id_with_different_scene():
+    """같은 run_id 인데 구간이 다르다 = 다른 장면이 같은 키를 받았다(접미 충돌)."""
+    state = _state_with("가나다_a1", [2520.0, 2707.0])
+    hits = sl.run_id_conflicts(state, {}, "가나다_a1", "shorts_1", [1185.0, 1230.0], 0.5, 15)
+    assert hits and "다른 장면" in hits[0]
+
+
+def test_run_id_conflicts_allows_rerender_of_same_scene():
+    """재개·재렌더로 같은 장면을 다시 적는 것은 정상 — 막으면 안 된다."""
+    state = _state_with("가나다_a1", [2520.0, 2707.0])
+    assert sl.run_id_conflicts(state, {}, "가나다_a1", "shorts_1", [2521.0, 2706.0], 0.5, 15) == []
+
+
+def test_run_id_conflicts_flags_existing_publish_record():
+    """새로 만든 장면이 이미 발행·반려 기록을 가지고 있을 수는 없다."""
+    recs = {"가나다_a1": {"published_at": "2026-08-04T00:00:00"}}
+    assert sl.run_id_conflicts({}, recs, "가나다_a1", "shorts_1", [10.0, 40.0], 0.5, 15)
+    # 테이크가 다르면 키도 달라 무관하다
+    assert sl.run_id_conflicts({}, recs, "가나다_a1", "shorts_2", [10.0, 40.0], 0.5, 15) == []
+
+
+def test_run_id_conflicts_ignores_other_take_in_state():
+    """한 job 의 테이크들은 run_id 를 공유한다 — 테이크가 다르면 충돌이 아니다."""
+    state = _state_with("가나다_a1", [2520.0, 2707.0], take="shorts_2")
+    assert sl.run_id_conflicts(state, {}, "가나다_a1", "shorts_1", [1185.0, 1230.0], 0.5, 15) == []
