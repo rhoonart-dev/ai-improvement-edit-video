@@ -542,5 +542,29 @@
       "title_font": "JalnanGothic",
       "subtitle_font": "JalnanGothic"
     }
+  },
+  {
+    "token_slug": "LOOPY",
+    "name": "잔망루피의 일상",
+    "handle": "@zanmangloopy-jp",
+    "channel_id": "UCWCgKyOwROcvTuMJZm8nZ2Q",
+    "gcp_project": "JMLP",
+    "genre": "캐릭터·일본 타깃",
+    "works": [
+      "잔망루피 유튜브 숏폼"
+    ],
+    "geoblock_capable": false,
+    "country": "JP",
+    "pipeline": "zanmang_autopilot",
+    "description": "ジャンマンルピーの日常。잔망루피 공식 숏폼의 일본어 현지화 채널입니다.",
+    "keywords": [
+      "ジャンマンルピー",
+      "잔망루피",
+      "ルピー",
+      "キャラクター",
+      "ショート",
+      "かわいい"
+    ],
+    "_note": "전용 파이프라인(§10-①): 소스 생성이 아니라 공식 숏폼 현지화(더빙 포함) — VES zanmang_autopilot(매일 10시, mm-06)이 담당. planner 는 pipeline 필드를 보고 건너뛴다(2026-08-10)."
   }
 ]
