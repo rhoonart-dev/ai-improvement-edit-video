@@ -548,17 +548,23 @@ async function buildDailySnapshot() {
       .filter((i) => kstDayOf((i.decision as Record<string, unknown>).decided_at) === today)
       .sort((a, b) => String((b.decision as Record<string, unknown>).decided_at)
         .localeCompare(String((a.decision as Record<string, unknown>).decided_at)));
-    const d0 = decToday[0] ? (decToday[0].decision as Record<string, unknown>).decision : null;
-    // 생성 점: 실패가 마지막 소식이면 solid 빨강, 실패 뒤 재생성분이 있으면 그 결과를 링으로
+    // 🟢 오늘 합격이 하나라도 있으면 초록(2026-08-07 운영자 결정) — 화면과 동일 규칙.
+    //    종전엔 '가장 최근 결정 하나'만 봐서 합격 뒤 반려를 누르면 하루 몫을 채우고도 빨간 링이었다.
+    const decOf = (v: string) => decToday.filter((i) => (i.decision as Record<string, unknown>).decision === v);
+    const oks = decOf("approved"), rejs = decOf("rejected");
     const waitToday = (pend[ch] ?? []).filter((i) => kstDayOf(i.created_at) === today);
+    const pubs = pubToday[ch] ?? [];
+    const pubAt = (f: Record<string, unknown>) => yt[f.video_id as string]?.published_at ?? f.published_at;
+    const decAt = (i: Record<string, unknown>) => (i.decision as Record<string, unknown>).decided_at;
     const gen = !failedToday.has(ch)
-      ? (waitToday.length ? "warn" : d0 === "rejected" ? "rej" : d0 === "approved" ? "ok"
-         : (pubToday[ch] ?? []).length ? "ok" : "idle")
+      ? (oks.length || pubs.length ? "ok" : rejs.length ? "rej" : waitToday.length ? "warn" : "idle")
+      : (oks.some((i) => after(ch, decAt(i))) || pubs.some((f) => after(ch, pubAt(f)))) ? "okr"
       : waitToday.some((i) => after(ch, i.created_at)) ? "warnr"
-      : (decToday[0] && after(ch, (decToday[0].decision as Record<string, unknown>).decided_at))
-        ? (d0 === "approved" ? "okr" : "rej")
-      : (pubToday[ch] ?? []).some((f) => after(ch, yt[f.video_id as string]?.published_at ?? f.published_at)) ? "okr"
+      : rejs.some((i) => after(ch, decAt(i))) ? "rej"
       : badKind(ch);
+    // 툴팁 꼬리 — 초록이 '합격 1' 인지 '합격 3' 인지 점만으론 모른다
+    const tip = (oks.length || rejs.length || waitToday.length)
+      ? ` · 합격 ${oks.length} · 반려 ${rejs.length} · 대기 ${waitToday.length}` : "";
     const pub = (pubToday[ch] ?? []).length ? "ok" : (waitPub[ch] ?? []).length ? "warn" : "idle";
     const rows: unknown[] = [];
     if (failedToday.has(ch)) rows.push([gen.endsWith("r") ? "warn" : gen === "hold" ? "warn" : "bad",
@@ -577,7 +583,7 @@ async function buildDailySnapshot() {
     for (const f of pubToday[ch] ?? []) rows.push(["ok",
       `${f.work ?? "?"}${f.episode_no != null ? " " + f.episode_no + "회차" : ""} — 공개됨`,
       f.video_id, yt[f.video_id as string]?.published_at ?? f.published_at]);
-    board[ch] = { mac: meta.mac, gen, pub, rows };
+    board[ch] = { mac: meta.mac, gen, pub, rows, tip };
   }
   const payload = {
     date: today, generated_at: new Date().toISOString(),
