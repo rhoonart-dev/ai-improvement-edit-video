@@ -392,3 +392,21 @@ def test_channel_design_supports_subtitle_font():
     머신에 템플릿만 퍼지면 '모르는 인자'로 생성이 통째로 죽는다."""
     flags = reg.channel_design_flags({"subtitle_font": "여기어때 잘난체 고딕 TTF"}, "테스트채널")
     assert flags == ["--design-subtitle-font", "여기어때 잘난체 고딕 TTF"]
+
+
+def test_channel_design_switch_face_tracking():
+    """face_tracking:false → --no-reframe (값 없는 스위치형 키). true/미지정은 아무것도 안 붙인다."""
+    assert reg.channel_design_flags({"face_tracking": False}, "커리어데이 숏츠") == ["--no-reframe"]
+    assert reg.channel_design_flags({"face_tracking": True}, "커리어데이 숏츠") == []
+    # 값 있는 키와 섞여도 순서·형태 유지
+    out = reg.channel_design_flags({"title_color2": "#4DA6FF", "face_tracking": False}, "커리어데이 숏츠")
+    assert out == ["--design-title-color2", "#4DA6FF", "--no-reframe"]
+
+
+def test_channel_design_switch_unknown_still_raises():
+    try:
+        reg.channel_design_flags({"face_traking": False}, "커리어데이 숏츠")
+    except ValueError as e:
+        assert "face_traking" in str(e)
+    else:
+        raise AssertionError("오타 키가 통과함")

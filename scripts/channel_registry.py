@@ -297,6 +297,13 @@ CHANNEL_DESIGN_FLAGS = {
     "aspect_ratio": "--design-aspect-ratio",
 }
 
+# 값 없는 스위치형 키 — {템플릿 키: (플래그, 플래그를 붙일 값)}.
+# face_tracking:false 면 --no-reframe(얼굴 추종 크롭 끄기, ai-video c184e63). 인물이 고정된
+# 인터뷰 소재는 확대하면 원본에 박힌 자막이 잘려 끄는 편이 낫고, 크롭 생성을 건너뛰어 생성도 빨라진다.
+CHANNEL_DESIGN_SWITCHES = {
+    "face_tracking": ("--no-reframe", False),
+}
+
 
 def channel_design_flags(design, channel):
     """채널 'design' 템플릿 dict → CLI 플래그 리스트. 순수. '_' 시작 키(_note 등)는 무시.
@@ -308,10 +315,15 @@ def channel_design_flags(design, channel):
     for k, v in (design or {}).items():
         if k.startswith("_"):
             continue
+        if k in CHANNEL_DESIGN_SWITCHES:
+            flag, on_value = CHANNEL_DESIGN_SWITCHES[k]
+            if v is on_value:
+                flags.append(flag)
+            continue
         flag = CHANNEL_DESIGN_FLAGS.get(k)
         if not flag:
             raise ValueError(f"채널 '{channel}': 알 수 없는 design 키 {k!r} — "
-                             f"허용 키: {sorted(CHANNEL_DESIGN_FLAGS)}")
+                             f"허용 키: {sorted(CHANNEL_DESIGN_FLAGS) + sorted(CHANNEL_DESIGN_SWITCHES)}")
         flags += [flag, str(v)]
     return flags
 

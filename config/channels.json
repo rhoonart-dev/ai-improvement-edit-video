@@ -438,8 +438,9 @@
       "title_color2": "#4DA6FF",
       "work_color": "white",
       "work_title_y": 1560,
-      "_note": "채널 전용 템플릿(2026-08-07 운영자 지정, 08-10 제목 폰트 추가): 제목 폰트 여기어때 잘난체 고딕 · 1줄 white · 2줄 #4DA6FF · 작품명 white y=1560. 폰트 표기는 config.FONT_NAME_MAP 키(→JalnanGothic.ttf) — 맥3 채널들과 같은 규약. 자막 폰트는 그대로 둔다(운영자 지시는 제목만)",
-      "title_font": "여기어때 잘난체 고딕 TTF"
+      "_note": "채널 전용 템플릿(2026-08-07 지정 · 08-10 폰트/트래킹 추가): 제목 폰트 여기어때 잘난체 고딕 · 1줄 white · 2줄 #4DA6FF · 작품명 white y=1560 · face_tracking=false. 트래킹을 끄는 이유: 인물이 고정된 인터뷰 소재라 얼굴로 확대하면 **원본에 박힌 자막이 잘린다**(EP4 실측). 크롭 생성을 건너뛰어 생성도 빨라진다. 폰트 표기는 config.FONT_NAME_MAP 키",
+      "title_font": "여기어때 잘난체 고딕 TTF",
+      "face_tracking": false
     }
   },
   {
