@@ -849,7 +849,11 @@
   "커리어데이_f6": {
    "channel": "커리어데이 숏츠",
    "slot": "커리어데이 숏츠",
-   "episode": 3
+   "episode": 3,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-10T01:56:49.334000+00:00",
+   "review_note": "사연자가 어떤 사연을 보낸 건지 보여주면 좋을 것 같음 ",
+   "reject_type": "scene"
   },
   "유미의_세포들_시즌3_f5": {
    "channel": "재미쇼츠",
@@ -1140,7 +1144,12 @@
    "channel": "재미쇼츠",
    "slot": "재미쇼츠·유미의 세포들 시즌3",
    "episode": 1,
-   "take": "shorts_2"
+   "take": "shorts_2",
+   "clip_id": "ac56fac9-8011-4299-8016-60b04c9b1bd6",
+   "stage": "published",
+   "video_id": "Ir1KTKDHjI8",
+   "privacy": "unlisted",
+   "published_at": "2026-08-07T22:27:42"
   },
   "유미의_세포들_시즌3_6d#shorts_3": {
    "channel": "재미쇼츠",
@@ -1258,6 +1267,81 @@
    "slot": "락커룸",
    "episode": 2,
    "take": "shorts_3"
+  },
+  "유미의_세포들_시즌3_d9": {
+   "channel": "재미쇼츠",
+   "slot": "재미쇼츠·유미의 세포들 시즌3",
+   "episode": 1,
+   "take": "shorts_1",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-09T14:32:31.611000+00:00",
+   "review_note": "중복 장면 ",
+   "reject_type": "scene"
+  },
+  "유미의_세포들_시즌3_d9#shorts_2": {
+   "channel": "재미쇼츠",
+   "slot": "재미쇼츠·유미의 세포들 시즌3",
+   "episode": 1,
+   "take": "shorts_2",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-09T14:32:14.506000+00:00",
+   "review_note": "중복 장면",
+   "reject_type": "scene"
+  },
+  "유미의_세포들_시즌3_d9#shorts_3": {
+   "channel": "재미쇼츠",
+   "slot": "재미쇼츠·유미의 세포들 시즌3",
+   "episode": 1,
+   "take": "shorts_3",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-09T14:32:25.336000+00:00",
+   "review_note": "중복 장면 ",
+   "reject_type": "scene"
+  },
+  "커리어데이_35": {
+   "channel": "커리어데이 숏츠",
+   "slot": "커리어데이 숏츠",
+   "episode": 3,
+   "take": "shorts_1"
+  },
+  "커리어데이_35#shorts_2": {
+   "channel": "커리어데이 숏츠",
+   "slot": "커리어데이 숏츠",
+   "episode": 3,
+   "take": "shorts_2",
+   "clip_id": "19c9d58a-34c6-4654-a8ee-d86cb763770e",
+   "stage": "published",
+   "video_id": "dj-JNOpSZ_8",
+   "privacy": "scheduled",
+   "published_at": "2026-08-09T23:20:09",
+   "scheduled_publish_at": "2026-08-09T23:25:02.828172+09:00"
+  },
+  "유미의_세포들_시즌3_4c": {
+   "channel": "재미쇼츠",
+   "slot": "재미쇼츠·유미의 세포들 시즌3",
+   "episode": 2,
+   "take": "shorts_1",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-10T02:00:22.040000+00:00",
+   "review_note": "LLM judge 말대로 실제 내용까지 나오는 데 오래 걸리고, 애니메이션 빌드업 타이밍에 '기차에서 우연히 마주친 편집자'라고 tts가 나와서 장면과 맞지 않아 어색함.",
+   "reject_type": "production"
+  },
+  "유미의_세포들_시즌3_4c#shorts_2": {
+   "channel": "재미쇼츠",
+   "slot": "재미쇼츠·유미의 세포들 시즌3",
+   "episode": 2,
+   "take": "shorts_2",
+   "clip_id": "06999749-bb6d-4558-9d48-d4f8f67c352d",
+   "stage": "published",
+   "video_id": "jiOs5f0bZjU",
+   "privacy": "unlisted",
+   "published_at": "2026-08-10T11:50:45"
+  },
+  "커리어데이_d0": {
+   "channel": "커리어데이 숏츠",
+   "slot": "커리어데이 숏츠",
+   "episode": 3,
+   "take": "shorts_1"
   }
  }
 }
