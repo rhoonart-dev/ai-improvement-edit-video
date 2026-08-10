@@ -708,11 +708,7 @@
   "유미의_세포들_시즌3_e2": {
    "channel": "재미쇼츠",
    "slot": "재미쇼츠·유미의 세포들 시즌3",
-   "episode": 1,
-   "stage": "review_rejected",
-   "rejected_at": "2026-08-06T02:26:17.565000+00:00",
-   "review_note": "제목이 폴백 버전인 것 같음.",
-   "reject_type": "production"
+   "episode": 1
   },
   "약한영웅_Class_1_1e": {
    "channel": "리와인드포차",
@@ -849,11 +845,7 @@
   "커리어데이_f6": {
    "channel": "커리어데이 숏츠",
    "slot": "커리어데이 숏츠",
-   "episode": 3,
-   "stage": "review_rejected",
-   "rejected_at": "2026-08-10T01:56:49.334000+00:00",
-   "review_note": "사연자가 어떤 사연을 보낸 건지 보여주면 좋을 것 같음 ",
-   "reject_type": "scene"
+   "episode": 3
   },
   "유미의_세포들_시즌3_f5": {
    "channel": "재미쇼츠",
@@ -1342,6 +1334,396 @@
    "slot": "커리어데이 숏츠",
    "episode": 3,
    "take": "shorts_1"
+  },
+  "언니네_산지직송_in_칼라페_5a": {
+   "channel": "너굴안방",
+   "slot": "너굴안방",
+   "episode": 2,
+   "clip_id": "2a2e8414-b5fa-4347-8842-363198bb134d",
+   "stage": "published",
+   "video_id": "ZuvL8sUVQHQ",
+   "privacy": "scheduled",
+   "published_at": "2026-08-05T23:31:44",
+   "scheduled_publish_at": "2026-08-05T23:36:37.767884+09:00"
+  },
+  "도깨비_10주년_여행_f5": {
+   "channel": "숏테토칩",
+   "slot": "숏테토칩",
+   "episode": 2,
+   "clip_id": "f711a434-bf85-4209-b3ea-813cbaeda10c",
+   "stage": "published",
+   "video_id": "vtkmcAAVJVU",
+   "privacy": "scheduled",
+   "published_at": "2026-08-06T12:12:19",
+   "scheduled_publish_at": "2026-08-06T19:00:00+09:00"
+  },
+  "스트릿_레스토랑_파이터_a1": {
+   "channel": "흥행수집",
+   "slot": "흥행수집",
+   "episode": 2,
+   "clip_id": "b1b10b72-2864-44fa-bda1-a98882dd62f7",
+   "stage": "published",
+   "video_id": "1RPGKFel9hg",
+   "privacy": "scheduled",
+   "published_at": "2026-08-05T23:21:37",
+   "scheduled_publish_at": "2026-08-05T23:26:32.144575+09:00"
+  },
+  "놀라운_토요일_f8": {
+   "channel": "숏나우저",
+   "slot": "숏나우저",
+   "episode": 411,
+   "clip_id": "efc9863b-4ac6-4ddb-8d00-d9258e4e9f6e",
+   "stage": "published",
+   "video_id": "UWzDX5YD3Ws",
+   "privacy": "scheduled",
+   "published_at": "2026-08-05T23:01:31",
+   "scheduled_publish_at": "2026-08-05T23:05:59.775925+09:00"
+  },
+  "놀라운_토요일_4f": {
+   "channel": "숏나우저",
+   "slot": "숏나우저",
+   "episode": 411,
+   "stage": "published",
+   "video_id": "iYe03Z6IX_8",
+   "source": "db-reconciled"
+  },
+  "스트릿_레스토랑_파이터_1a": {
+   "channel": "흥행수집",
+   "slot": "흥행수집",
+   "episode": 2,
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-06T03:15:51.210000+00:00",
+   "review_note": "이전에 업로드 된 영상과 중복 장면임",
+   "reject_type": "scene"
+  },
+  "언니네_산지직송_in_칼라페_d2": {
+   "channel": "너굴안방",
+   "slot": "너굴안방",
+   "episode": 2,
+   "clip_id": "bd40caf9-5396-413f-83fc-e8348cd90644",
+   "stage": "published",
+   "video_id": "d_YkJA3z4IY",
+   "privacy": "scheduled",
+   "published_at": "2026-08-06T13:52:35",
+   "scheduled_publish_at": "2026-08-06T19:00:00+09:00"
+  },
+  "스트릿_레스토랑_파이터_a2": {
+   "channel": "흥행수집",
+   "slot": "흥행수집",
+   "episode": 2,
+   "stage": "published",
+   "video_id": "1Mo1zRUCGGg",
+   "source": "db-reconciled"
+  },
+  "언니네_산지직송_in_칼라페_4b": {
+   "channel": "너굴안방",
+   "slot": "너굴안방",
+   "episode": 2,
+   "take": "shorts_1",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-07T08:15:59.351000+00:00",
+   "review_note": "주제랑 장면 구성도 좋은데 TTS 순서 등이 편집 과정에서 꼬인 것 같음 ",
+   "reject_type": "production"
+  },
+  "도깨비_10주년_여행_b0": {
+   "channel": "숏테토칩",
+   "slot": "숏테토칩",
+   "episode": 2,
+   "take": "shorts_1",
+   "clip_id": "2ce649ba-5b55-42d8-96db-f66c8547c143",
+   "stage": "published",
+   "video_id": "HF9iM29XPuE",
+   "privacy": "scheduled",
+   "published_at": "2026-08-07T16:33:47",
+   "scheduled_publish_at": "2026-08-07T19:00:00+09:00"
+  },
+  "도깨비_10주년_여행_b0#shorts_2": {
+   "channel": "숏테토칩",
+   "slot": "숏테토칩",
+   "episode": 2,
+   "take": "shorts_2",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-07T08:18:18.054000+00:00",
+   "review_note": "llm judge 말대로 계속 보게 만들 장면이 아님",
+   "reject_type": "production"
+  },
+  "놀라운_토요일_65#shorts_2": {
+   "channel": "숏나우저",
+   "slot": "숏나우저",
+   "episode": 411,
+   "take": "shorts_2",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-07T08:17:54.519000+00:00",
+   "review_note": "중간에 필요 없는 장면이 너무 많고 영상 내용이 난잡함.",
+   "reject_type": "production"
+  },
+  "스트릿_레스토랑_파이터_96": {
+   "channel": "흥행수집",
+   "slot": "흥행수집",
+   "episode": 3,
+   "take": "shorts_1",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-07T08:12:39.194000+00:00",
+   "review_note": "주제는 너무 좋은데 그 주제를 영상이 잘 설명하지 못하고 있음 영상을 보면 제목이 이해가 안됨 ",
+   "reject_type": "production"
+  },
+  "스트릿_레스토랑_파이터_96#shorts_2": {
+   "channel": "흥행수집",
+   "slot": "흥행수집",
+   "episode": 3,
+   "take": "shorts_2",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-09T14:46:54.941000+00:00",
+   "review_note": null,
+   "reject_type": "scene"
+  },
+  "스트릿_레스토랑_파이터_a2#shorts_2": {
+   "channel": "흥행수집",
+   "slot": "흥행수집",
+   "stage": "published",
+   "take": "shorts_2",
+   "video_id": "1Mo1zRUCGGg",
+   "source": "db-reconciled"
+  },
+  "스트릿_레스토랑_파이터_a2#shorts_3": {
+   "channel": "흥행수집",
+   "slot": "흥행수집",
+   "episode": 2,
+   "take": "shorts_3",
+   "clip_id": "cfc10d41-a2d5-4482-83c6-2adf19e0059d",
+   "stage": "published",
+   "video_id": "Uv6WYQ-J-cA",
+   "privacy": "scheduled",
+   "published_at": "2026-08-07T17:53:59",
+   "scheduled_publish_at": "2026-08-07T19:00:00+09:00"
+  },
+  "언니네_산지직송_in_칼라페_0f": {
+   "channel": "너굴안방",
+   "slot": "너굴안방",
+   "episode": 2,
+   "take": "shorts_1",
+   "clip_id": "cde894db-20e7-4821-9846-9a250c53c247",
+   "stage": "published",
+   "video_id": "WkxyXtCVgSE",
+   "privacy": "scheduled",
+   "published_at": "2026-08-07T23:25:06",
+   "scheduled_publish_at": "2026-08-07T23:29:38.579504+09:00"
+  },
+  "놀라운_토요일_14": {
+   "channel": "숏나우저",
+   "slot": "숏나우저",
+   "episode": 411,
+   "take": "shorts_1",
+   "clip_id": "8f15cbc7-3187-4138-9cd0-c17342cbb8ce",
+   "stage": "published",
+   "video_id": "z1DdVPogoaE",
+   "privacy": "scheduled",
+   "published_at": "2026-08-07T22:24:36",
+   "scheduled_publish_at": "2026-08-07T22:29:09.874872+09:00"
+  },
+  "놀라운_토요일_14#shorts_2": {
+   "channel": "숏나우저",
+   "slot": "숏나우저",
+   "episode": 411,
+   "take": "shorts_2",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-07T13:19:41.822000+00:00",
+   "review_note": "TTS 타이밍이 잘못 됐음 ",
+   "reject_type": "production"
+  },
+  "스트릿_레스토랑_파이터_89#shorts_2": {
+   "channel": "흥행수집",
+   "slot": "흥행수집",
+   "episode": 2,
+   "take": "shorts_2",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-09T14:49:27.285000+00:00",
+   "review_note": "어떤 기기가 고장났는지부터 어떻게 극복했는지 과정에 집중하면 좋을텐데 순위에 대한 반응 등 불필요한 장면이 길어서 전체 영상이 매끄럽지 않음 ",
+   "reject_type": "production"
+  },
+  "언니네_산지직송_in_칼라페_22": {
+   "channel": "너굴안방",
+   "slot": "너굴안방",
+   "episode": 3,
+   "take": "shorts_1",
+   "clip_id": "d92553cc-3549-4f6e-837d-ee6b68e93a32",
+   "stage": "published",
+   "video_id": "HdaNt11z_Yg",
+   "privacy": "scheduled",
+   "published_at": "2026-08-09T23:07:07",
+   "scheduled_publish_at": "2026-08-09T23:12:01.609241+09:00"
+  },
+  "언니네_산지직송_in_칼라페_22#shorts_2": {
+   "channel": "너굴안방",
+   "slot": "너굴안방",
+   "episode": 3,
+   "take": "shorts_2",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-09T14:04:23.145000+00:00",
+   "review_note": " '물 위에 굳어버린 수영 초보'라는 tts가 이해되지 않는 장면임 ",
+   "reject_type": "production"
+  },
+  "도깨비_10주년_여행_1a": {
+   "channel": "숏테토칩",
+   "slot": "숏테토칩",
+   "episode": 3,
+   "take": "shorts_1",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-10T02:58:11.639000+00:00",
+   "review_note": "llm이 영상의 세세한 포인트를 잘못 이해한 것 같음. 퀴즈를 맞추는 공유가 가린 게 아니라, 대사를 맞춰야 하는 드라마 영상에서 맞춰야 하는 대사가 나오는 순간 카메라가 공유를 잡고 있어서 입모양이 안 나온 건데 TTS도 '과한 열정이 부른 참사'라고 하며 현재 퀴즈를 맞추고 있는 공유가 가린 거라고 생각함. llm judge도 마찬가지로 오해함. 장면 자체는 재밌음.",
+   "reject_type": "production"
+  },
+  "도깨비_10주년_여행_1a#shorts_2": {
+   "channel": "숏테토칩",
+   "slot": "숏테토칩",
+   "episode": 3,
+   "take": "shorts_2",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-09T14:05:34.164000+00:00",
+   "review_note": "인터뷰 장면은 좋은데 '연기력 하나로 현장 뒤집어놓음'이라고 말하는데 연기 장면이 나오지 않음.",
+   "reject_type": "production"
+  },
+  "도깨비_10주년_여행_1a#shorts_3": {
+   "channel": "숏테토칩",
+   "slot": "숏테토칩",
+   "episode": 3,
+   "take": "shorts_3",
+   "stage": "published",
+   "review_note": "편집은 너무 좋은데 배우 김고은이 아니라 배우 박경혜임",
+   "reject_type": "production",
+   "clip_id": "a0b84aeb-c6f9-4d31-890c-0636d2b7d546",
+   "video_id": "no2EwBJFLlM",
+   "privacy": "scheduled",
+   "published_at": "2026-08-09T23:27:26",
+   "scheduled_publish_at": "2026-08-09T23:32:20.871546+09:00"
+  },
+  "놀라운_토요일_4d": {
+   "channel": "숏나우저",
+   "slot": "숏나우저",
+   "episode": 412,
+   "take": "shorts_1",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-09T14:51:37.589000+00:00",
+   "review_note": "어떤 퀴즈에 대한 답을 한 건지 나오면 좋을 것 같음 ",
+   "reject_type": "production"
+  },
+  "놀라운_토요일_4d#shorts_2": {
+   "channel": "숏나우저",
+   "slot": "숏나우저",
+   "episode": 412,
+   "take": "shorts_2",
+   "clip_id": "231bcd9c-4ed4-4e98-ab07-83709ecf2773",
+   "stage": "published",
+   "video_id": "-TJVEonSluo",
+   "privacy": "scheduled",
+   "published_at": "2026-08-09T23:07:14",
+   "scheduled_publish_at": "2026-08-09T23:12:07.765606+09:00"
+  },
+  "스트릿_레스토랑_파이터_78": {
+   "channel": "흥행수집",
+   "slot": "흥행수집",
+   "episode": 3,
+   "take": "shorts_1",
+   "clip_id": "b9bee1ed-613e-408d-8a73-89221cd8998f",
+   "stage": "published",
+   "video_id": "knX1rdOBHI0",
+   "privacy": "scheduled",
+   "published_at": "2026-08-09T23:17:20",
+   "scheduled_publish_at": "2026-08-09T23:22:14.515454+09:00"
+  },
+  "스트릿_레스토랑_파이터_78#shorts_2": {
+   "channel": "흥행수집",
+   "slot": "흥행수집",
+   "episode": 3,
+   "take": "shorts_2",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-09T14:50:51.713000+00:00",
+   "review_note": "제목이 '결국 폐업하게 된 사연'인데 왜 폐업하게 됐는지가 생략되고, 폐업하고 난 후의 심정에 대한 비중이 큼.",
+   "reject_type": "production"
+  },
+  "스트릿_레스토랑_파이터_78#shorts_3": {
+   "channel": "흥행수집",
+   "slot": "흥행수집",
+   "episode": 3,
+   "take": "shorts_3"
+  },
+  "도깨비_10주년_여행_17": {
+   "channel": "숏테토칩",
+   "slot": "숏테토칩",
+   "episode": 3,
+   "take": "shorts_1",
+   "clip_id": "58671956-ad02-4654-b02e-e223ddc90571",
+   "stage": "published",
+   "video_id": "eo0IedC1wMM",
+   "privacy": "scheduled",
+   "published_at": "2026-08-10T11:58:09",
+   "scheduled_publish_at": "2026-08-10T19:00:00+09:00"
+  },
+  "도깨비_10주년_여행_17#shorts_2": {
+   "channel": "숏테토칩",
+   "slot": "숏테토칩",
+   "episode": 3,
+   "take": "shorts_2",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-10T02:54:26.365000+00:00",
+   "review_note": "일단 제목이 장면과 다른 내용을 가리키고 있고, 중복 장면임.",
+   "reject_type": "scene"
+  },
+  "놀라운_토요일_3e": {
+   "channel": "숏나우저",
+   "slot": "숏나우저",
+   "episode": 412,
+   "take": "shorts_1",
+   "clip_id": "a5e7e5e4-7762-4384-94d3-2caf7b0591f8",
+   "stage": "published",
+   "video_id": "wcVsa7FfvHU",
+   "privacy": "scheduled",
+   "published_at": "2026-08-10T12:38:21",
+   "scheduled_publish_at": "2026-08-10T19:00:00+09:00"
+  },
+  "놀라운_토요일_3e#shorts_2": {
+   "channel": "숏나우저",
+   "slot": "숏나우저",
+   "episode": 412,
+   "take": "shorts_2",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-10T03:36:46.526000+00:00",
+   "review_note": "마지막에 티빙 로고가 나오는 게 아쉽고 허풍이라는 단어가 어울리지 않는 것 같음.",
+   "reject_type": "production"
+  },
+  "스트릿_레스토랑_파이터_d4": {
+   "channel": "흥행수집",
+   "slot": "흥행수집",
+   "episode": 3,
+   "take": "shorts_1",
+   "stage": "review_rejected",
+   "rejected_at": "2026-08-10T02:16:07.576000+00:00",
+   "review_note": "완셩된 영상과 스토리는 너무 좋은데 이전에 올린 영상과 중복된 장면이라 반려함",
+   "reject_type": "scene"
+  },
+  "스트릿_레스토랑_파이터_d4#shorts_2": {
+   "channel": "흥행수집",
+   "slot": "흥행수집",
+   "episode": 3,
+   "take": "shorts_2",
+   "clip_id": "44cea647-42d9-445b-90af-30151d268fd7",
+   "stage": "published",
+   "video_id": "Mb9fvug7iwc",
+   "privacy": "scheduled",
+   "published_at": "2026-08-10T11:38:02",
+   "scheduled_publish_at": "2026-08-10T19:00:00+09:00"
+  },
+  "언니네_산지직송_in_칼라페_e0f1": {
+   "channel": "너굴안방",
+   "slot": "너굴안방",
+   "episode": 3,
+   "take": "shorts_1",
+   "clip_id": "26193db1-f4ef-4533-a629-371b0d1a80e3",
+   "stage": "published",
+   "video_id": "wF10qJ4-UzA",
+   "privacy": "scheduled",
+   "published_at": "2026-08-10T12:28:15",
+   "scheduled_publish_at": "2026-08-10T19:00:00+09:00"
   }
  }
 }
