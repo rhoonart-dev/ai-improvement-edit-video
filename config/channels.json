@@ -25,7 +25,12 @@
   ],
   "_works_note": "운영은 유미의 세포들 시즌3 → 언더커버셰프 **순차**다. 둘 다 지오블락 필수라 지오블락 가능 채널인 여기에 묶여 있다. 진행 상태는 작품별 슬롯으로 갈리므로 (channel_registry 의 slot) 두 작품의 EP1 이 섞이지 않는다.",
   "publish_privacy": "unlisted",
-  "_note": "publish_privacy=unlisted 고정(2026-08-04): 지오블락 필수 작품 채널이라 예약 공개 금지 — 공개는 사람이 Studio 에서 지오블락 걸고 전환"
+  "_note": "publish_privacy=unlisted 고정(2026-08-04): 지오블락 필수 작품 채널이라 예약 공개 금지 — 공개는 사람이 Studio 에서 지오블락 걸고 전환",
+  "design": {
+   "title_color": "white",
+   "title_color2": "#FF7EB3",
+   "_note": "채널 전용 템플릿(2026-08-07 운영자 선택): 제목 1줄 white·2줄 #FF7EB3. 유미 로고 원색 #E84088(alpha 픽셀 최빈값) 계열을 한 단계 밝혀 검은 밴드 가독성 확보 — 커리어데이 #4DA6FF 와 밝기 톤 정렬. 작품명 자리는 로고(works.json branding)가 대체하므로 work_color/work_title_y 는 두지 않는다"
+  }
  },
  {
   "token_slug": "CINEMAINBED",
@@ -76,7 +81,14 @@
    "웃긴영상",
    "하이라이트",
    "리얼리티"
-  ]
+  ],
+  "design": {
+   "title_color": "white",
+   "title_color2": "#FF9F45",
+   "work_color": "white",
+   "work_title_y": 1560,
+   "_note": "채널 템플릿(2026-08-07): 아이콘(도토리 다람쥐·웜톤) 기반 2줄 웜오렌지 #FF9F45, 작품명 white·y=1560(커리어데이와 동일 규격)"
+  }
  },
  {
   "token_slug": "NEOGULBANG",
@@ -99,7 +111,12 @@
    "칼라페",
    "여행예능",
    "하이라이트"
-  ]
+  ],
+  "design": {
+   "title_color2": "#3ECFB2",
+   "work_color": "white",
+   "_note": "채널 전용 템플릿(2026-08-07 운영자 지정, 맥2): 제목 2줄 청록 #3ECFB2 — 산지직송 로고(청록/그린)와 톤 일치. 작품명 white(로고 사용 중이라 폴백용). 키 정의는 channel_registry.CHANNEL_DESIGN_FLAGS"
+  }
  },
  {
   "token_slug": "TETOCHIP",
@@ -122,7 +139,12 @@
    "여행예능",
    "웃긴영상",
    "하이라이트"
-  ]
+  ],
+  "design": {
+   "title_color2": "#FF5A5A",
+   "work_color": "white",
+   "_note": "채널 전용 템플릿(2026-08-07 운영자 지정, 맥2): 제목 2줄 레드 #FF5A5A — 도깨비 상징색(빨간 문·목도리). 작품명 white(로고 사용 중이라 폴백용). 키 정의는 channel_registry.CHANNEL_DESIGN_FLAGS"
+  }
  },
  {
   "token_slug": "KIKKIK",
@@ -145,7 +167,14 @@
    "웃긴영상",
    "명장면",
    "개그"
-  ]
+  ],
+  "design": {
+   "title_color": "white",
+   "title_color2": "#FFD84D",
+   "work_color": "white",
+   "work_title_y": 1560,
+   "_note": "채널 템플릿(2026-08-07): 아이콘(골드 ㅋㅋ·극장 커튼) 기반 2줄 골드 #FFD84D, 작품명 white·y=1560"
+  }
  },
  {
   "token_slug": "HEUNGHAENG",
@@ -168,7 +197,13 @@
    "요리예능",
    "먹방",
    "하이라이트"
-  ]
+  ],
+  "design": {
+   "title_font": "JalnanGothic",
+   "title_color2": "#FF8C00",
+   "work_color": "white",
+   "_note": "채널 전용 템플릿(2026-08-07 운영자 지정, 맥2): 제목 폰트 여기어때 잘난체 고딕(JalnanGothic.ttf, ai-video 번들 확인) + 2줄 오렌지 #FF8C00(불/음식 톤). 작품명 white(로고 사용 중이라 폴백용). 키 정의는 channel_registry.CHANNEL_DESIGN_FLAGS"
+  }
  },
  {
   "token_slug": "SHOTNOW",
@@ -191,7 +226,13 @@
    "놀토",
    "웃긴영상",
    "하이라이트"
-  ]
+  ],
+  "design": {
+   "title_color2": "#FFD400",
+   "work_color": "white",
+   "work_title_y": 1560,
+   "_note": "채널 전용 템플릿(2026-08-07 운영자 지정, 맥2): 제목 2줄 진노랑 #FFD400(현행 노랑 계열 유지). 작품명은 커리어데이와 동일하게 white·y=1560 — 이 채널은 로고 없이 텍스트 렌더라 실제 적용됨. 키 정의는 channel_registry.CHANNEL_DESIGN_FLAGS"
+  }
  },
  {
   "token_slug": "YEOWOON",
@@ -214,7 +255,16 @@
    "티빙오리지널",
    "명장면",
    "다큐멘터리"
-  ]
+  ],
+  "design": {
+   "title_font": "여기어때 잘난체 고딕 TTF",
+   "subtitle_font": "여기어때 잘난체 고딕 TTF",
+   "title_color": "white",
+   "title_color2": "#B388FF",
+   "work_color": "white",
+   "work_title_y": 1560,
+   "_note": "오컬트(샤먼: 미신전) — 제목 2줄 보라. 2026-08-07 지정. 제목 폰트=여기어때 잘난체 고딕, 작품명 white·y=1560(커리어데이 숏츠와 통일). TTS·자막 폰트도 제목과 같은 고딕으로 통일(2026-08-07)."
+  }
  },
  {
   "token_slug": "SHOTCONE",
@@ -266,7 +316,16 @@
    "명장면",
    "웃긴영상",
    "하이라이트"
-  ]
+  ],
+  "design": {
+   "title_color": "white",
+   "title_color2": "#2EE6E6",
+   "work_color": "white",
+   "work_title_y": 1560,
+   "_note": "채널 템플릿(2026-08-07): 아이콘(네온 시안 마스크) 기반 2줄 네온시안 #2EE6E6, 작품명 white·y=1560 + 폰트 여기어때 잘난체 고딕(JalnanGothic): 제목·작품명(title_font 공유)·TTS(subtitle_font) (2026-08-07 사용자 지정)",
+   "title_font": "JalnanGothic",
+   "subtitle_font": "JalnanGothic"
+  }
  },
  {
   "token_slug": "SCENELAUNDRY",
@@ -289,7 +348,16 @@
    "서바이벌",
    "웨이브",
    "하이라이트"
-  ]
+  ],
+  "design": {
+   "title_font": "여기어때 잘난체 고딕 TTF",
+   "subtitle_font": "여기어때 잘난체 고딕 TTF",
+   "title_color": "white",
+   "title_color2": "#FF3B30",
+   "work_color": "white",
+   "work_title_y": 1560,
+   "_note": "서바이벌(피의 게임 X) — 제목 2줄 레드로 긴장감. 2026-08-07 지정. 제목 폰트=여기어때 잘난체 고딕, 작품명 white·y=1560(커리어데이 숏츠와 통일). TTS·자막 폰트도 제목과 같은 고딕으로 통일(2026-08-07)."
+  }
  },
  {
   "token_slug": "REWINDPOCHA",
@@ -299,7 +367,7 @@
   "gcp_project": "VES03",
   "genre": "예능",
   "works": [
-   "약한영웅 Class 1"
+   "유부녀 킬러"
   ],
   "geoblock_capable": false,
   "country": "KR",
@@ -312,7 +380,17 @@
    "서바이벌",
    "웨이브",
    "몰아보기"
-  ]
+  ],
+  "design": {
+   "title_font": "여기어때 잘난체 고딕 TTF",
+   "subtitle_font": "여기어때 잘난체 고딕 TTF",
+   "title_color": "white",
+   "title_color2": "#00E5FF",
+   "work_color": "white",
+   "work_title_y": 1560,
+   "_note": "학원 액션(약한영웅) — 제목 2줄 시안. 2026-08-07 지정. 제목 폰트=여기어때 잘난체 고딕, 작품명 white·y=1560(커리어데이 숏츠와 통일). TTS·자막 폰트도 제목과 같은 고딕으로 통일(2026-08-07)."
+  },
+  "_works_note": "2026-08-10 작품 교체 → 유부녀 킬러 (laeebly 정본 표기 공백 포함 — R14)"
  },
  {
   "token_slug": "ENDINGSUNSAK",
@@ -401,7 +479,9 @@
    "title_color2": "#4DA6FF",
    "work_color": "white",
    "work_title_y": 1560,
-   "_note": "채널 전용 템플릿(2026-08-07 운영자 지정): 제목 1줄 white 유지·2줄 #4DA6FF(하늘색), 작품명 white·y=1560. 키 정의는 channel_registry.CHANNEL_DESIGN_FLAGS"
+   "_note": "채널 전용 템플릿(2026-08-07 지정 · 08-10 폰트/트래킹 추가): 제목 폰트 여기어때 잘난체 고딕 · 1줄 white · 2줄 #4DA6FF · 작품명 white y=1560 · face_tracking=false. 트래킹을 끄는 이유: 인물이 고정된 인터뷰 소재라 얼굴로 확대하면 **원본에 박힌 자막이 잘린다**(EP4 실측). 크롭 생성을 건너뛰어 생성도 빨라진다. 폰트 표기는 config.FONT_NAME_MAP 키",
+   "title_font": "여기어때 잘난체 고딕 TTF",
+   "face_tracking": false
   }
  },
  {
@@ -478,6 +558,15 @@
    "국대",
    "월드컵",
    "명장면"
-  ]
+  ],
+  "design": {
+   "title_color": "white",
+   "title_color2": "#FF5252",
+   "work_color": "white",
+   "work_title_y": 1560,
+   "_note": "채널 템플릿(2026-08-07): 아이콘(칠판 전술판·레드 언더라인) 기반 2줄 레드 #FF5252(블루는 커리어데이와 중복 회피), 작품명 white·y=1560 + 폰트 여기어때 잘난체 고딕(JalnanGothic): 제목·작품명(title_font 공유)·TTS(subtitle_font) (2026-08-07 사용자 지정)",
+   "title_font": "JalnanGothic",
+   "subtitle_font": "JalnanGothic"
+  }
  }
 ]

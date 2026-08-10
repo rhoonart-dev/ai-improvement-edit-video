@@ -400,7 +400,7 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl, 
     if (!isNaN(age) && age < PUB_WINDOW_DAYS * 864e5) (pubWin[f.channel] ??= []).push(f);
     if (isToday(f.published_at)) (pubToday[f.channel] ??= []).push(f);
   }
-  const todayDec = (ch) => (dec[ch] ?? []).find((i) => isToday(i.decision.decided_at));
+  const decsToday = (ch) => (dec[ch] ?? []).filter((i) => isToday(i.decision.decided_at));
   // 실패 뒤에 온 신호인가 — 재생성분(그 뒤 적재된 클립·그 뒤 내려진 결정)이면 true.
   const after = (ch, iso) => {
     const f = badAt(ch);
@@ -408,19 +408,34 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl, 
   };
   // 생성 점: 실패가 최신이면 빨강(solid). 실패 뒤 재생성분이 있으면 그 결과를 **링**으로 —
   // "실패했지만 다시 만들어 진행 중/통과" 를 한 점에 담는다(2026-08-06 운영자 제안).
+  // 🟢 오늘 합격이 **하나라도** 있으면 초록 — 채널당 하루 1편이 목표라 "건졌나"가 유일한 질문이다
+  //    (2026-08-07 운영자 결정). 종전엔 '가장 최근 결정 하나'만 봐서, 합격 뒤에 반려를 누르면
+  //    하루 몫을 채우고도 빨간 링으로 보였다. 남은 대기는 검수함 배지가 알린다.
   const genStatus = (ch) => {
-    const d = todayDec(ch);
+    const ds = decsToday(ch);
+    const oks = ds.filter((i) => i.decision.decision === "approved");
+    const rejs = ds.filter((i) => i.decision.decision === "rejected");
     const waiting = (pend[ch] ?? []).filter((i) => isToday(i.created_at));
-    const decOk = d?.decision.decision === "approved" || (pubToday[ch] ?? []).length;
-    const decRej = d?.decision.decision === "rejected";
+    const pubs = pubToday[ch] ?? [];
     if (!failed.has(ch)) {
-      return waiting.length ? "warn" : decRej ? "rej" : decOk ? "ok" : "idle";
+      if (oks.length || pubs.length) return "ok";
+      if (rejs.length) return "rej";
+      return waiting.length ? "warn" : "idle";
     }
-    // 실패 이력 있음 — 그 뒤 신호를 찾는다
-    if (waiting.some((i) => after(ch, i.created_at))) return "warnr";   // 재생성 → 검수 대기
-    if (d && after(ch, d.decision.decided_at)) return d.decision.decision === "approved" ? "okr" : "rej";
-    if ((pubToday[ch] ?? []).some((f) => after(ch, f.published_at))) return "okr";
+    // 부정 이벤트(실패·보류) 뒤에 온 신호만 본다 — 여기서도 합격이 최우선
+    if (oks.some((i) => after(ch, i.decision.decided_at))
+        || pubs.some((f) => after(ch, f.published_at))) return "okr";
+    if (waiting.some((i) => after(ch, i.created_at))) return "warnr";
+    if (rejs.some((i) => after(ch, i.decision.decided_at))) return "rej";
     return badKind(ch);                                                 // 실패/보류가 마지막 소식
+  };
+  // 툴팁 꼬리: 오늘 결정 내역을 그대로 — 초록이 '합격 1' 인지 '합격 3' 인지 점만으론 모른다
+  const genDetail = (ch) => {
+    const ds = decsToday(ch);
+    const a = ds.filter((i) => i.decision.decision === "approved").length;
+    const r = ds.length - a;
+    const w = (pend[ch] ?? []).filter((i) => isToday(i.created_at)).length;
+    return (a || r || w) ? ` · 합격 ${a} · 반려 ${r} · 대기 ${w}` : "";
   };
   const chVids = {};  // 채널 → 아는 video_id 전부 (피드 + 스냅샷)
   for (const f of feed ?? []) if (f.channel && f.video_id) (chVids[f.channel] ??= new Set()).add(f.video_id);
@@ -483,6 +498,7 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl, 
           예: 생성 열 초록 = 검수 통과, 공개 열 초록 = 오늘 공개됨<br/>
           <b>회색</b>은 오늘 그 단계에서 아무 신호가 없었다는 뜻입니다.<br/>
           <b>회색 링</b>은 재생성을 반복했지만 전부 중복이라 보류된 상태입니다.<br/>
+          생성 열은 <b>오늘 합격이 하나라도 있으면 초록</b>입니다 — 하루 1편이 목표라서요.<br/>
           <span style=${{ color: "var(--ink3)" }}>· 기준은 항상 오늘 — 예약공개는 공개되는 순간 반영</span><br/>
           <span style=${{ color: "var(--ink3)" }}>· 카드를 누르면 상세, 실패가 있는 맥은 자동으로 펼쳐집니다</span>
         </div>` : null}
@@ -494,7 +510,7 @@ function MacBoard({ machines, queue, review, chmap, avatars, yt, feed, dateCtl, 
         ${chansOf(m.mac).length ? html`<div class="chrow chhead"><span>생성</span><span>공개</span></div>` : null}
         ${chansOf(m.mac).map((ch) => html`<div class="chrow" key=${ch}>
           <${ChannelChip} name=${ch} chmap=${chmap} avatars=${avatars} />
-          <span class="dotpair"><span class=${"chdot " + genStatus(ch)} title=${"생성 — " + GEN_TIP[genStatus(ch)]}></span>
+          <span class="dotpair"><span class=${"chdot " + genStatus(ch)} title=${"생성 — " + GEN_TIP[genStatus(ch)] + genDetail(ch)}></span>
             <span class=${"chdot " + pubStatus(ch)} title=${"공개 — " + PUB_TIP[pubStatus(ch)]}></span></span></div>`)}
         ${chansOf(m.mac).length === 0 ? html`<div class="chrow" style=${{ color: "var(--ink3)" }}>담당 채널 없음</div>` : null}
       </div>`)}
@@ -524,7 +540,7 @@ function PastBoard({ snap, chmap, avatars }) {
         ${chansOf(m.mac).length ? html`<div class="chrow chhead"><span>생성</span><span>공개</span></div>` : null}
         ${chansOf(m.mac).map((ch) => html`<div class="chrow" key=${ch}>
           <${ChannelChip} name=${ch} chmap=${chmap} avatars=${avatars} />
-          <span class="dotpair"><span class=${"chdot " + b[ch].gen} title=${"생성 — " + (GEN_TIP[b[ch].gen] || "")}></span>
+          <span class="dotpair"><span class=${"chdot " + b[ch].gen} title=${"생성 — " + (GEN_TIP[b[ch].gen] || "") + (b[ch].tip || "")}></span>
             <span class=${"chdot " + b[ch].pub} title=${"공개 — " + (PUB_TIP[b[ch].pub] || "")}></span></span></div>`)}
         ${chansOf(m.mac).length === 0 ? html`<div class="chrow" style=${{ color: "var(--ink3)" }}>담당 채널 없음</div>` : null}
       </div>`)}

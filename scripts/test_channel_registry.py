@@ -383,3 +383,30 @@ def test_card_to_channel_config_applies_channel_design():
     # 템플릿 없는 채널은 종전과 동일
     out2 = reg._card_to_channel_config("커리어데이 숏츠", "커리어데이", card, {}, "/s")
     assert "--design-title-color2" not in out2["gen_flags"]
+
+
+def test_channel_design_supports_subtitle_font():
+    """자막·TTS 폰트도 채널 템플릿에서 지정한다(2026-08-07 — 제목과 같은 고딕으로 통일).
+
+    ⚠️ 이 키는 ai-video 의 --design-subtitle-font(6d0f433)에 의존한다 — 그 플래그가 없는
+    머신에 템플릿만 퍼지면 '모르는 인자'로 생성이 통째로 죽는다."""
+    flags = reg.channel_design_flags({"subtitle_font": "여기어때 잘난체 고딕 TTF"}, "테스트채널")
+    assert flags == ["--design-subtitle-font", "여기어때 잘난체 고딕 TTF"]
+
+
+def test_channel_design_switch_face_tracking():
+    """face_tracking:false → --no-reframe (값 없는 스위치형 키). true/미지정은 아무것도 안 붙인다."""
+    assert reg.channel_design_flags({"face_tracking": False}, "커리어데이 숏츠") == ["--no-reframe"]
+    assert reg.channel_design_flags({"face_tracking": True}, "커리어데이 숏츠") == []
+    # 값 있는 키와 섞여도 순서·형태 유지
+    out = reg.channel_design_flags({"title_color2": "#4DA6FF", "face_tracking": False}, "커리어데이 숏츠")
+    assert out == ["--design-title-color2", "#4DA6FF", "--no-reframe"]
+
+
+def test_channel_design_switch_unknown_still_raises():
+    try:
+        reg.channel_design_flags({"face_traking": False}, "커리어데이 숏츠")
+    except ValueError as e:
+        assert "face_traking" in str(e)
+    else:
+        raise AssertionError("오타 키가 통과함")

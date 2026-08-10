@@ -186,9 +186,9 @@ def fetch_review_decisions(run_ids):
     """{(run_id, take): (decision, decided_at_iso, note, reject_type)} — 테이크별 검수 결정.
 
     🛑 예전에는 `c.episode = 'shorts_1'` 로 못 박고 run_id 로만 키를 잡았다. 그래서 변이 테이크가
-    합격해도 조회에 안 잡혀 **영영 '검수 대기'로 발행이 보류됐다**(2026-08-06 실측: 맥3 명장면
-    세탁소 shorts_2 · 맥2 스트릿 레스토랑 파이터 shorts_2). 안전 방향 실패라 잘못된 발행은 없었지만,
-    합격작이 안 나가는 것도 사고다.
+    합격해도 조회에 안 잡혀 **영영 '검수 대기'로 발행이 보류됐다**(2026-08-06 명장면 세탁소
+    shorts_2 실측 — 19:04 합격인데 19:11·19:21 픽업이 모두 보류). 안전 방향 실패라 잘못된 발행은
+    없었지만, 합격작이 나가지 않는 것도 사고다.
 
     실패 시 예외를 그대로 올린다 — 결정을 못 읽는 상태에서 발행하면 미검수분이 올라간다
     (seed_published_from_db 와 같은 '안전 방향으로만 실패' 원칙).
@@ -250,6 +250,54 @@ def sh(cmd, timeout=3600):
     """서브프로세스 실행 → (rc, stdout+stderr 합침)."""
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, cwd=str(BRAIN))
     return r.returncode, (r.stdout or "") + (r.stderr or "")
+
+
+# ─────────────────────── 현지화 게이트 (video-localization-project 연동) ───────────────────────
+# locale 이 지정된 채널(형제 프로젝트 config/locales.json 의 channels)은 **현지화 완료본만**
+# 발행한다(2026-08-04, ショトコン 일본 현지화). 현지화는 형제 프로젝트가 job 디렉토리를
+# 후처리(자막·제목·TTS 일본어화 + 재렌더)해 shorts.mp4 를 제자리에서 교체하는 방식이라
+# 여기서는 ① 완료 마커(localize_<locale>/metadata.json — 마지막 단계 L5 산출물) 확인
+# ② 미완이면 실행 ③ 실패면 발행 보류 — 가 전부다. **실패를 통과로 두면 원어판이
+# 일본 채널에 그대로 올라가므로** 보류가 안전측이다. 프로젝트 디렉토리가 없는 머신에서는
+# 게이트가 조용히 꺼진다 — 현지화 채널 배정이 다른 머신으로 옮겨가면 프로젝트도 함께
+# 옮겨야 한다(안 옮기면 locales.json 부재로 원어판이 나간다).
+LOCALIZE_PROJECT = Path.home() / "ves" / "video-localization-project"
+
+
+def _locale_map():
+    """채널명 → locale. 프로젝트/설정이 없으면 {} (게이트 비활성)."""
+    p = LOCALIZE_PROJECT / "config" / "locales.json"
+    if not p.exists():
+        return {}
+    try:
+        cfg = json.loads(p.read_text(encoding="utf-8"))
+        return {ch: v["locale"] for ch, v in cfg.get("channels", {}).items() if v.get("locale")}
+    except (ValueError, KeyError):
+        return {}
+
+
+def ensure_localized(job_dir, locale, log, tag):
+    """현지화 완료 보장. (성공여부, 현지화 유튜브 제목|None) 반환.
+
+    완료 마커가 있으면 재실행하지 않는다 — localize_run 은 멱등이지만 L4 재렌더(수십 초~수 분)를
+    매 발행 루프마다 반복할 이유가 없다."""
+    meta_path = Path(job_dir) / f"localize_{locale}" / "metadata.json"
+    if not meta_path.exists():
+        root = os.environ.get("AI_VIDEO_ROOT") or str(Path.home() / "ves" / "ai-video")
+        py = os.environ.get("AI_VIDEO_GEN_PY", str(Path(root) / ".venv" / "bin" / "python"))
+        runner = LOCALIZE_PROJECT / "scripts" / "localize_run.py"
+        log(f"  ⏳ {tag} 현지화({locale}) 실행 — 완료 마커 없음")
+        rc, out = sh([py, str(runner), "--job-dir", str(job_dir), "--locale", locale],
+                     timeout=3600)
+        if rc != 0 or not meta_path.exists():
+            log(f"  ⛔ {tag} 현지화 실패 rc={rc} — 발행 보류(원어판 발행 방지): {out[-200:].strip()}")
+            return False, None
+        log(f"  ✓ {tag} 현지화 완료")
+    try:
+        title = json.loads(meta_path.read_text(encoding="utf-8")).get("youtube_title")
+    except ValueError:
+        title = None
+    return True, title
 
 
 # ─────────────────────────── ① 발행 (ingest → judge → upload) ───────────────────────────
@@ -314,6 +362,19 @@ def publish_scene(ch_name, ep_num, sc, rec, log, dry_run, ch_cfg=None, pub_state
         log(f"  ✗ {rid}: 영상 파일 없음 (job_dir={job_dir}) → 건너뜀")
         return rec
     tag = f"[{ch_name} EP{ep_num} run={rid[:12]}]"
+    # 현지화 게이트 — ingest **전에** 돈다: ingest 가 edit_plan 제목을 DB 에 싣는데,
+    # 현지화가 그 제목을 일본어로 바꾸므로 순서가 뒤집히면 DB 제목이 원어로 남는다.
+    localize_title = None
+    locale = _locale_map().get(ch_name)
+    if locale:
+        if dry_run:
+            done = (Path(job_dir) / f"localize_{locale}" / "metadata.json").exists()
+            log(f"  (dry-run) {tag} 현지화 게이트({locale}): {'완료' if done else '실행 필요'}")
+        else:
+            ok, localize_title = ensure_localized(job_dir, locale, log, tag)
+            if not ok:
+                rec["stage"] = "localize_failed"   # 다음 루프에서 재시도(마커 없으면 재실행)
+                return rec
     # 고정 privacy 명시(publish_privacy) 없으면 예약 공개(publishAt) 슬롯을 잡는다
     fixed_privacy = ch_cfg.get("publish_privacy")
     slot = None if fixed_privacy else next_publish_slot(ch_cfg, pub_state or {}, ch_name)
@@ -367,10 +428,11 @@ def publish_scene(ch_name, ep_num, sc, rec, log, dry_run, ch_cfg=None, pub_state
         cmd += ["--privacy", fixed_privacy]
     elif slot:
         cmd += ["--privacy", "private", "--publish-at", slot.isoformat()]
-    to = title_override(ch_cfg, rec["clip_id"], log)
+    to = localize_title or title_override(ch_cfg, rec["clip_id"], log)
     if to:
         cmd += ["--title", to]
-        log(f"  ℹ {tag} 제목에 작품명 삽입(가이드): {to!r}")
+        why = "현지화 제목" if localize_title else "제목에 작품명 삽입(가이드)"
+        log(f"  ℹ {tag} {why}: {to!r}")
     rc, out = sh(cmd)
     m = re.search(r"uploaded content_id:\s*(\S+)", out)
     if m:
