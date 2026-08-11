@@ -52,7 +52,14 @@
       "유재석",
       "몰아보기",
       "하이라이트"
-    ]
+    ],
+    "design": {
+      "title_color": "white",
+      "title_color2": "#FFA94D",
+      "work_color": "white",
+      "work_title_y": 1560,
+      "_note": "맥4 템플릿 — 8/7 작업분이 정본에서 유실돼 2026-08-11 재등록"
+    }
   },
   {
     "token_slug": "DARAMJI",
@@ -105,12 +112,7 @@
       "칼라페",
       "여행예능",
       "하이라이트"
-    ],
-    "design": {
-      "title_color2": "#3ECFB2",
-      "work_color": "white",
-      "_note": "채널 전용 템플릿(2026-08-07 운영자 지정, 맥2): 제목 2줄 청록 #3ECFB2 — 산지직송 로고(청록/그린)와 톤 일치. 작품명 white(로고 사용 중이라 폴백용). 키 정의는 channel_registry.CHANNEL_DESIGN_FLAGS"
-    }
+    ]
   },
   {
     "token_slug": "TETOCHIP",
@@ -133,12 +135,7 @@
       "여행예능",
       "웃긴영상",
       "하이라이트"
-    ],
-    "design": {
-      "title_color2": "#FF5A5A",
-      "work_color": "white",
-      "_note": "채널 전용 템플릿(2026-08-07 운영자 지정, 맥2): 제목 2줄 레드 #FF5A5A — 도깨비 상징색(빨간 문·목도리). 작품명 white(로고 사용 중이라 폴백용). 키 정의는 channel_registry.CHANNEL_DESIGN_FLAGS"
-    }
+    ]
   },
   {
     "token_slug": "KIKKIK",
@@ -191,13 +188,7 @@
       "요리예능",
       "먹방",
       "하이라이트"
-    ],
-    "design": {
-      "title_font": "JalnanGothic",
-      "title_color2": "#FF8C00",
-      "work_color": "white",
-      "_note": "채널 전용 템플릿(2026-08-07 운영자 지정, 맥2): 제목 폰트 여기어때 잘난체 고딕(JalnanGothic.ttf, ai-video 번들 확인) + 2줄 오렌지 #FF8C00(불/음식 톤). 작품명 white(로고 사용 중이라 폴백용). 키 정의는 channel_registry.CHANNEL_DESIGN_FLAGS"
-    }
+    ]
   },
   {
     "token_slug": "SHOTNOW",
@@ -220,13 +211,7 @@
       "놀토",
       "웃긴영상",
       "하이라이트"
-    ],
-    "design": {
-      "title_color2": "#FFD400",
-      "work_color": "white",
-      "work_title_y": 1560,
-      "_note": "채널 전용 템플릿(2026-08-07 운영자 지정, 맥2): 제목 2줄 진노랑 #FFD400(현행 노랑 계열 유지). 작품명은 커리어데이와 동일하게 white·y=1560 — 이 채널은 로고 없이 텍스트 렌더라 실제 적용됨. 키 정의는 channel_registry.CHANNEL_DESIGN_FLAGS"
-    }
+    ]
   },
   {
     "token_slug": "YEOWOON",
@@ -407,7 +392,14 @@
       "명장면",
       "웃긴영상",
       "몰아보기"
-    ]
+    ],
+    "design": {
+      "title_color": "white",
+      "title_color2": "#FF5C8A",
+      "work_color": "white",
+      "work_title_y": 1560,
+      "_note": "맥4 템플릿 — 8/7 작업분이 정본에서 유실돼 2026-08-11 재등록"
+    }
   },
   {
     "token_slug": "SHORTSSUNSHINE",
@@ -430,7 +422,15 @@
       "사이다",
       "액션",
       "하이라이트"
-    ]
+    ],
+    "design": {
+      "title_font": "여기어때 잘난체 고딕 TTF",
+      "title_color": "white",
+      "title_color2": "#FFD700",
+      "work_color": "white",
+      "work_title_y": 1560,
+      "_note": "맥4 템플릿 — 8/7 작업분이 정본에서 유실돼 2026-08-11 재등록(관제 오버라이드 → 정본 승격)"
+    }
   },
   {
     "token_slug": "CAREERDAY",
@@ -509,7 +509,15 @@
       "놀토",
       "웃긴영상",
       "자기전"
-    ]
+    ],
+    "design": {
+      "title_font": "여기어때 잘난체 고딕 TTF",
+      "title_color": "white",
+      "title_color2": "#B39DFF",
+      "work_color": "white",
+      "work_title_y": 1560,
+      "_note": "맥4 템플릿 — 8/7 작업분이 정본에서 유실돼 2026-08-11 재등록"
+    }
   },
   {
     "token_slug": "LOCKERROOM",
@@ -545,7 +553,7 @@
   },
   {
     "token_slug": "LOOPY",
-    "name": "잔망루피의 일상",
+    "name": "まいにちじゃんまんるぴー",
     "handle": "@zanmangloopy-jp",
     "channel_id": "UCWCgKyOwROcvTuMJZm8nZ2Q",
     "gcp_project": "JMLP",
@@ -556,7 +564,7 @@
     "geoblock_capable": false,
     "country": "JP",
     "pipeline": "zanmang_autopilot",
-    "description": "ジャンマンルピーの日常。잔망루피 공식 숏폼의 일본어 현지화 채널입니다.",
+    "description": "まいにちじゃんまんるぴー。잔망루피 공식 숏폼의 일본어 현지화 채널(더빙 포함)입니다.",
     "keywords": [
       "ジャンマンルピー",
       "잔망루피",
@@ -565,6 +573,6 @@
       "ショート",
       "かわいい"
     ],
-    "_note": "전용 파이프라인(§10-①): 소스 생성이 아니라 공식 숏폼 현지화(더빙 포함) — VES zanmang_autopilot(매일 10시, mm-06)이 담당. planner 는 pipeline 필드를 보고 건너뛴다(2026-08-10)."
+    "_note": "전용 파이프라인(§10-①): 공식 숏폼 현지화(더빙 포함) — VES zanmang_autopilot(매일 10시, mm-06)이 담당, planner 는 pipeline 필드로 건너뜀. 채널명 정본 'まいにちじゃんまんるぴー' — 기획 초안 '잔망루피의 일상'은 폐기(2026-08-10 사용자 확정)."
   }
 ]
