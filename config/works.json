@@ -18,7 +18,8 @@
     "branding.box": "크기 상한 WxH 예외. 미지정이면 loop_policy.logo_box(전역 기본)를 쓴다. 극단 비율 로고처럼 전역값이 안 맞는 작품에만 적는다",
     "branding.align": "세로 정렬 예외(top|center). 미지정이면 loop_policy.logo_align",
     "branding._note": "로고가 없는 작품은 branding 블록 자체를 두지 않는다 — 그러면 종전대로 작품명 텍스트가 렌더된다",
-    "quota_per_episode": "회차당 채울 장면 수 — 작품별 예외. 미지정이면 loop_policy.quota_per_episode(전역 기본). 정책 전역값을 올리면 전 채널이 같이 올라가므로 한 작품만 늘릴 때는 여기에 적는다. ★함께 보라: loop_policy.max_pending_unpublished 는 그대로라 미공개 대기가 그 수에 닿으면 생성이 멈춘다(사람이 검수·공개해야 다음 장면). 즉 quota 를 올려도 하룻밤에 그만큼 쏟아지지 않는다"
+    "quota_per_episode": "회차당 채울 장면 수 — 작품별 예외. 미지정이면 loop_policy.quota_per_episode(전역 기본). 정책 전역값을 올리면 전 채널이 같이 올라가므로 한 작품만 늘릴 때는 여기에 적는다. ★함께 보라: loop_policy.max_pending_unpublished 는 그대로라 미공개 대기가 그 수에 닿으면 생성이 멈춘다(사람이 검수·공개해야 다음 장면). 즉 quota 를 올려도 하룻밤에 그만큼 쏟아지지 않는다",
+    "use_limit": "회차(소스) 하나로 만들 쇼츠 편수 — orchestrator 파이프라인의 sources.use_limit 초기값. 미지정이면 길이 비례 기본(10분 미만 1 · 10~30분 2 · 30분↑ 3, ves/adapters/base.use_limit_for). ★scene_loop 의 quota_per_episode 와 다른 층이다: quota 는 구 루프(공개된 장면 수)를, 이 값은 관제 파이프라인의 소스 소진 한도를 정한다. 두 파이프라인을 함께 쓰는 작품은 둘 다 맞춰야 한다. 이미 등록된 소스는 이 값을 소급 적용하지 않는다 — 대시보드 소스창고나 set_source_limit RPC 로 고친다"
   },
   "works": {
     "언니네 산지직송 in 칼라페": {
@@ -359,8 +360,9 @@
         "subtitles": "none"
       },
       "_guide": "laeebly guide 요지(8/14 사본) — ① 본편 전달: 매주 월요일(입고 상황 따라 변동) / ② 쇼츠 업로드 가능일: 매주 화요일 오후 2시 이후 / ③ 경연 콘텐츠 제약: 경연 결과·무대 풀버전 노출 불가 — 무대 하이라이트 구간만 사용 가능 / ④ 포맷: 설명란 필수 문구(시청 플랫폼 티빙 + 투표 독려), 작품 로고 필수 활용, 영상 내 티빙(텍스트/로고 병기 가능) 필수 포함 / 필수 해시태그(#CG0g2 #가왕쇼 #전유진 #박서진 #홍지윤 …)는 laeebly required_hashtags 로 publish 가 처리 / whitelist '2차' · scope 전체.",
-      "_note": "티빙 오리지널 음악 경연(2026-08-14 신설, 채널 '한 입 주막'). 소스는 권리사 파일 전달(드라이브 인입). episode_regex 는 잠정 — 첫 입고 파일명으로 검증 후 확정할 것(피의 게임 X 전례: 회차 표기가 파일마다 섞여 실파일 8건으로 검증했다). 자막 제공 여부(subtitles)도 첫 입고 때 확인. ⚠ 경연 결과 스포·무대 풀버전 여부는 검수함에서 사람이 최종 확인.",
+      "_note": "티빙 오리지널 음악 경연(2026-08-14 신설, 채널 '한 입 주막'). 소스는 권리사 파일 전달(드라이브 인입). episode_regex 는 잠정 — 첫 입고 파일명으로 검증 후 확정할 것(피의 게임 X 전례: 회차 표기가 파일마다 섞여 실파일 8건으로 검증했다). 자막 제공 여부(subtitles)도 첫 입고 때 확인. ⚠ 경연 결과 스포·무대 풀버전 여부는 검수함에서 사람이 최종 확인. ⚠ 회차당 편수는 두 층이다(2026-08-19): scene_loop 은 quota_per_episode(10), 관제 파이프라인은 sources.use_limit(10) — 한 쪽만 고치면 다른 쪽이 3에서 막힌다. 기존 등록분(EP1~4)은 소급 안 되므로 별도로 10 으로 올렸다.",
       "quota_per_episode": 10,
+      "use_limit": 10,
       "branding": {
         "logo": "CG0g2.png",
         "box": "560x360",
