@@ -143,8 +143,21 @@ def fetch_clip_title(conn, clip_id):
 
 
 def parse_hashtags(text):
-    """'#o483K #예능' 같은 문자열 → ['o483K', '예능'] (# 없는 토큰도 허용). 순수."""
-    return [tok.lstrip("#").strip() for tok in re.split(r"[\s,]+", text or "") if tok.strip()]
+    """'#o483K #예능' 같은 문자열 → ['o483K', '예능'] (# 없는 토큰도 허용). 순수.
+
+    🛑 '#' 붙은 토큰이 하나라도 있으면 **'#' 로 시작하는 토큰만** 취한다. laeebly 의
+    required_hashtags_description 은 사람이 채우는 칸이라 해시태그 옆에 가이드 산문이 섞여
+    들어온다. 실제로 가왕쇼 행이
+        '#CG0g2, #가왕쇼, #전유진, #박서진, #홍지윤,    티빙시청 플랫폼(티빙) + 투표 독려 멘트'
+    였고, 종전처럼 통째로 쪼개니 뒷문장이 '#티빙시청 #플랫폼티빙 #투표 #독려 #멘트' 로 설명란에
+    그대로 발행됐다(2026-08-19 발견). 뒷문장은 태그 요구가 아니라 '설명란에 시청 플랫폼과 투표
+    독려를 넣어라'는 지시이고, 그 지시는 work_publish_notice.json 의 notice_lines 로 이미 지킨다.
+    ⚠️ 원천 교정(laeebly 칸 정리)이 정답이고 이건 방어선이다 — 우리 쪽은 읽기 전용이라 여기서 막는다.
+    '#' 이 하나도 없는 값(예: --work-code o483K)은 종전대로 전부 태그로 본다."""
+    toks = [tok.strip() for tok in re.split(r"[\s,]+", text or "") if tok.strip()]
+    if any(tok.startswith("#") for tok in toks):
+        toks = [tok for tok in toks if tok.startswith("#")]
+    return [tok.lstrip("#").strip() for tok in toks]
 
 
 # 권리사 가이드가 '설명란 표기'를 요구하는지 감지하는 힌트(추출이 아니라 **경고용**).

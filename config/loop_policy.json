@@ -1,7 +1,7 @@
 {
   "_doc": "scene_loop 전역 실행 정책 — 머신이 달라도 같아야 하는 품질·안전값. 배정(config/assignments.json)과 파일을 나눈 이유: 배정은 주 단위로 바뀌고 정책은 드물게 바뀐다. 한 파일에 두면 정책 튜닝이 소유권 파일을 건드려 리뷰가 흐려진다. 작품별로 달라지는 값(소스·회차·자막)은 여기가 아니라 config/works.json 이 정본이다. 머신별 예외가 필요하면 config/scene_loop.local.json 의 overrides 로만 한다 — 그 자체가 '예외가 있다'는 표시가 된다. 소비: scripts/scene_loop.py.",
   "_fields": {
-    "quota_per_episode": "회차당 채울 서로 다른 장면 수. 공개(public)된 것만 센다",
+    "quota_per_episode": "회차당 채울 서로 다른 장면 수. 공개(public)된 것만 센다. ★작품별 예외는 여기가 아니라 config/works.json 의 작품 카드 quota_per_episode 로 둔다 — 여기 값을 올리면 전 채널·전 작품이 같이 올라간다(가왕쇼 10편, 2026-08-19)",
     "max_retries": "생성물이 기존 장면과 겹칠 때 재생성 횟수",
     "count_mode": "public — 유튜브에 공개된 장면만 회차 완료로 센다. unlisted/private 는 제외 → 사람이 검수·공개해야 다음 회차로 넘어가는 의도된 브레이크",
     "max_pending_unpublished": "미공개 대기가 이만큼 쌓이면 그 회차 생성을 멈추고 사람의 공개를 기다린다(런어웨이 방지)",

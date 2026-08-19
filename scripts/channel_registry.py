@@ -279,6 +279,7 @@ def _parse_box(box, work):
 # 작품 단위 branding(로고)과 별개 층이다 — 템플릿은 채널 정체성, 로고는 작품 권리물.
 CHANNEL_DESIGN_FLAGS = {
     "title_y": "--design-title-y",
+    "video_y": "--design-video-y",         # 영상영역 상단 Y(미지정=세로 중앙) — 위로 올려 하단 밴드 확보
     "title_font": "--design-title-font",
     "title_size": "--design-title-size",
     "title_color": "--design-title-color",      # 제목 1번째 줄
@@ -295,6 +296,18 @@ CHANNEL_DESIGN_FLAGS = {
     "work_font_size": "--design-work-font-size",
     "work_color": "--design-work-color",        # 작품명 색
     "aspect_ratio": "--design-aspect-ratio",
+    # 플랫폼 표기 — 영상영역 왼쪽 상단 로고/텍스트(ai-video 2026-08-19). 권리사 '영상 내
+    # 플랫폼 노출' 요구(가왕쇼 티빙 등)용. 이미지는 이름만 적으면 ai-video assets/logos 에서
+    # 찾는다(작품 로고와 같은 규약). 이미지·텍스트 둘 다 있으면 이미지가 우선.
+    "platform_image": "--design-platform-image",
+    "platform_text": "--design-platform-text",
+    "platform_x": "--design-platform-x",        # 영상영역 왼쪽 상단 기준 오프셋
+    "platform_y": "--design-platform-y",
+    "platform_image_width": "--design-platform-image-width",
+    "platform_image_height": "--design-platform-image-height",
+    "platform_font_size": "--design-platform-font-size",
+    "platform_color": "--design-platform-color",
+    "platform_align": "--design-platform-align",   # left(기본)|right — 가로 앵커
 }
 
 # 값 없는 스위치형 키 — {템플릿 키: (플래그, 플래그를 붙일 값)}.
@@ -373,6 +386,10 @@ def _card_to_channel_config(channel, work, card, policy, sources_root, multi_wor
         # 카운트도 어긋난다. 작품이 하나면 채널명 그대로라 기존 상태·산출물 경로가 유지된다.
         "slot": f"{channel}·{work}" if multi_work else channel,
         "start_episode": src.get("start_episode", 1),
+        # 회차당 장면 수 작품별 예외 — 없으면 키 자체를 두지 않는다(scene_loop.quota_of 가 정책
+        # 전역값으로 폴백). None 을 넣어두면 '지정했는데 비어 있음'과 구분이 안 된다.
+        **({"quota_per_episode": int(card["quota_per_episode"])}
+           if card.get("quota_per_episode") is not None else {}),
         "gen_flags": flags,
         "_source_kind": kind,
         "_geoblock_required": bool(con.get("geoblock_required")),

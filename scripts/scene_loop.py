@@ -1027,10 +1027,21 @@ def save_gen_output(outdir, cmd, rc, stdout, stderr):
 
 # ─────────────────────────── 채널 상태 판정 ───────────────────────────
 
+def quota_of(cfg, ch):
+    """이 채널·작품의 회차당 장면 수. 순수.
+
+    작품 카드(works.json quota_per_episode) > 정책 전역값(loop_policy.quota_per_episode).
+    작품별로 갈리는 이유: 회차 하나에서 뽑을 수 있는 장면 수는 작품 포맷이 정한다 —
+    무대 경연물(가왕쇼)은 한 회차에 독립된 무대가 여러 개라 3개로는 소재가 남고, 서사물은
+    3개만 넘어도 같은 장면을 다시 자르게 된다. 전역값을 올리면 전 채널이 같이 올라간다."""
+    v = ch.get("quota_per_episode")
+    return int(v) if v else cfg["quota_per_episode"]
+
+
 def channel_plan(cfg, ch, state, conn, api_key, scan_roots, gen_py=None, log=lambda m: None):
     """이 채널이 지금 무엇을 할지 판정.
     반환 (action, ep_num, vp, info) — action ∈ {'gen','wait_publish','done_all','no_source'}."""
-    quota = cfg["quota_per_episode"]
+    quota = quota_of(cfg, ch)
     max_pending = cfg.get("max_pending_unpublished", quota)
     iou_th, ctol = cfg["dup_iou_threshold"], cfg["dup_center_tolerance_sec"]
     pub_recs = load_publish_records()          # 예약 대기 ↔ 반려를 가르는 근거
@@ -1081,7 +1092,7 @@ def quick_review_upload(log):
 def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_root, dry_run, log,
                     sources_root=None):
     sources_root = sources_root or registry.default_sources_root()
-    quota = cfg["quota_per_episode"]
+    quota = quota_of(cfg, ch)
     scan_roots = [str(Path(ai_video_root) / d) for d in cfg.get("outputs_scan_dirs", ["outputs"])]
     tag = f"[{ch['channel']} · {ch['work_title']}]"
     if ch.get("_paused"):
@@ -1239,7 +1250,6 @@ def process_channel(cfg, ch, state, conn, api_key, gen_py, worktree, ai_video_ro
 
 def cmd_status(cfg, state, conn, api_key, ai_video_root, log, gen_py=None):
     scan_roots = [str(Path(ai_video_root) / d) for d in cfg.get("outputs_scan_dirs", ["outputs"])]
-    quota = cfg["quota_per_episode"]
     iou_th, ctol = cfg["dup_iou_threshold"], cfg["dup_center_tolerance_sec"]
     pub_recs = load_publish_records()
     grace = cfg.get("reject_grace_days", REJECT_GRACE_DAYS)
@@ -1247,6 +1257,7 @@ def cmd_status(cfg, state, conn, api_key, ai_video_root, log, gen_py=None):
         if ch.get("_paused"):
             log(f"[{ch['channel']} · {ch['work_title']}]  ⏸ 착수 전(works.json paused)")
             continue
+        quota = quota_of(cfg, ch)   # 작품별 예외가 있을 수 있어 채널마다 다시 읽는다
         eps = discover_episodes_for(ch, gen_py, cfg.get("youtube_index_cache_hours", 24), log)
         log(f"[{ch['channel']} · {ch['work_title']}]  회차: {[e for e,_ in eps] or '없음'}")
         for ep_num, vp in eps:

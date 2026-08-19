@@ -785,3 +785,31 @@ def test_run_id_conflicts_ignores_other_take_in_state():
     """한 job 의 테이크들은 run_id 를 공유한다 — 테이크가 다르면 충돌이 아니다."""
     state = _state_with("가나다_a1", [2520.0, 2707.0], take="shorts_2")
     assert sl.run_id_conflicts(state, {}, "가나다_a1", "shorts_1", [1185.0, 1230.0], 0.5, 15) == []
+
+
+def test_quota_of_prefers_work_card_over_global_policy():
+    """작품 카드의 quota 가 정책 전역값을 덮어야 한다 — 한 작품만 늘리려는 것이므로."""
+    cfg = {"quota_per_episode": 3}
+    assert sl.quota_of(cfg, {"channel": "다람쥐 숏토리"}) == 3
+    assert sl.quota_of(cfg, {"channel": "한 입 주막", "quota_per_episode": 10}) == 10
+
+
+def test_channel_plan_uses_work_quota_for_completion():
+    """공개 3개는 전역 quota 로는 완료지만 작품 quota 10 에서는 계속 생성해야 한다."""
+    scenes = [{"span": [float(i) * 10, float(i) * 10 + 5], "run_ids": [f"w_{i}"]} for i in range(3)]
+    cfg = {"quota_per_episode": 3, "max_pending_unpublished": 3,
+           "dup_iou_threshold": 0.5, "dup_center_tolerance_sec": 5}
+    old = _patch(
+        discover_episodes_for=lambda ch, gen_py, hours, log: [(1, "/srv/EP1.mp4")],
+        rendered_scenes=lambda *a, **k: scenes,
+        db_run_videos=lambda conn, ch, rids: {(r, "shorts_1"): [f"vid_{r}"] for r in rids},
+        youtube_statuses=lambda vids, key: {v: "public" for v in vids},
+    )
+    try:
+        ch = {"channel": "한 입 주막", "work_title": "가왕쇼"}
+        assert sl.channel_plan(cfg, dict(ch), {}, None, "KEY", ["/out"])[0] == "done_all"
+        action, ep_num, _, info = sl.channel_plan(
+            cfg, dict(ch, quota_per_episode=10), {}, None, "KEY", ["/out"])
+    finally:
+        _restore(old)
+    assert (action, ep_num, info["public"]) == ("gen", 1, 3)

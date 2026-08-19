@@ -410,3 +410,16 @@ def test_channel_design_switch_unknown_still_raises():
         assert "face_traking" in str(e)
     else:
         raise AssertionError("오타 키가 통과함")
+
+
+def test_card_to_channel_config_passes_work_quota():
+    """작품 카드의 회차 한도가 채널 설정으로 흘러야 한다(가왕쇼 10편, 2026-08-19)."""
+    card = {"source": {"type": "local", "dir_slug": "d", "file_glob": "*.mp4",
+                       "episode_regex": r"(\d+)화"},
+            "constraints": {"subtitles": "none"},
+            "quota_per_episode": 10}
+    out = reg._card_to_channel_config("한 입 주막", "가왕쇼", card, {}, "/s")
+    assert out["quota_per_episode"] == 10
+    # 미지정 작품은 키 자체가 없어야 한다 — scene_loop 가 정책 전역값으로 폴백한다
+    del card["quota_per_episode"]
+    assert "quota_per_episode" not in reg._card_to_channel_config("한 입 주막", "가왕쇼", card, {}, "/s")

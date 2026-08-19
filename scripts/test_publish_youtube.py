@@ -58,6 +58,18 @@ def test_parse_hashtags():
     assert pub.parse_hashtags(None) == [] and pub.parse_hashtags("  ") == []
 
 
+def test_parse_hashtags_drops_prose_mixed_into_the_column():
+    """🛑 회귀 방지 — laeebly 해시태그 칸에 섞여 들어온 가이드 산문이 태그가 되면 안 된다.
+
+    가왕쇼 실값(2026-08-19). 종전엔 뒷문장이 '#티빙시청 #플랫폼티빙 #투표 #독려 #멘트' 로
+    설명란에 발행됐다. 뒷문장은 태그 요구가 아니라 설명란 문구 지시이고 notice_lines 가 지킨다.
+    """
+    real = "#CG0g2, #가왕쇼, #전유진, #박서진, #홍지윤,    티빙시청 플랫폼(티빙) + 투표 독려 멘트"
+    assert pub.parse_hashtags(real) == ["CG0g2", "가왕쇼", "전유진", "박서진", "홍지윤"]
+    # '#' 이 하나도 없으면 종전대로 전부 태그 — --work-code o483K 같은 손입력 경로
+    assert pub.parse_hashtags("o483K") == ["o483K"]
+
+
 def _lv(title, code, company="CJ ENM"):
     """licensed_video 행 흉내 — (title, required_hashtags_description, identification_code, company)"""
     return (title, f"#{code}", code, company)

@@ -599,6 +599,22 @@
       "박서진",
       "홍지윤"
     ],
-    "_note": "2026-08-14 신설 — rhoonartves03 계정(VES03, 같은 프로젝트에 5번째 채널이라 Gemini 쿼터 공유 주의). 작품 '가왕쇼'(티빙, 본편 파일 제공). ⚠ 권리 가이드: 쇼츠 업로드는 매주 화요일 오후 2시 이후 — 발행(예약) 시각을 그 뒤로 잡을 것(시스템 자동 강제 없음, 검수·발행자가 지킨다)."
+    "_note": "2026-08-14 신설 — rhoonartves03 계정(VES03, 같은 프로젝트에 5번째 채널이라 Gemini 쿼터 공유 주의). 작품 '가왕쇼'(티빙, 본편 파일 제공). ⚠ 권리 가이드: 쇼츠 업로드는 매주 화요일 오후 2시 이후 — 발행(예약) 시각을 그 뒤로 잡을 것(시스템 자동 강제 없음, 검수·발행자가 지킨다).",
+    "design": {
+      "aspect_ratio": "13:9",
+      "video_y": 380,
+      "title_font": "여기어때 잘난체 고딕 TTF",
+      "title_color": "white",
+      "title_color2": "#ff3b30",
+      "subtitle_font": "여기어때 잘난체 고딕 TTF",
+      "subtitle_color": "#ffffff",
+      "tts_color": "#F783AC",
+      "tts_y_margin": 610,
+      "work_title_y": 1400,
+      "platform_text": "티빙",
+      "platform_align": "right",
+      "face_tracking": false,
+      "_note": "2026-08-19 '위로 올린' 템플릿 — ⚠ 실행 정본은 대시보드 오버라이드(channel_design_overrides, 통째 교체)라 이 파일은 폴백·문서다. 두 곳을 같게 유지할 것. 구성: 13:9 영상을 video_y=380 으로 올려(중앙=587) 하단 밴드를 794px 로 넓히고, TTS 자막(margin 610 → 하단 y=1310)을 영상(~1126) 바로 아래 밴드에, 로고를 그 아래 y=1400(works.json branding, top 정렬)에 쌓는다 — 종전 중앙 배치에서 TTS·작품명이 아래로 몰리던 실렌더 구성을 유지하며 전체를 위로. tts_color #F783AC = 가왕쇼 로고 원색 #E60F5B 를 두 단계 밝힌 값(마젠타 무대조명에 묻히지 않게, 프레임 비교 실측). platform_text '티빙' = 권리 가이드 ④ '영상 내 티빙 (텍스트/로고 병기 가능) 필수' — 영상영역 오른쪽 상단(platform_align right, 오프셋 24,24 — 2026-08-19 운영자 지정. 왼쪽 상단은 원본에 박힌 가왕쇼 코너명 자막과 겹칠 수 있다). 작품명 자리는 로고(works.json branding)가 대체하므로 work_color 는 두지 않는다"
+    }
   }
 ]
