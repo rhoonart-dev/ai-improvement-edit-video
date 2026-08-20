@@ -315,6 +315,10 @@ CHANNEL_DESIGN_FLAGS = {
 # 인터뷰 소재는 확대하면 원본에 박힌 자막이 잘려 끄는 편이 낫고, 크롭 생성을 건너뛰어 생성도 빨라진다.
 CHANNEL_DESIGN_SWITCHES = {
     "face_tracking": ("--no-reframe", False),
+    # 대사 자막 끔(8/20) — false 면 소스에 자막이 있어도 이 채널은 안 그린다.
+    # 관제(aivideo.CHANNEL_DESIGN_SWITCHES) 1:1 미러. scene_loop 에는 편집실이 없어
+    # 예외 가드는 관제 쪽(design_for_job)에만 있다.
+    "subtitles": ("--no-subtitles", False),
 }
 
 

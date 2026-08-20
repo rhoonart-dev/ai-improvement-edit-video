@@ -409,6 +409,12 @@ def test_channel_design_flags_empty_and_none():
     assert reg.channel_design_flags({}, "x") == []
 
 
+def test_channel_design_subtitles_switch():
+    """대사 자막 끔(8/20) — subtitles:false 만 --no-subtitles. true/미설정은 무영향."""
+    assert reg.channel_design_flags({"subtitles": False}, "한 입 주막") == ["--no-subtitles"]
+    assert reg.channel_design_flags({"subtitles": True}, "한 입 주막") == []
+
+
 def test_channel_design_unknown_key_raises():
     # 오타 난 템플릿이 기본값으로 조용히 발행되지 않게 즉시 실패 (로고 박스와 같은 원칙)
     try:
