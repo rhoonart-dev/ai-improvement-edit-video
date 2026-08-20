@@ -381,13 +381,14 @@ def test_editorial_unknown_key_raises_instead_of_silently_defaulting():
 
 
 def test_real_gawangsho_card_carries_editorial():
-    """실제 works.json 의 가왕쇼 카드가 avoid(경연 결과)·prefer(무대)를 싣는지 —
-    설정 파일이 빠지면 코드가 다 있어도 지침 없이 돈다."""
+    """실제 works.json 의 가왕쇼 카드가 avoid(경연 결과)·rules(같은 곡 1분)·prefer(무대)를
+    싣는지 — 설정 파일이 빠지면 코드가 다 있어도 지침 없이 돈다."""
     works = reg.load_works()
     ed = (works.get("가왕쇼") or {}).get("editorial") or {}
     assert any("경연 결과" in s for s in ed.get("avoid", []))
+    assert any("1분" in s for s in ed.get("rules", []))       # 같은 곡 음악 1분(수익 창출)
     assert any("무대" in s for s in ed.get("prefer", []))
-    # '풀버전'은 길이 하드캡이 담당 — avoid 에 넣으면 무대 장면 과잉 회피 위험(설계 결정)
+    # '풀버전'을 avoid 에 안 넣는 설계 결정 — 무대 장면 과잉 회피 방지. 실방어는 rules+길이 캡
     assert not any("풀버전" in s for s in ed.get("avoid", []))
 
 

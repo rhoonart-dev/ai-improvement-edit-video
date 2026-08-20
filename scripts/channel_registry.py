@@ -342,8 +342,9 @@ def channel_design_flags(design, channel):
 
 
 # 작품 카드 editorial 허용 키 — ai-video app/modules/editorial.py 계약의 미러(1:1 규율).
-# avoid=금지(태깅→하드 필터·문구 금지) · prefer=방향(랭킹 편향) · tone=title/TTS 문체.
-EDITORIAL_KEYS = frozenset({"avoid", "prefer", "tone"})
+# avoid=장면 금지(태깅→하드 필터·문구 금지) · rules=구성 절대 규칙(조합·길이 제약,
+# 예: 같은 곡 음악 1분 이내) · prefer=방향(랭킹 편향) · tone=title/TTS 문체.
+EDITORIAL_KEYS = frozenset({"avoid", "rules", "prefer", "tone"})
 
 
 def editorial_flags(card, work):
