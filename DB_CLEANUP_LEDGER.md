@@ -404,3 +404,29 @@ GROUP BY w.title ORDER BY count(c.id) DESC;
 | 유미의_세포들_시즌3_e2 | (업로드 전 반려) | 〃 (review_decisions: production 폴백 제목) |
 
 유튜브 삭제는 하지 않음(비공개 유지 — 사람 몫). Storage 검수 사본(5f·e2)은 결정 완료 상태로 잔존.
+
+## 2026-08-19 — 리와인드포차 「유부녀 킬러」 작품 중단 (사용자 결정: 작품 안 쓰기로)
+
+중단 조치(전부 이 날 실행, 삭제 아님 — 되돌리기 가능):
+
+- **channel_works_overrides**(관제 수정본, 0017): `REWINDPOCHA → []` 등재 → planner 가 더는
+  이 채널의 work_order 를 만들지 않음(즉시 유효, 배포 불요). ⚠️ **리와인드포차에 새 작품을
+  배정할 때는 이 오버라이드를 먼저 지울 것** — channels.json 보다 우선하므로 남아 있으면
+  새 배정이 조용히 무시된다.
+- **channels.json**: REWINDPOCHA `works: []` 로 수정(파일 정본). drive_watch 의 야간
+  드라이브 동기화(sync_drive_folder)는 이 파일을 읽으므로 커밋·배포돼야 멈춘다.
+- **sources**: 유부녀 킬러 6개 회차 `is_active=false` (UPDATE, 삭제 아님).
+- **review_queue**: waiting 6건(8/14~8/19 생성분 clips 7ff0041f·70b9ba50·0b8fbc8b·f99fb490·
+  de10cbba·bb513cd4) → `rejected` 처리(재생성 없음). RPC reject_review 는 대시보드
+  reviewer 인증 전용이라 직접 UPDATE 로 닫음(rejected_takes 미등재 — 재생성 안 하므로 불요).
+- **work_orders** 9건(8/11~8/19, status open)·**works** 행·**clips** 9행: 그대로 둠(이력).
+
+유튜브 잔여물(둘 다 **private** 업로드 — 공개 전환 안 됐음, 삭제는 사람 몫):
+
+| run | clip | yt (private) |
+|---|---|---|
+| 유부녀_킬러_354015a2 | bb85f2f4-aa5e-4183-9cf3-b1b6b6802e48 | m2Fl4fK8vaE |
+| (8/13 발행분) | 440b27e0-8170-4790-bb87-d1aa37ed0c6c | IlHRwthgePM |
+
+소스 파일 잔여물: 오케스트레이터 노드 `/opt/ves/engines/ai-video/outputs/유부녀_킬러_*` 및
+소스 저장분(6회차 ×~4GB) — 디스크 정리는 그 노드에서 별도로.
