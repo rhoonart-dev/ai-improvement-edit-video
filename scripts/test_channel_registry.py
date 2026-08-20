@@ -347,6 +347,50 @@ def test_card_to_channel_config_passes_ordinal_and_exclude():
     assert "--no-subtitles" in out["gen_flags"]
 
 
+# ── 편집 지침(editorial) 배선 (2026-08-20) ──────────────────────────
+# 카드에 채운 지침이 생성 커맨드에 실리는지 고정한다 — 전달 경로 어딘가가 버리면
+# "지침이 적용되고 있다"는 착각이 제일 위험하다(edit_overrides 의 교훈).
+
+
+def _editorial_card(editorial=None):
+    card = {"source": {"type": "local", "dir_slug": "d", "file_glob": "*.mp4",
+                       "episode_regex": r"(\d+)회"},
+            "constraints": {"subtitles": "none"}}
+    if editorial is not None:
+        card["editorial"] = editorial
+    return card
+
+
+def test_editorial_card_emits_json_flag_without_doc_keys():
+    card = _editorial_card({"avoid": ["경연 결과 노출"], "prefer": ["무대 하이라이트"],
+                            "_note": "문서용 — 플래그에 실리면 안 된다"})
+    f = reg._card_to_channel_config("한 입 주막", "가왕쇼", card, {}, "/s")["gen_flags"]
+    payload = json.loads(f[f.index("--editorial-json") + 1])
+    assert payload == {"avoid": ["경연 결과 노출"], "prefer": ["무대 하이라이트"]}
+
+
+def test_no_editorial_means_no_flag_and_unchanged_prompt():
+    f = reg._card_to_channel_config("ch", "작품", _editorial_card(), {}, "/s")["gen_flags"]
+    assert "--editorial-json" not in f
+
+
+def test_editorial_unknown_key_raises_instead_of_silently_defaulting():
+    # 오타(avoids)가 조용히 무시되면 권리 지침 없이 밤새 생성된다
+    with pytest.raises(ValueError, match="editorial"):
+        reg._card_to_channel_config("ch", "작품", _editorial_card({"avoids": ["x"]}), {}, "/s")
+
+
+def test_real_gawangsho_card_carries_editorial():
+    """실제 works.json 의 가왕쇼 카드가 avoid(경연 결과)·prefer(무대)를 싣는지 —
+    설정 파일이 빠지면 코드가 다 있어도 지침 없이 돈다."""
+    works = reg.load_works()
+    ed = (works.get("가왕쇼") or {}).get("editorial") or {}
+    assert any("경연 결과" in s for s in ed.get("avoid", []))
+    assert any("무대" in s for s in ed.get("prefer", []))
+    # '풀버전'은 길이 하드캡이 담당 — avoid 에 넣으면 무대 장면 과잉 회피 위험(설계 결정)
+    assert not any("풀버전" in s for s in ed.get("avoid", []))
+
+
 # ── 채널 디자인 템플릿 (2026-08-07) ──────────────────────────
 
 

@@ -341,6 +341,28 @@ def channel_design_flags(design, channel):
     return flags
 
 
+# 작품 카드 editorial 허용 키 — ai-video app/modules/editorial.py 계약의 미러(1:1 규율).
+# avoid=금지(태깅→하드 필터·문구 금지) · prefer=방향(랭킹 편향) · tone=title/TTS 문체.
+EDITORIAL_KEYS = frozenset({"avoid", "prefer", "tone"})
+
+
+def editorial_flags(card, work):
+    """작품 카드 editorial → --editorial-json 플래그. 순수. '_' 시작 키(_note 등)는 문서용이라 뺀다.
+
+    모르는 키는 즉시 ValueError — 오타(avoids)가 조용히 무시되면 권리 지침 없이 밤새
+    생성된다(design 템플릿·로고 박스와 같은 '생성 전에 크게 실패' 원칙). 값 형식의 상세
+    검증은 ai-video 쪽 parse_editorial 이 한 번 더 한다(그쪽이 계약 정본)."""
+    ed = {k: v for k, v in ((card or {}).get("editorial") or {}).items()
+          if not k.startswith("_")}
+    if not ed:
+        return []
+    unknown = set(ed) - EDITORIAL_KEYS
+    if unknown:
+        raise ValueError(f"작품 '{work}': 알 수 없는 editorial 키 {sorted(unknown)} — "
+                         f"허용 키: {sorted(EDITORIAL_KEYS)}")
+    return ["--editorial-json", json.dumps(ed, ensure_ascii=False, sort_keys=True)]
+
+
 def _card_to_channel_config(channel, work, card, policy, sources_root, multi_work=False,
                             channel_design=None):
     """작품 카드 + 정책 → scene_loop 가 아는 **예전 채널 dict 모양**.
@@ -372,6 +394,9 @@ def _card_to_channel_config(channel, work, card, policy, sources_root, multi_wor
             flags += ["--design-work-image-width", str(w), "--design-work-image-height", str(h)]
         if align:
             flags += ["--design-work-align", align]
+
+    # 편집 지침 — 작품 카드에 editorial 이 있을 때만 붙는다(없으면 프롬프트 종전과 동일).
+    flags += editorial_flags(card, work)
 
     out = {
         "channel": channel,
