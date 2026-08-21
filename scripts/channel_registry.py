@@ -284,6 +284,12 @@ CHANNEL_DESIGN_FLAGS = {
     "title_size": "--design-title-size",
     "title_color": "--design-title-color",      # 제목 1번째 줄
     "title_color2": "--design-title-color2",    # 제목 2번째 줄
+    # 제목 줄별 배경 박스(ai-video 2026-08-21) — none(기본)·round(둥근네모)·rect(각진네모),
+    # 박스 색은 drawtext 색 문자열(#RRGGBB · black@0.6). 여백·라운드는 엔진 고정 비율.
+    "title_box": "--design-title-box",
+    "title_box2": "--design-title-box2",
+    "title_box_color": "--design-title-box-color",
+    "title_box_color2": "--design-title-box-color2",
     "subtitle_font": "--design-subtitle-font",  # 자막·TTS 자막 공통(ai-video 6d0f433)
     "subtitle_size": "--design-subtitle-size",
     "subtitle_color": "--design-subtitle-color",
@@ -319,6 +325,13 @@ CHANNEL_DESIGN_SWITCHES = {
     # 관제(aivideo.CHANNEL_DESIGN_SWITCHES) 1:1 미러. scene_loop 에는 편집실이 없어
     # 예외 가드는 관제 쪽(design_for_job)에만 있다.
     "subtitles": ("--no-subtitles", False),
+    # 제목 줄별 굵게(ai-video 2026-08-21) — true 면 같은 색 외곽선으로 획을 두껍게(가짜 볼드).
+    "title_bold": ("--design-title-bold", True),
+    "title_bold2": ("--design-title-bold2", True),
+    # F-409(ai-video dc1060f): true 면 제목 동적 배치 대신 title_y 를 그대로 쓴다. 편집실
+    # 드래그 위치를 '채널 템플릿으로 저장'할 때 title_y 와 함께 실린다(2026-08-21 승격 —
+    # 관제 aivideo.CHANNEL_DESIGN_SWITCHES 와 1:1).
+    "title_y_fixed": ("--design-title-y-fixed", True),
 }
 
 
