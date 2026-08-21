@@ -280,6 +280,7 @@ def _parse_box(box, work):
 CHANNEL_DESIGN_FLAGS = {
     "title_y": "--design-title-y",
     "video_y": "--design-video-y",         # 영상영역 상단 Y(미지정=세로 중앙) — 위로 올려 하단 밴드 확보
+    "video_width": "--design-video-width", # E10(ai-video d195cb9): 영상 밴드 가로 폭 px(320~1080, 미지정=1080) — 관제 어댑터 1:1
     "title_font": "--design-title-font",
     "title_size": "--design-title-size",
     "title_color": "--design-title-color",      # 제목 1번째 줄
