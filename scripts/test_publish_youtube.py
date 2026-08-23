@@ -409,3 +409,61 @@ def _run():
 
 if __name__ == "__main__":
     _run()
+
+
+# ───────── 설명란 갈음본(현지화판) — 2026-08-23 ─────────
+# 일본어 채널(ショトコン) 발행에 한국어 설명이 그대로 올라가던 것을 막는 경로.
+# 실측: title="몸만 오면 된다더니 문 열자마자 멘붕 온 이유",
+#       description="ヘミリイェチェパ 1화\n채널 ENA에서 시청 가능…\n\n#혜미리예채파 #46ckt"
+
+JA_DESC = ("何でも揃っていると聞いていたヒーリングハウス。しかし、ドアを開けるとそこには…！？\n"
+           "\n채널 ENA에서 시청 가능 / チャンネルENAで視聴可能\n"
+           "\n#ヘミリイェチェパ #韓国バラエティ #KPOPアイドル")
+ENA_NOTICE = ["채널 ENA에서 시청 가능", "チャンネルENAで視聴可能"]
+
+
+def test_description_override_replaces_composed_body():
+    s = pub.build_snippet("手ぶらでOKと言われたのに…", ["ヘミリイェチェパ"],
+                          work_title="혜미리예채파", episode=1,
+                          work_display="ヘミリイェチェパ", notice_lines=ENA_NOTICE,
+                          description=JA_DESC)
+    assert "혜미리예채파" not in s["description"]      # 한국어 작품명이 새어 나가면 안 된다
+    assert "1화" not in s["description"]
+    assert s["description"].startswith("何でも揃っていると")
+    assert s["title"] == "手ぶらでOKと言われたのに…"
+
+
+def test_description_override_keeps_work_code_hashtag():
+    """설명을 갈음해도 laeebly 식별코드 표기는 남아야 한다."""
+    s = pub.build_snippet("題", ["ヘミリイェチェパ"], notice_lines=ENA_NOTICE,
+                          work_hashtags=["46ckt"], description=JA_DESC)
+    assert s["description"].endswith("#46ckt")
+    # 이미 들어 있으면 중복으로 붙이지 않는다
+    s2 = pub.build_snippet("題", [], notice_lines=ENA_NOTICE, work_hashtags=["46ckt"],
+                           description=JA_DESC + " #46ckt")
+    assert s2["description"].count("#46ckt") == 1
+
+
+def test_description_override_rejects_missing_notice():
+    """권리사 필수 표기가 빠진 갈음본은 조용히 발행되면 안 된다 — 즉시 실패."""
+    try:
+        pub.build_snippet("題", [], notice_lines=ENA_NOTICE,
+                          description="何でも揃っていると聞いていた\n\n#ヘミリイェチェパ")
+    except ValueError as e:
+        assert "채널 ENA에서 시청 가능" in str(e)
+    else:
+        raise AssertionError("필수 표기 누락은 ValueError 여야 한다")
+
+
+def test_notice_check_ignores_line_wrapping():
+    """vlp 는 두 고지를 ' / ' 로 한 줄에 합친다 — 줄바꿈 차이로 오탐하면 안 된다."""
+    assert pub.missing_notice_lines(JA_DESC, ENA_NOTICE) == []
+    assert pub.missing_notice_lines("아무것도 없음", ENA_NOTICE) == ENA_NOTICE
+
+
+def test_empty_description_falls_back_to_composed():
+    """None·빈 문자열은 '안 준 것' — 종전 조립 경로 그대로(회귀 0)."""
+    base = pub.build_snippet("제목", ["놀라운 토요일"], work_title="놀라운 토요일", episode=425)
+    for empty in (None, "", "   "):
+        assert pub.build_snippet("제목", ["놀라운 토요일"], work_title="놀라운 토요일",
+                                 episode=425, description=empty) == base
