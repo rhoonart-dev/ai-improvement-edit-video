@@ -333,6 +333,15 @@ CHANNEL_DESIGN_SWITCHES = {
     # 드래그 위치를 '채널 템플릿으로 저장'할 때 title_y 와 함께 실린다(2026-08-21 승격 —
     # 관제 aivideo.CHANNEL_DESIGN_SWITCHES 와 1:1).
     "title_y_fixed": ("--design-title-y-fixed", True),
+    # E15 스타일 구성(ai-video 2026-08-23) — true 면 스토리 구성 뒤 AI 가 이 편의 연출
+    # (효과 텍스트·자막 강조·스티커·시간대별 제목·제목 기울기·내레이션 톤)을 구성해 그대로
+    # 렌더한다. 미지정이면 그 단계 자체가 없다(엔진 회귀 0). 관제
+    # (aivideo.CHANNEL_DESIGN_SWITCHES) 1:1 미러 — 여기 없으면 채널 템플릿에 이 키를 적는
+    # 순간 위 channel_design_flags 가 '알 수 없는 design 키'로 죽는다.
+    # ⚠ 이 키를 실제로 적기 전에 **ai-video 전 노드 배포**를 확인할 것 — 구 엔진은 모르는
+    #   --style-compose 에 argparse 로 즉사한다(--design-title-box 전례).
+    # ⚠ JP(현지화) 채널에는 넣지 않는다 — 연출 텍스트가 한국어로 번인돼 vlp 가 못 지운다.
+    "style_compose": ("--style-compose", True),
 }
 
 
