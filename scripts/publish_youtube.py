@@ -66,10 +66,44 @@ def hashtag_body(text):
 DEFAULT_SOURCE_LINK_HEADING = "FULL 영상 보러가기"
 
 
+def _flat(text):
+    """개행·연속 공백을 한 칸으로 — 설명란 포함 여부를 줄바꿈에 흔들리지 않게 비교한다. 순수."""
+    return " ".join(str(text or "").split())
+
+
+def missing_notice_lines(description, notice_lines):
+    """설명란에 빠진 권리사 필수 표기를 돌려준다. 순수 — 테스트 대상.
+
+    설명을 통째로 바깥에서 받는 경로(--description, 현지화판)에서 쓴다. 권리 표기 누락은
+    조용히 넘어가면 안 되는 종류라 호출부가 이 결과로 발행을 막는다."""
+    flat = _flat(description)
+    return [ln for ln in (notice_lines or [])
+            if str(ln).strip() and _flat(ln) not in flat]
+
+
+def append_missing_hashtags(description, work_hashtags):
+    """설명란에 없는 작품 식별코드 해시태그를 마지막 줄에 덧붙인다. 순수 — 테스트 대상.
+
+    --description 으로 본문을 통째로 받아도 laeebly 가 요구하는 식별코드(#o483K 등)는
+    빠지면 안 된다. 이미 있으면 그대로 둔다(중복 금지)."""
+    desc = str(description or "").rstrip()
+    flat = _flat(desc)
+    add = []
+    for w in (work_hashtags or []):
+        body = hashtag_body(str(w).lstrip("#"))
+        if body and f"#{body}" not in flat.split() and body not in add:
+            add.append(body)
+    if not add:
+        return desc
+    tail = " ".join("#" + b for b in add)
+    return f"{desc}\n{tail}" if desc else tail
+
+
 def build_snippet(title, hashtags=None, category=CATEGORY_ENTERTAINMENT,
                   work_title=None, episode=None, work_hashtags=None,
                   work_display=None, notice_lines=None,
-                  episode_line=True, source_url=None, source_link_heading=None):
+                  episode_line=True, source_url=None, source_link_heading=None,
+                  description=None):
     """YouTube snippet — 제목(개행→공백, ≤100자) + 설명 + tags(≤15). 순수.
 
     설명 = "<작품표기> <N>화" 한 줄 (+ 원본 링크 블록) (+ 필수 표기 줄들) + 빈 줄 + 해시태그 줄.
@@ -85,7 +119,15 @@ def build_snippet(title, hashtags=None, category=CATEGORY_ENTERTAINMENT,
         <heading>
         🖇️ <url>
     - work_hashtags: 작품 식별코드 등 laeebly 요구 해시태그 — 해시태그 줄 뒤에 붙는다(중복 제거).
-      YouTube tags 에는 넣지 않는다(설명란 표기 요구사항이라)."""
+      YouTube tags 에는 넣지 않는다(설명란 표기 요구사항이라).
+    - description: 설명란을 **통째로 갈음**한다(현지화판 — video-localization-project 가
+      만든 일본어 본문). 종전엔 이 경로가 없어서 일본어 채널 발행에도 여기서 조립한
+      한국어 설명("<한국어 작품명> N화 … #한국어작품명")이 그대로 올라갔다(2026-08-23
+      ショトコン 실측). 갈음하더라도 두 가지는 지킨다:
+        · 권리사 필수 표기(notice_lines)가 빠져 있으면 **즉시 실패** — 권리 표기 누락은
+          조용히 발행되면 안 된다. 두 설정(brain work_publish_notice.json ·
+          vlp locales.json)이 어긋나는 순간 여기서 멈추고 사람이 맞춘다.
+        · 작품 식별코드 해시태그(work_hashtags)는 없으면 뒤에 덧붙인다."""
     t = " ".join((title or "").split())[:100]
     tags = [h.lstrip("#").strip() for h in (hashtags or []) if h and h.strip()]
     bodies = [hashtag_body(x) for x in tags]
@@ -109,8 +151,17 @@ def build_snippet(title, hashtags=None, category=CATEGORY_ENTERTAINMENT,
     for ln in (notice_lines or []):
         if str(ln).strip():
             lines.append(str(ln).strip())
-    head = "\n".join(lines)
-    desc = f"{head}\n\n{tag_line}".strip() if head else tag_line
+    if description is not None and str(description).strip():
+        missing = missing_notice_lines(description, notice_lines)
+        if missing:
+            raise ValueError(
+                "설명란 갈음본에 권리사 필수 표기가 빠졌습니다 — 발행 중단: "
+                + " / ".join(missing)
+                + " (config/work_publish_notice.json 과 현지화 설정을 맞추세요)")
+        desc = append_missing_hashtags(description, work_hashtags)
+    else:
+        head = "\n".join(lines)
+        desc = f"{head}\n\n{tag_line}".strip() if head else tag_line
     return {"title": t or "shorts", "description": desc, "tags": tags[:15], "categoryId": category}
 
 
@@ -413,6 +464,10 @@ def main():
                          "meta.json 에서 자동 해석 — work_publish_notice.json 에 "
                          "source_link_heading 이 설정된 작품만 링크 블록이 들어간다")
     ap.add_argument("--hashtags", nargs="*")
+    ap.add_argument("--description", default=None,
+                    help="설명란 갈음본(현지화판 일본어 설명 등). 주면 조립 대신 이 값을 쓴다 — "
+                         "권리사 필수 표기가 빠져 있으면 발행을 거부하고, 작품 식별코드 "
+                         "해시태그는 없으면 덧붙인다")
     ap.add_argument("--safety-floor", type=float, default=None,
                     help="명백히 깨진 산출물 차단용 안전 바닥. 미지정=judge quality로 안 막음(성과예측 아님)")
     ap.add_argument("--privacy", default="private", choices=["private", "unlisted", "public"])
@@ -458,7 +513,8 @@ def main():
                              work_hashtags=work_tags, work_display=work_display,
                              notice_lines=notice_lines,
                              episode_line=episode_line, source_url=source_url,
-                             source_link_heading=link_heading)
+                             source_link_heading=link_heading,
+                             description=a.description)
         # 지오블락 게이트 — 스크립트가 대신 못 하는 업로드 설정이라 배정 자체를 막는다(§3-1)
         geo_ok, geo_reason = geoblock_ok(work_guide, a.channel)
         print(f"geoblock: {'PASS' if geo_ok else 'BLOCK'} ({geo_reason})")
