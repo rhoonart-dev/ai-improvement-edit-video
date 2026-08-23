@@ -474,3 +474,19 @@ def test_card_to_channel_config_passes_work_quota():
     # 미지정 작품은 키 자체가 없어야 한다 — scene_loop 가 정책 전역값으로 폴백한다
     del card["quota_per_episode"]
     assert "quota_per_episode" not in reg._card_to_channel_config("한 입 주막", "가왕쇼", card, {}, "/s")
+
+
+def test_channel_design_switch_style_compose():
+    """E15 스타일 구성(ai-video 2026-08-23) — 관제 aivideo.CHANNEL_DESIGN_SWITCHES 1:1 미러.
+
+    여기 없으면 채널 템플릿에 이 키를 적는 순간 channel_design_flags 가 '알 수 없는
+    design 키'로 죽어 그 채널의 다음 생성이 통째로 실패한다(밤새 발행이 멈춘다)."""
+    assert reg.CHANNEL_DESIGN_SWITCHES["style_compose"] == ("--style-compose", True)
+    assert reg.channel_design_flags({"style_compose": True}, "테스트 채널") == ["--style-compose"]
+    # 꺼짐·미지정이면 argv 는 한 글자도 안 바뀐다(엔진 회귀 0 조건)
+    assert reg.channel_design_flags({"style_compose": False}, "테스트 채널") == []
+    assert reg.channel_design_flags({}, "테스트 채널") == []
+    # 값 있는 키와 섞여도 순서·형태 유지(다른 스위치와 같은 규약)
+    assert reg.channel_design_flags(
+        {"title_size": 70, "style_compose": True}, "테스트 채널") == [
+        "--design-title-size", "70", "--style-compose"]
