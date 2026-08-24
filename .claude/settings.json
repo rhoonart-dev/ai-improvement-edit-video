@@ -8,6 +8,9 @@
       "Edit(~/ves/ai-improvement-edit-video/.claude/skills/**)",
       "Write(~/ves/ai-improvement-edit-video/.claude/skills/**)"
     ],
+    "ask": [
+      "mcp__Supabase__apply_migration"
+    ],
     "allow": [
       "Bash(cd:*)",
       "Bash(tail:*)",
