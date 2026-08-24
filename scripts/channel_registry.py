@@ -282,7 +282,10 @@ CHANNEL_DESIGN_FLAGS = {
     "video_y": "--design-video-y",         # 영상영역 상단 Y(미지정=세로 중앙) — 위로 올려 하단 밴드 확보
     "video_width": "--design-video-width", # E10(ai-video d195cb9): 영상 밴드 가로 폭 px(320~1080, 미지정=1080) — 관제 어댑터 1:1
     "title_font": "--design-title-font",
-    "title_size": "--design-title-size",
+    "title_size": "--design-title-size",        # 1줄 기준(2줄은 ×90/70 위계 스케일)
+    # 제목 2줄 크기 단독 지정(ai-video 2026-08-24) — 주면 위 위계 스케일을 덮고 그 줄만
+    # 그 크기로 그린다. 관제 어댑터 CHANNEL_DESIGN_FLAGS · DB v_allowed(0082)와 1:1.
+    "title_size2": "--design-title-size2",
     "title_color": "--design-title-color",      # 제목 1번째 줄
     "title_color2": "--design-title-color2",    # 제목 2번째 줄
     # 제목 줄별 배경 박스(ai-video 2026-08-21) — none(기본)·round(둥근네모)·rect(각진네모),
