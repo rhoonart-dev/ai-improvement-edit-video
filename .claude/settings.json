@@ -8,6 +8,9 @@
       "Edit(~/ves/ai-improvement-edit-video/.claude/skills/**)",
       "Write(~/ves/ai-improvement-edit-video/.claude/skills/**)"
     ],
+    "ask": [
+      "mcp__Supabase__apply_migration"
+    ],
     "allow": [
       "Bash(cd:*)",
       "Bash(tail:*)",
@@ -19,7 +22,18 @@
       "Bash(nohup ./scripts/scene_loop_run.sh:*)",
       "Bash(cd ~/ves/ai-improvement-edit-video && .venv/bin/python scripts/check_assignments.py:*)",
       "Bash(cd ~/ves/ai-improvement-edit-video && .venv/bin/python scripts/scene_loop.py:*)",
-      "Bash(cd ~/ves/ai-improvement-edit-video && nohup ./scripts/scene_loop_run.sh:*)"
+      "Bash(cd ~/ves/ai-improvement-edit-video && nohup ./scripts/scene_loop_run.sh:*)",
+      "mcp__Supabase__execute_sql",
+      "mcp__Supabase__list_projects",
+      "mcp__Supabase__get_project",
+      "mcp__Supabase__get_project_url",
+      "mcp__Supabase__list_tables",
+      "mcp__Supabase__list_extensions",
+      "mcp__Supabase__list_migrations",
+      "mcp__Supabase__query_logs",
+      "mcp__Supabase__get_advisors",
+      "mcp__Supabase__generate_typescript_types",
+      "mcp__Supabase__search_docs"
     ]
   }
 }
