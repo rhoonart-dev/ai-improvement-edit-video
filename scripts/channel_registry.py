@@ -302,6 +302,10 @@ CHANNEL_DESIGN_FLAGS = {
     "tts_color": "--design-tts-color",
     "tts_size": "--design-tts-size",
     "tts_y_margin": "--design-tts-y-margin",
+    # F-412(ai-video 2026-08-25): 내레이션 자막 통(컨테이너) 가로 폭 — 0.3~1.0 캔버스
+    # 대비 비율, 미지정 = 종전 0.852. **글자 크기는 그대로 두고** 좌우로만 넓혀 줄이
+    # 접히는 것을 막는 용도다. 관제 어댑터 CHANNEL_DESIGN_FLAGS · DB v_allowed 와 1:1.
+    "tts_width": "--design-tts-width",
     "work_title_y": "--design-work-title-y",    # 작품명(하단) Y
     "work_font_size": "--design-work-font-size",
     "work_color": "--design-work-color",        # 작품명 색
