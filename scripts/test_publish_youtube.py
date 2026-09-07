@@ -467,3 +467,30 @@ def test_empty_description_falls_back_to_composed():
     for empty in (None, "", "   "):
         assert pub.build_snippet("제목", ["놀라운 토요일"], work_title="놀라운 토요일",
                                  episode=425, description=empty) == base
+
+
+def test_work_extra_hashtags_reads_config():
+    cfg = {"가왕쇼": {"extra_hashtags": ["티빙", "#중복"]}, "문자열": {"extra_hashtags": "하나"}}
+    assert pub.work_extra_hashtags("가왕쇼", cfg) == ["티빙", "중복"]
+    assert pub.work_extra_hashtags("문자열", cfg) == ["하나"]
+    assert pub.work_extra_hashtags("미등록", cfg) == []
+
+
+def test_merge_hashtags_puts_fixed_tag_after_work_and_dedupes():
+    # 작품명 바로 다음, 출연자 앞. 이미 있으면 한 번만. 작품명 첫 자리는 유지(build_snippet 폴백 가정).
+    assert pub.merge_hashtags(["가왕쇼", "박서진", "홍지윤"], ["티빙"]) == ["가왕쇼", "티빙", "박서진", "홍지윤"]
+    assert pub.merge_hashtags(["가왕쇼", "티빙"], ["#티빙"]) == ["가왕쇼", "티빙"]
+    assert pub.merge_hashtags([], ["티빙"]) == ["티빙"]
+    assert pub.merge_hashtags(["가왕쇼"], []) == ["가왕쇼"]
+
+
+def test_snippet_with_fixed_hashtag_lands_in_tags_and_description():
+    # 가왕쇼 7화 실측 형식(2026-09-07): 설명란 줄에도, 유튜브 tags 에도 #티빙 이 들어간다.
+    tags = pub.merge_hashtags(["가왕쇼"], pub.work_extra_hashtags("가왕쇼"))   # 실제 설정 파일
+    assert tags == ["가왕쇼", "티빙"]
+    s = pub.build_snippet("제목", tags, work_title="가왕쇼", episode=7,
+                          work_hashtags=["CG0g2", "가왕쇼", "전유진"],
+                          notice_lines=["매주 화요일 오후 12시 오직 티빙에서"])
+    assert s["tags"] == ["가왕쇼", "티빙"]
+    assert s["description"].splitlines()[-1] == "#가왕쇼 #티빙 #CG0g2 #전유진"
+

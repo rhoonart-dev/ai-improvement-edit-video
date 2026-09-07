@@ -5,7 +5,8 @@
     "notice_lines": "첫 줄 아래에 그대로 넣을 추가 표기 줄(문자열 또는 배열). 작품명과 무관한 고지문에 사용",
     "episode_line": "false 면 '<작품> N화' 줄을 쓰지 않는다 — 회차 개념이 없는 단일 영상 채널용(서수 회차는 내부 관리용이라 시청자 노출 금지, 2026-08-04 운영자 결정). 기본 true",
     "source_link_heading": "설정하면 설명란에 원본 영상 링크 블록('<문구>\\n🖇️ <링크>')을 넣는다. 링크는 발행 시 소스 캐시 meta.json 의 video_id 로 자동 해석(https://youtu.be/<id>, 생성 시점 박제 값이라 서수가 밀려도 안 틀어짐) — publish_youtube.py --source-url 로 수동 지정도 가능",
-    "_guide": "근거가 된 가이드 원문 요지(사람용 메모)"
+    "_guide": "근거가 된 가이드 원문 요지(사람용 메모)",
+    "extra_hashtags": "작품에 항상 붙일 고정 해시태그(배열, # 없이). 유튜브 tags 와 설명란 해시태그 줄 양쪽에 작품명 다음·출연자 앞에 들어간다. laeebly 필수 해시태그(식별코드 등)와 중복되면 한 번만. 예: 가왕쇼 '티빙' — 권리사 요구가 아니라 운영자 결정(2026-09-07)"
   },
   "works": {
     "커리어데이": {
@@ -66,7 +67,10 @@
         "매주 화요일 오후 12시 오직 티빙에서",
         "지금 바로 티빙에서 투표하세요!"
       ],
-      "_guide": "laeebly guide ④ 설명란 필수 문구 — '시청 플랫폼(티빙) + 투표 독려 멘트'(가이드 예시 문구 그대로 채택, 8/14). 필수 해시태그는 laeebly required_hashtags_description 을 publish 가 별도 반영."
+      "_guide": "laeebly guide ④ 설명란 필수 문구 — '시청 플랫폼(티빙) + 투표 독려 멘트'(가이드 예시 문구 그대로 채택, 8/14). 필수 해시태그는 laeebly required_hashtags_description 을 publish 가 별도 반영.",
+      "extra_hashtags": [
+        "티빙"
+      ]
     }
   }
 }

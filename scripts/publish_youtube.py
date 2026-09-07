@@ -245,6 +245,36 @@ def work_notice(work_title, config=None):
     return rec.get("work_display"), list(lines)
 
 
+def work_extra_hashtags(work_title, config=None):
+    """작품명 → 고정 해시태그 목록(# 없이). 설정이 없으면 []. 순수.
+
+    권리사 요구(notice_lines·laeebly 식별코드)와 별개로 운영자가 '이 작품엔 항상 붙인다'고
+    정한 태그 — 첫 사례 가왕쇼 '#티빙'(2026-09-07). 유튜브 tags 와 설명란 해시태그 줄
+    양쪽에 들어가도록 merge_hashtags 로 hashtags(작품명·출연자) 에 합친다."""
+    cfg = config if config is not None else load_notice_config()
+    rec = cfg.get(work_title) or {}
+    extra = rec.get("extra_hashtags") or []
+    if isinstance(extra, str):
+        extra = [extra]
+    return [str(t).lstrip("#").strip() for t in extra if str(t).lstrip("#").strip()]
+
+
+def merge_hashtags(base, extra):
+    """base(작품명·출연자) 뒤에 extra(고정 태그)를 붙이되 **작품명 바로 다음**에 둔다 — 중복 제거. 순수.
+
+    순서 규칙: [작품명] + 고정 태그 + 나머지(출연자). 작품명이 첫 항목이라는 build_snippet 의
+    폴백 가정(tags[0] = 작품)을 깨지 않으면서, 고정 태그가 출연자 뒤로 밀려 잘리지 않게 한다
+    (YouTube tags 는 15개 상한)."""
+    base = [str(t).lstrip("#").strip() for t in (base or []) if str(t).lstrip("#").strip()]
+    extra = [str(t).lstrip("#").strip() for t in (extra or []) if str(t).lstrip("#").strip()]
+    head, rest = base[:1], base[1:]
+    out = []
+    for t in head + extra + rest:
+        if t not in out:
+            out.append(t)
+    return out
+
+
 def work_desc_style(work_title, config=None):
     """작품명 → (episode_line: bool, source_link_heading: str|None). 순수.
 
@@ -483,6 +513,8 @@ def main():
         db_title, work = fetch_clip_title(conn, a.clip_id)
         title = a.title or db_title
         hashtags = a.hashtags or ([work] if work else [])
+        # 작품 고정 해시태그(config extra_hashtags) — tags 와 설명란 줄 양쪽. 가왕쇼 #티빙(2026-09-07)
+        hashtags = merge_hashtags(hashtags, work_extra_hashtags(work))
         # 회차: --episode 명시값 우선, 없으면 gen_queue 에서 run_id 로 해석(큐 미경유 런은 None)
         episode = a.episode if a.episode is not None else fetch_episode(conn, a.clip_id)
         if episode is None:
