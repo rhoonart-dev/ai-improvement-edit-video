@@ -64,10 +64,9 @@
     },
     "가왕쇼": {
       "notice_lines": [
-        "매주 화요일 오후 12시 오직 티빙에서",
-        "지금 바로 티빙에서 투표하세요!"
+        "풀버전은 티빙 어플에서 시청할 수 있습니다."
       ],
-      "_guide": "laeebly guide ④ 설명란 필수 문구 — '시청 플랫폼(티빙) + 투표 독려 멘트'(가이드 예시 문구 그대로 채택, 8/14). 필수 해시태그는 laeebly required_hashtags_description 을 publish 가 별도 반영.",
+      "_guide": "laeebly guide ④ 설명란 필수 문구 — 방영·투표 기간엔 '시청 플랫폼(티빙) + 투표 독려 멘트' 2줄('매주 화요일 오후 12시 오직 티빙에서' / '지금 바로 티빙에서 투표하세요!', 8/14 채택). 2026-09-15 방영·투표 종료로 운영자 결정에 따라 시청 안내 1줄로 교체. 필수 해시태그는 laeebly required_hashtags_description 을 publish 가 별도 반영.",
       "extra_hashtags": [
         "티빙"
       ]
